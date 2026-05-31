@@ -1440,7 +1440,8 @@ getgenv().SafeRangeGen = getgenv().SafeRangeGen or 45
 
 local lastGenPosition = nil
 local currentGenerator = nil
-local genSwitchTime = 0
+local currentMap = nil    -- Biến theo dõi Map hiện tại
+local mapLoadTime = 0     -- Mốc thời gian Map vừa load
 local isHoldingPrompt = false
 
 -- =================================================================
@@ -1520,8 +1521,8 @@ local function ProcessAutoKiller()
 
     local targetHrp = FindNearestSurvivor(hrp, character)
     if targetHrp then
-        -- Dùng toán tử trực tiếp, không tạo biến trung gian thừa
-        hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
+        -- Vừa dịch chuyển, vừa hướng mặt vào Survivor (lookAt)
+        hrp.CFrame = CFrame.lookAt((targetHrp.CFrame * CFrame.new(0, 0, 3)).Position, targetHrp.Position)
     end
 end
 
@@ -1529,8 +1530,15 @@ end
 -- 4. LOGIC MODULE: AUTO GENERATOR (Tách logic dò tìm và xử lý Prompt)
 -- =================================================================
 local function FindSafeGenerator()
-    local mapContainer = Workspace:FindFirstChild("Map")
+    local mapContainer = workspace:FindFirstChild("Map")
     local map = mapContainer and mapContainer:FindFirstChild("Ingame") and mapContainer.Ingame:FindFirstChild("Map")
+    
+    -- LOGIC MỚI: Check Map load. Chỉ delay 3s khi Map MỚI xuất hiện
+    if map and map ~= currentMap then
+        currentMap = map
+        mapLoadTime = tick()
+    end
+
     if not map then return nil, nil end
 
     for _, gen in ipairs(map:GetChildren()) do
@@ -1552,7 +1560,8 @@ local function GetSafeGenPosition(genPart, character)
     }
     for _, posCF in ipairs(positions) do
         if not IsPositionOccupied(posCF.Position, character) and not IsKillerNear(posCF.Position) then
-            return posCF
+            -- LOGIC MỚI: Trả về CFrame đã được xoay sẵn hướng mặt vào Generator
+            return CFrame.lookAt(posCF.Position, genPart.Position)
         end
     end
     return nil
@@ -1561,14 +1570,13 @@ end
 local function HandleGeneratorPrompt(foundGen)
     local prompt = foundGen:FindFirstChild("Main") and foundGen.Main:FindFirstChild("Prompt")
     if prompt and prompt:IsA("ProximityPrompt") then
-        if (tick() - genSwitchTime) >= 3 and not isHoldingPrompt then
+        if (tick() - mapLoadTime) >= 3 and not isHoldingPrompt then
             isHoldingPrompt = true
-            -- Đẩy logic hold ra luồng phụ để không chặn (yield) vòng lặp chính
             task.spawn(function()
                 pcall(function()
-                    prompt.HoldDuration = 1
+                    prompt.HoldDuration = 0.125
                     prompt:InputHoldBegin()
-                    task.wait(1)
+                    task.wait(0.125)
                     if prompt and prompt.Parent then
                         prompt:InputHoldEnd()
                     end
@@ -1591,32 +1599,27 @@ local function ProcessAutoGenerator()
     local foundGen, genPart = FindSafeGenerator()
     if not foundGen then return end
 
-    -- Check vị trí hiện tại đã an toàn và đúng gen chưa (Quy tắc 9: Rút gọn biểu thức)
     local isAlreadyAtValidPos = false
     if lastGenPosition and (hrp.Position - lastGenPosition.Position).Magnitude < 3 then
         isAlreadyAtValidPos = not IsPositionOccupied(lastGenPosition.Position, character)
     end
 
-    -- Xử lý Teleport
+    -- Xử lý Teleport & Xoay Camera
     if not isAlreadyAtValidPos or currentGenerator ~= foundGen then
         local chosenPos = GetSafeGenPosition(genPart, character)
         if chosenPos then
             lastGenPosition = chosenPos
-            if currentGenerator ~= foundGen then
-                currentGenerator = foundGen
-                genSwitchTime = tick() -- Reset thời gian chờ 3s
-            end
+            currentGenerator = foundGen
+            
+            -- 1. Dịch chuyển nhân vật (Nhân vật đã được quay sẵn mặt vào Gen nhờ GetSafeGenPosition)
             hrp.CFrame = chosenPos
+
         end
     end
 
-    -- Kích hoạt Prompt
     HandleGeneratorPrompt(foundGen)
 end
 
--- =================================================================
--- 5. MASTER LOOP (Quy tắc 7: Loop siêu mỏng, chỉ gọi hàm Update)
--- =================================================================
 task.spawn(function()
     while task.wait(0.08) do
         if getgenv().AutoKillerFarm then
@@ -1633,9 +1636,6 @@ task.spawn(function()
     end
 end)
 
--- =================================================================
--- 6. UI MODULE (Quy tắc 3 & 6: Callback chỉ gán giá trị, không chứa logic)
--- =================================================================
 TabHandles.Farm:Toggle({
     Title = "hutaohub:Auto_Kill_The_Survivors",
     Desc = "hutaohub:Auto_Kill_The_Survivors_Desc",
