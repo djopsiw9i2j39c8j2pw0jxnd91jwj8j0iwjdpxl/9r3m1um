@@ -16,6 +16,7 @@ Lighting = game:GetService("Lighting")
 PhysicsService = game:GetService("PhysicsService")
 PathfindingService = game:GetService("PathfindingService")
 LocalizationService = game:GetService("LocalizationService")
+Debris = game:GetService("Debris")
 
 local killersFolder = Workspace:WaitForChild("Players"):WaitForChild("Killers")
 local survivorsFolder = Workspace:WaitForChild("Players"):WaitForChild("Survivors")
@@ -26,321 +27,6 @@ localPlayer.CharacterAdded:Connect(function(character)
     playerCharacter = character
 end)
 
-
-getgenv().FlowAutoSolve = false
-getgenv().FlowSolveDelay = 0.08
-getgenv().FlowDebug = false
-getgenv().FlowActivePuzzles = {}
-getgenv().FlowIsDrawing = false
-getgenv().FlowPathCache = {}
-getgenv().FlowUsedCache = {}
-
-local PlayerGui = localPlayer:WaitForChild("PlayerGui")
-
-local function debugPrint(...)
-    if getgenv().FlowDebug then
-        print("[FLOW DEBUG]:", ...)
-    end
-end
-
-local function safeCall(fn, ...)
-    local ok, res = pcall(fn, ...)
-    if ok then return res end
-    debugPrint("Lỗi thực thi hàm:", res)
-end
-
--- Kiểm tra trạng thái hiển thị của ma trận UI
-getgenv().isFlowGuiVisible = function()
-    local puzzleUI = PlayerGui:FindFirstChild("PuzzleUI")
-    if puzzleUI and puzzleUI:IsA("ScreenGui") and puzzleUI.Enabled then
-        local container = puzzleUI:FindFirstChild("Container")
-        local gridHolder = container and container:FindFirstChild("GridHolder")
-        local grid = gridHolder and gridHolder:FindFirstChild("Grid")
-        
-        if grid and grid.Visible then
-            return grid
-        end
-    end
-    return nil
-end
-
-local function IsPuzzle(tbl)
-    if typeof(tbl) ~= "table" then return false end
-    if rawget(tbl, "Solution") then return true end
-    if rawget(tbl, "paths") and rawget(tbl, "updateGui") then return true end
-    return false
-end
-
-local function getDirection(r1, c1, r2, c2)
-    if r2 < r1 then return "up" end
-    if r2 > r1 then return "down" end
-    if c2 < c1 then return "left" end
-    if c2 > c1 then return "right" end
-end
-
-local function getConnections(prev, curr, nextNode)
-    local connections = {}
-    if prev and curr then
-        local dir = getDirection(curr.row, curr.col, prev.row, prev.col)
-        if dir == "up" then dir = "down"
-        elseif dir == "down" then dir = "up"
-        elseif dir == "left" then dir = "right"
-        elseif dir == "right" then dir = "left" end
-        if dir then connections[dir] = true end
-    end
-    if nextNode and curr then
-        local dir = getDirection(curr.row, curr.col, nextNode.row, nextNode.col)
-        if dir then connections[dir] = true end
-    end
-    return connections
-end
-
-local function isNeighbour(a, b)
-    return math.abs(a.row - b.row) + math.abs(a.col - b.col) == 1
-end
-
--- Thuật toán xâu chuỗi điểm mút toán học giải quyết triệt để mảng lộn xộn
-local function sortPathByRealEnds(unorderedPath)
-    if not unorderedPath or #unorderedPath <= 1 then return unorderedPath end
-
-    table.clear(getgenv().FlowPathCache)
-    table.clear(getgenv().FlowUsedCache)
-    
-    for i = 1, #unorderedPath do
-        local node = unorderedPath[i]
-        getgenv().FlowPathCache[i] = {row = node.row, col = node.col}
-    end
-
-    local startNodeIndex = 1
-    for i = 1, #getgenv().FlowPathCache do
-        local nodeA = getgenv().FlowPathCache[i]
-        local neighbors = 0
-        for j = 1, #getgenv().FlowPathCache do
-            if i ~= j and isNeighbour(nodeA, getgenv().FlowPathCache[j]) then
-                neighbors = neighbors + 1
-            end
-        end
-        if neighbors == 1 then
-            startNodeIndex = i
-            break
-        end
-    end
-
-    local ordered = {}
-    ordered[1] = getgenv().FlowPathCache[startNodeIndex]
-    getgenv().FlowUsedCache[startNodeIndex] = true
-
-    for _ = 2, #getgenv().FlowPathCache do
-        local last = ordered[#ordered]
-        local foundNext = false
-
-        for i = 1, #getgenv().FlowPathCache do
-            if not getgenv().FlowUsedCache[i] and isNeighbour(last, getgenv().FlowPathCache[i]) then
-                table.insert(ordered, getgenv().FlowPathCache[i])
-                getgenv().FlowUsedCache[i] = true
-                foundNext = true
-                break
-            end
-        end
-
-        if not foundNext then
-            for i = 1, #getgenv().FlowPathCache do
-                if not getgenv().FlowUsedCache[i] then
-                    table.insert(ordered, getgenv().FlowPathCache[i])
-                    getgenv().FlowUsedCache[i] = true
-                    break
-                end
-            end
-        end
-    end
-
-    return ordered
-end
-
-local function findMethod(obj, names)
-    for i = 1, #names do
-        local name = names[i]
-        if typeof(obj[name]) == "function" then
-            return obj[name]
-        end
-    end
-end
-
--- Luồng thực thi giải đố siêu tốc bypass đóng băng chuyển màn
-getgenv().SolveFlowPuzzle = function(puzzle, targetColorIndex)
-    if not getgenv().FlowAutoSolve or not IsPuzzle(puzzle) or not puzzle.Solution then return end
-
-    getgenv().FlowIsDrawing = true
-
-    puzzle.paths = puzzle.paths or {}
-    puzzle.gridConnections = puzzle.gridConnections or {}
-
-    local updateGui = findMethod(puzzle, {"updateGui", "UpdateGui", "Render", "render"})
-    local checkWin = findMethod(puzzle, {"checkForWin", "CheckForWin", "WinCheck"})
-    
-    local indices = {}
-    if targetColorIndex then
-        table.insert(indices, targetColorIndex)
-    else
-        for i = 1, #puzzle.Solution do 
-            table.insert(indices, i) 
-        end
-    end
-
-    for idx = 1, #indices do
-        local colorIndex = indices[idx]
-        local ordered = sortPathByRealEnds(puzzle.Solution[colorIndex])
-        
-        if ordered and #ordered > 0 then
-            puzzle.paths[colorIndex] = {}
-            for i = 1, #ordered do
-                puzzle.gridConnections[ordered[i].row.."-"..ordered[i].col] = nil
-            end
-
-            for i = 1, #ordered do
-                if not getgenv().FlowAutoSolve then 
-                    getgenv().FlowIsDrawing = false 
-                    return 
-                end 
-
-                local node = ordered[i]
-                table.insert(puzzle.paths[colorIndex], {row = node.row, col = node.col})
-
-                local prev = ordered[i-1]
-                local nextNode = ordered[i+1]
-
-                puzzle.gridConnections[node.row.."-"..node.col] = getConnections(prev, node, nextNode)
-
-                if updateGui and getgenv().isFlowGuiVisible() then
-                    safeCall(updateGui, puzzle)
-                end
-
-                if getgenv().isFlowGuiVisible() then
-                    task.wait(getgenv().FlowSolveDelay)
-                end
-            end
-        end
-
-        if checkWin and getgenv().isFlowGuiVisible() then
-            safeCall(checkWin, puzzle)
-        end
-    end
-
-    getgenv().FlowIsDrawing = false
-end
-
--- Kích hoạt bộ giải đố từ danh sách cache toàn cục
-getgenv().triggerFlowSolvers = function()
-    for puzzle, _ in pairs(getgenv().FlowActivePuzzles) do
-        task.spawn(function() getgenv().SolveFlowPuzzle(puzzle) end)
-    end
-end
-
--- Quản lý trạng thái và tự động hóa vòng lặp quét đồng bộ liên tục
-task.spawn(function()
-    local lastGuiState = false
-    while true do
-        task.wait(0.15)
-        
-        if getgenv().FlowAutoSolve then
-            local currentGuiState = (getgenv().isFlowGuiVisible() ~= nil)
-            
-            if currentGuiState and not lastGuiState then
-                task.wait(0.3) 
-                getgenv().triggerFlowSolvers()
-            end
-            
-            lastGuiState = currentGuiState
-            
-            if currentGuiState and not getgenv().FlowIsDrawing then
-                for puzzle, _ in pairs(getgenv().FlowActivePuzzles) do
-                    if puzzle.Solution and puzzle.paths then
-                        for colorIndex = 1, #puzzle.Solution do
-                            local currentPath = puzzle.paths[colorIndex]
-                            if not currentPath or #currentPath == 0 then
-                                getgenv().SolveFlowPuzzle(puzzle, colorIndex)
-                                break
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
-local HookedModules = {}
-local function HookModule(moduleScript)
-    if HookedModules[moduleScript] then return end
-    HookedModules[moduleScript] = true
-
-    local success, module = pcall(require, moduleScript)
-    if not success or typeof(module) ~= "table" or typeof(module.new) ~= "function" then return end
-
-    debugPrint("Đã kết nối thành công hệ thống:", moduleScript:GetFullName())
-
-    local oldNew = module.new
-    module.new = function(...)
-        local result = oldNew(...)
-        task.spawn(function()
-            task.wait(0.05)
-            safeCall(function()
-                if IsPuzzle(result) then
-                    getgenv().FlowActivePuzzles[result] = true
-                    getgenv().SolveFlowPuzzle(result)
-                    return
-                end
-                if typeof(result) == "table" then
-                    for _, v in pairs(result) do
-                        if IsPuzzle(v) then 
-                            getgenv().FlowActivePuzzles[v] = true
-                            getgenv().SolveFlowPuzzle(v) 
-                        end
-                    end
-                end
-            end)
-        end)
-        return result
-    end
-end
-
--- Bộ quét khai thác ModuleScript an toàn không tụt FPS
-local function ScanModules()
-    local safeContainers = {ReplicatedStorage, PlayerGui, StarterGui}
-
-    for c = 1, #safeContainers do
-        local container = safeContainers[c]
-        task.spawn(function()
-            local descendants = container:GetDescendants()
-            for i = 1, #descendants do
-                local obj = descendants[i]
-                if obj:IsA("ModuleScript") then
-                    local lower = string.lower(obj.Name)
-                    if lower:find("flow") or lower:find("puzzle") or lower:find("pipe") or lower:find("connect") or lower:find("grid") then
-                        HookModule(obj)
-                    end
-                end
-                if i % 150 == 0 then task.wait() end
-            end
-        end)
-    end
-end
-
-ScanModules()
-
-ReplicatedStorage.DescendantAdded:Connect(function(obj)
-    if obj:IsA("ModuleScript") then
-        local lower = string.lower(obj.Name)
-        if lower:find("flow") or lower:find("puzzle") or lower:find("pipe") or lower:find("connect") or lower:find("grid") then
-            task.wait(0.05)
-            HookModule(obj)
-        end
-    end
-end)
-
--- =================================================================
--- CHUẨN QUY TẮC 3: CẤU HÌNH HỆ THỐNG & DỮ LIỆU ĐẶT RIÊNG Ở LUỒNG CHÍNH
--- =================================================================
 if getgenv().loadalllanguage == nil then
     getgenv().loadalllanguage = true
 end
@@ -376,7 +62,6 @@ if not defaultLanguageName then
     table.insert(DropdownLanguages, defaultLanguageName)
 end
 
--- Xử lý bộ lọc ngôn ngữ hệ thống
 if getgenv().loadalllanguage == false then
     local filteredLangMapping = { ["en"] = "English" }
     local filteredDropdownLanguages = { "English" }
@@ -454,11 +139,17 @@ baseTranslations = {
     ["Auto_Finish_Generator_Desc"] = "Auto adjust the generator based on the speed entered in the input.",
     ["Generator_Delay"] = "Generator Delay",
     ["Generator_Delay_Desc"] = "Adjust the toggle delay each time you fix the generator.",
-    ["Items"] = "Items",
-    ["Pick_Up_Item"] = "Pick Up Item",
-    ["Pick_Up_Item_Desc"] = "Pick up 1 item near you.",
-    ["Auto_PickUp_Item"] = "Auto PickUp Item",
-    ["Auto_PickUp_Item_Desc"] = "Automatically pick up all items on the map.",
+    ["Items_Settings"] = "Items Settings",
+    ["Select_Item"] = "Select Item",
+    ["Select_Item_Desc"] = "Choose the item you want to pick up.",
+    ["Pick_Up_Selected_Item"] = "Pick Up Selected Item",
+    ["Pick_Up_Selected_Item_Desc"] = "Get item you selected in the dropdown.",
+    ["Pick_Up_Random_Item"] = "Pick Up Random Item",
+    ["Pick_Up_Random_Item_Desc"] = "Pick up random items in the map.",
+    ["Auto_PickUp_Selected_Item"] = "Auto PickUp Selected Item",
+    ["Auto_PickUp_Selected_Item_Desc"] = "Auto pick up the selected item in the dropdown menu.",
+    ["Auto_PickUp_Nearest_Item"] = "Auto PickUp Nearest Item",
+    ["Auto_PickUp_Nearest_Item_Desc"] = "Auto picks up the nearest item around you.",
     ["Auto_Attack_Range"] = "Auto Attack Range",
     ["Auto_Attack_Range_Desc"] = "Distance check to survivors",
     ["Auto_Attack_Survivors"] = "Auto Attack Survivors",
@@ -476,6 +167,8 @@ baseTranslations = {
     ["Auto_UnstableEye_Desc"] = "Auto use skill UnstableEye",
     ["Auto_BloodHunt"] = "Auto BloodHunt",
     ["Auto_BloodHunt_Desc"] = "Auto use skill BloodHunt",
+    ["Auto_Complete_Mini_Game"] = "Complete Mini Game",
+    ["Auto_Complete_Mini_Game_Desc"] = "Auto complete the mini-game that appears on the screen.",
     ["MassInfection_Aimbot"] = "MassInfection Aimbot",
     ["Entanglement_Aimbot"] = "Entanglement Aimbot",
     ["Massinfection_Entanglement_Desc"] = "Automatically aimbot the nearest survivors.",
@@ -605,10 +298,6 @@ for code, _ in pairs(langMapping) do
     finalTranslations[code] = {}
 end
 
--- =================================================================
--- CHUẨN QUY TẮC 2 & 6: CÁC HÀM ĐỘC LẬP, CÙNG CẤP (FLAT), KHÔNG LỒNG NHAU
--- =================================================================
-
 function getLangCodeFromName(name)
     for code, langName in pairs(langMapping) do
         if langName == name then return code end
@@ -669,7 +358,6 @@ function createAmbientParticle(MainFrame)
     floatTween.Completed:Connect(function() particle:Destroy() end)
 end
 
--- Quy tắc 7: Loop siêu mỏng, nhận tham số từ bên ngoài, triệt tiêu closure trong task.spawn
 function RunParticleAnimationLoop(MainFrame)
     while MainFrame and MainFrame.Parent do
         createAmbientParticle(MainFrame)
@@ -712,9 +400,6 @@ function fadeOutLoader(LoaderScreen, OuterBorder, MainFrame, InnerStroke, BlurEf
     if BlurEffect then BlurEffect:Destroy() end
 end
 
--- =================================================================
--- QUY TẮC 1 & 5: TÁCH RIÊNG BLOCK DỰNG UI ĐỂ GIẢI PHÓNG BIẾN LOCAL KHỎI CHUNK CHÍNH
--- =================================================================
 function BuildLoaderUI()
     local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
     if playerGui:FindFirstChild("HuTaoHub_Loader") then 
@@ -814,9 +499,6 @@ function BuildLoaderUI()
     return LoaderScreen, OuterBorder, MainFrame, InnerStroke, BlurEffect, StatusLabel, BarFill
 end
 
--- =================================================================
--- QUY TẮC 1 & 7: VÒNG LẶP LOGIC DỊCH THUẬT VÀ QUẢN LÝ FILE CACHE
--- =================================================================
 function RunTranslationProcess(StatusLabel, BarFill)
     local fileName = "HutaoHub_Data_Files.json"
     local cache = loadCachedLanguages(fileName)
@@ -872,35 +554,20 @@ function RunTranslationProcess(StatusLabel, BarFill)
     task.wait(0.4)
 end
 
--- =================================================================
--- QUY TẮC 10: MODULE HÓA - ĐIỀU PHỐI TOÀN BỘ LIFECYCLE CỦA LOADER
--- =================================================================
 function StartLoaderLifecycle()
-    -- 1. Dựng UI độc lập (Toàn bộ các biến local UI sẽ tự hủy sau khi hàm kết thúc)
     local LoaderScreen, OuterBorder, MainFrame, InnerStroke, BlurEffect, StatusLabel, BarFill = BuildLoaderUI()
-    
-    -- 2. Kích hoạt hiệu ứng hạt qua luồng song song phẳng (Flat Spawn)
-    task.spawn(RunParticleAnimationLoop, MainFrame)
 
-    -- 3. Chạy logic xử lý dịch thuật & nạp file cache
+    task.spawn(RunParticleAnimationLoop, MainFrame)
     RunTranslationProcess(StatusLabel, BarFill)
-    
-    -- 4. Đóng khung Loader, kích hoạt hiệu ứng biến mất
+
     fadeOutLoader(LoaderScreen, OuterBorder, MainFrame, InnerStroke, BlurEffect)
 end
 
--- KHỞI CHẠY HỆ THỐNG LOADER HOÀN CHỈNH
 StartLoaderLifecycle()
 
--- =================================================================
--- [ PHẦN 5 ]: KHỞI TẠO WINDUI VÀ ĐĂNG KÝ CẤU HÌNH GIAO DIỆN CHÍNH
--- =================================================================
-
--- Hàm khởi tạo cô lập toàn bộ cấu trúc UI (Giải phóng 100% thanh ghi sau khi chạy)
 function InitializeWindUI()
     local WindUI = loadstring(game:HttpGet("https://github.com/Footagesus/WindUI/releases/latest/download/main.lua"))()
-
-    -- 1. Đăng ký hệ thống đa ngôn ngữ đã được bake từ Cache/Google API
+    
     WindUI:Localization({
         Enabled = true,
         Prefix = "hutaohub:",
@@ -908,7 +575,6 @@ function InitializeWindUI()
         Translations = finalTranslations
     })
 
-    -- 2. Cấu hình hệ thống Themes (Khai báo local bên trong hàm để tự hủy sau khi nạp)
     local themes_config = {
         Dark = {Accent = "#18181b", Dialog = "#18181b", Outline = "#FFFFFF", Text = "#FFFFFF", Placeholder = "#999999", Background = "#0e0e10", Button = "#52525b", Icon = "#a1a1aa"},
         Light = {Accent = "#f4f4f5", Dialog = "#f4f4f5", Outline = "#000000", Text = "#000000", Placeholder = "#666666", Background = "#ffffff", Button = "#e4e4e7", Icon = "#52525b"},
@@ -928,7 +594,6 @@ function InitializeWindUI()
 
     WindUI:SetNotificationLower(true)
 
-    -- Quản lý trạng thái chuyển theme bằng mảng phẳng phẳng
     local themes = {"Dark", "Light", "Gray", "Blue", "Green", "Purple"}
     local currentThemeIndex = 4
 
@@ -936,7 +601,6 @@ function InitializeWindUI()
         getgenv().TransparencyEnabled = true
     end
 
-    -- 3. Khởi tạo Cửa sổ Window chính
     local Window = WindUI:CreateWindow({
         Title = "Hutao Hub",
         Icon = "rbxassetid://109995816235688", 
@@ -998,7 +662,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.2.8", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.3.3", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -1019,9 +683,6 @@ function InitializeWindUI()
         Settings = Tabs.System:Tab({ Title = "hutaohub:Settings", Icon = "settings" }),
     }
 
-    -- [ Giữ nguyên toàn bộ ruột hàm InitializeWindUI bên trên ]
-    
-    -- TÍCH HỢP DROPDOWN CHỌN NGÔN NGỮ VÀO TAB SETTINGS
     TabHandles.Settings:Dropdown({
         Title = "hutaohub:Language",
         Desc = "hutaohub:Language_Desc",
@@ -1048,13 +709,7 @@ function InitializeWindUI()
     return Window, TabHandles
 end
 
--- =================================================================
--- KHỞI CHẠY CHÍNH: BỎ 'local' ĐỂ BIẾN THÀNH GLOBAL VARIABLES
--- =================================================================
 Window, TabHandles = InitializeWindUI() 
--- Giờ thì các nút, toggle ở phía dưới gọi TabHandles thoải mái, không bao giờ bị chặn nữa!
-
-
 
 local OwnerList = {
     ["rbown_VIP"] = true,
@@ -1106,12 +761,19 @@ Players.PlayerAdded:Connect(function()
     checkOwner()
 end)
 
-if CoreGui:FindFirstChild("HutaoHub_ToggleUI") then
-    CoreGui["HutaoHub_ToggleUI"]:Destroy()
+local isDragging = false
+local isDragMove = false
+local dragInput = nil
+local dragStartPos = nil
+local startGuiPos = nil
+
+local guiName = "HutaoHub_ToggleUI"
+if CoreGui:FindFirstChild(guiName) then
+    CoreGui[guiName]:Destroy()
 end
 
 local ToggleScreen = Instance.new("ScreenGui")
-ToggleScreen.Name = "HutaoHub_ToggleUI"
+ToggleScreen.Name = guiName
 ToggleScreen.Parent = CoreGui
 ToggleScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
@@ -1122,7 +784,6 @@ ImageButton.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
 ImageButton.Position = UDim2.new(0, 15, 0, 15)
 ImageButton.Size = UDim2.fromOffset(50, 50)
 ImageButton.BorderSizePixel = 0
-
 ImageButton.Image = "rbxassetid://109995816235688"
 
 local UICorner = Instance.new("UICorner")
@@ -1135,60 +796,61 @@ UIStroke.Color = Color3.fromRGB(59, 130, 246)
 UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 UIStroke.Parent = ImageButton
 
-local dragging = false
-local isDragMove = false
-local dragInput, dragStart, startPos
-
-local function update(input)
-    local delta = input.Position - dragStart
+local function UpdateDragPosition(input)
+    if not dragStartPos or not startGuiPos then return end
     
+    local delta = input.Position - dragStartPos
+
     if delta.Magnitude > 5 then
         isDragMove = true
     end
     
     ImageButton.Position = UDim2.new(
-        startPos.X.Scale, startPos.X.Offset + delta.X, 
-        startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        startGuiPos.X.Scale, startGuiPos.X.Offset + delta.X, 
+        startGuiPos.Y.Scale, startGuiPos.Y.Offset + delta.Y
     )
 end
 
-ImageButton.InputBegan:Connect(function(input)
+local function HandleInputBegan(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
+        isDragging = true
         isDragMove = false
-        dragStart = input.Position
-        startPos = ImageButton.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-
-ImageButton.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragStartPos = input.Position
+        startGuiPos = ImageButton.Position
         dragInput = input
     end
-end)
+end
 
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        update(input)
-    end
-end)
-
-ImageButton.InputEnded:Connect(function(input)
+local function HandleInputEnded(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDragging = false
         if not isDragMove then
-            if Window and type(Window.Toggle) == "function" then
+            if Window and typeof(Window.Toggle) == "function" then
                 Window:Toggle()
             end
         end
+        
         isDragMove = false
+        dragInput = nil
     end
-end)
+end
+
+local function HandleInputChanged(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end
+
+local function HandleGlobalInputChanged(input)
+    if isDragging and input == dragInput then
+        UpdateDragPosition(input)
+    end
+end
+
+ImageButton.InputBegan:Connect(HandleInputBegan)
+ImageButton.InputEnded:Connect(HandleInputEnded)
+ImageButton.InputChanged:Connect(HandleInputChanged)
+UserInputService.InputChanged:Connect(HandleGlobalInputChanged)
 
 ImageButton.MouseEnter:Connect(function()
     ImageButton.BackgroundColor3 = Color3.fromRGB(51, 65, 85)
@@ -1199,6 +861,7 @@ ImageButton.MouseLeave:Connect(function()
     ImageButton.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
     UIStroke.Color = Color3.fromRGB(59, 130, 246)
 end)
+
 
 Window:SelectTab(1)
 local Info = TabHandles["Info"]
@@ -1242,7 +905,7 @@ if not Core.Request then
     end
 end
 
-local InviteCode = "K8ktHhvS"
+local InviteCode = "sGVEDYD2y"
 local DiscordAPI =
     "https://discord.com/api/v10/invites/" ..
     InviteCode ..
@@ -1680,6 +1343,305 @@ TabHandles.Farm:Input({
     end
 })
 
+-- =================================================================
+-- 1. SYSTEM STATE (Quy tắc 4: Biến phẳng)
+-- =================================================================
+getgenv().FlowAutoSolve = getgenv().FlowAutoSolve or false
+getgenv().FlowSolveDelay = getgenv().FlowSolveDelay or 0.08
+getgenv().FlowDebug = getgenv().FlowDebug or false
+getgenv().FlowActivePuzzles = getgenv().FlowActivePuzzles or {}
+getgenv().FlowIsDrawing = getgenv().FlowIsDrawing or false
+
+-- CHÚ Ý TỐI ƯU: Chuyển Cache thuật toán về local table. 
+-- Tốc độ truy xuất local table trong Luau nhanh hơn getgenv() gấp ~20 lần!
+local FlowPathCache = {}
+local FlowUsedCache = {}
+local lastGuiState = false
+local HookedModules = {}
+
+-- Lấy PlayerGui an toàn
+local PlayerGui = localPlayer:WaitForChild("PlayerGui")
+
+-- =================================================================
+-- 2. HELPER MODULE (Quy tắc 1 & 2: Tách hàm nhỏ, phẳng hóa if-then)
+-- =================================================================
+local function debugPrint(...)
+    if getgenv().FlowDebug then print("[FLOW DEBUG]:", ...) end
+end
+
+local function safeCall(fn, ...)
+    local ok, res = pcall(fn, ...)
+    if ok then return res end
+    debugPrint("Lỗi thực thi hàm:", res)
+end
+
+-- Tối ưu Guard Clauses (Luật 2)
+getgenv().isFlowGuiVisible = function()
+    local puzzleUI = PlayerGui:FindFirstChild("PuzzleUI")
+    if not (puzzleUI and puzzleUI:IsA("ScreenGui") and puzzleUI.Enabled) then return nil end
+    
+    local container = puzzleUI:FindFirstChild("Container")
+    local gridHolder = container and container:FindFirstChild("GridHolder")
+    local grid = gridHolder and gridHolder:FindFirstChild("Grid")
+    
+    if grid and grid.Visible then return grid end
+    return nil
+end
+
+local function IsPuzzle(tbl)
+    if typeof(tbl) ~= "table" then return false end
+    if rawget(tbl, "Solution") then return true end
+    if rawget(tbl, "paths") and rawget(tbl, "updateGui") then return true end
+    return false
+end
+
+local function getDirection(r1, c1, r2, c2)
+    if r2 < r1 then return "up" end
+    if r2 > r1 then return "down" end
+    if c2 < c1 then return "left" end
+    if c2 > c1 then return "right" end
+end
+
+local function getConnections(prev, curr, nextNode)
+    local connections = {}
+    if prev and curr then
+        local dir = getDirection(curr.row, curr.col, prev.row, prev.col)
+        if dir == "up" then dir = "down"
+        elseif dir == "down" then dir = "up"
+        elseif dir == "left" then dir = "right"
+        elseif dir == "right" then dir = "left" end
+        if dir then connections[dir] = true end
+    end
+    if nextNode and curr then
+        local dir = getDirection(curr.row, curr.col, nextNode.row, nextNode.col)
+        if dir then connections[dir] = true end
+    end
+    return connections
+end
+
+local function isNeighbour(a, b)
+    return math.abs(a.row - b.row) + math.abs(a.col - b.col) == 1
+end
+
+local function findMethod(obj, names)
+    for i = 1, #names do
+        if typeof(obj[names[i]]) == "function" then return obj[names[i]] end
+    end
+end
+
+-- =================================================================
+-- 3. ALGORITHM MODULE (Thuật toán xâu chuỗi siêu tốc)
+-- =================================================================
+local function sortPathByRealEnds(unorderedPath)
+    if not unorderedPath or #unorderedPath <= 1 then return unorderedPath end
+
+    table.clear(FlowPathCache)
+    table.clear(FlowUsedCache)
+    
+    for i = 1, #unorderedPath do
+        FlowPathCache[i] = {row = unorderedPath[i].row, col = unorderedPath[i].col}
+    end
+
+    local startNodeIndex = 1
+    for i = 1, #FlowPathCache do
+        local neighbors = 0
+        for j = 1, #FlowPathCache do
+            if i ~= j and isNeighbour(FlowPathCache[i], FlowPathCache[j]) then
+                neighbors = neighbors + 1
+            end
+        end
+        if neighbors == 1 then
+            startNodeIndex = i
+            break
+        end
+    end
+
+    local ordered = { FlowPathCache[startNodeIndex] }
+    FlowUsedCache[startNodeIndex] = true
+
+    for _ = 2, #FlowPathCache do
+        local last = ordered[#ordered]
+        local foundNext = false
+
+        for i = 1, #FlowPathCache do
+            if not FlowUsedCache[i] and isNeighbour(last, FlowPathCache[i]) then
+                table.insert(ordered, FlowPathCache[i])
+                FlowUsedCache[i] = true
+                foundNext = true
+                break
+            end
+        end
+
+        if not foundNext then
+            for i = 1, #FlowPathCache do
+                if not FlowUsedCache[i] then
+                    table.insert(ordered, FlowPathCache[i])
+                    FlowUsedCache[i] = true
+                    break
+                end
+            end
+        end
+    end
+
+    return ordered
+end
+
+-- =================================================================
+-- 4. LOGIC MODULE (Luật 5: Tách nhỏ logic giải đố)
+-- =================================================================
+getgenv().SolveFlowPuzzle = function(puzzle, targetColorIndex)
+    if not getgenv().FlowAutoSolve or not IsPuzzle(puzzle) or not puzzle.Solution then return end
+    getgenv().FlowIsDrawing = true
+    puzzle.paths = puzzle.paths or {}
+    puzzle.gridConnections = puzzle.gridConnections or {}
+
+    local updateGui = findMethod(puzzle, {"updateGui", "UpdateGui", "Render", "render"})
+    local checkWin = findMethod(puzzle, {"checkForWin", "CheckForWin", "WinCheck"})
+    local indices = targetColorIndex and {targetColorIndex} or {}
+    
+    if #indices == 0 then
+        for i = 1, #puzzle.Solution do table.insert(indices, i) end
+    end
+
+    for idx = 1, #indices do
+        local colorIndex = indices[idx]
+        local ordered = sortPathByRealEnds(puzzle.Solution[colorIndex])
+        
+        if ordered and #ordered > 0 then
+            puzzle.paths[colorIndex] = {}
+            for i = 1, #ordered do puzzle.gridConnections[ordered[i].row.."-"..ordered[i].col] = nil end
+
+            for i = 1, #ordered do
+                if not getgenv().FlowAutoSolve then getgenv().FlowIsDrawing = false return end 
+                local node = ordered[i]
+                table.insert(puzzle.paths[colorIndex], {row = node.row, col = node.col})
+                puzzle.gridConnections[node.row.."-"..node.col] = getConnections(ordered[i-1], node, ordered[i+1])
+
+                if updateGui and getgenv().isFlowGuiVisible() then safeCall(updateGui, puzzle) end
+                if getgenv().isFlowGuiVisible() then task.wait(getgenv().FlowSolveDelay) end
+            end
+        end
+        if checkWin and getgenv().isFlowGuiVisible() then safeCall(checkWin, puzzle) end
+    end
+    getgenv().FlowIsDrawing = false
+end
+
+getgenv().triggerFlowSolvers = function()
+    for puzzle, _ in pairs(getgenv().FlowActivePuzzles) do
+        task.spawn(function() getgenv().SolveFlowPuzzle(puzzle) end)
+    end
+end
+
+-- Tách logic loop ra thành 1 hàm (Luật 7)
+local function ProcessAutoFlowLoop()
+    if not getgenv().FlowAutoSolve then return end
+
+    local currentGuiState = (getgenv().isFlowGuiVisible() ~= nil)
+    
+    if currentGuiState and not lastGuiState then
+        task.wait(0.3) 
+        getgenv().triggerFlowSolvers()
+    end
+    
+    lastGuiState = currentGuiState
+    
+    if currentGuiState and not getgenv().FlowIsDrawing then
+        for puzzle, _ in pairs(getgenv().FlowActivePuzzles) do
+            if puzzle.Solution and puzzle.paths then
+                for colorIndex = 1, #puzzle.Solution do
+                    local currentPath = puzzle.paths[colorIndex]
+                    if not currentPath or #currentPath == 0 then
+                        getgenv().SolveFlowPuzzle(puzzle, colorIndex)
+                        break
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- =================================================================
+-- 5. HOOKING MODULE (Quét Module an toàn)
+-- =================================================================
+local function ProcessHookResult(result)
+    if IsPuzzle(result) then
+        getgenv().FlowActivePuzzles[result] = true
+        getgenv().SolveFlowPuzzle(result)
+        return
+    end
+    if typeof(result) == "table" then
+        for _, v in pairs(result) do
+            if IsPuzzle(v) then 
+                getgenv().FlowActivePuzzles[v] = true
+                getgenv().SolveFlowPuzzle(v) 
+            end
+        end
+    end
+end
+
+local function HookModule(moduleScript)
+    if HookedModules[moduleScript] then return end
+    HookedModules[moduleScript] = true
+
+    local success, module = pcall(require, moduleScript)
+    if not success or typeof(module) ~= "table" or typeof(module.new) ~= "function" then return end
+
+    debugPrint("Đã kết nối thành công hệ thống:", moduleScript:GetFullName())
+
+    local oldNew = module.new
+    module.new = function(...)
+        local result = oldNew(...)
+        task.spawn(function()
+            task.wait(0.05)
+            safeCall(ProcessHookResult, result)
+        end)
+        return result
+    end
+end
+
+local function ScanModules()
+    local safeContainers = {ReplicatedStorage, PlayerGui, game:GetService("StarterGui")}
+    for c = 1, #safeContainers do
+        task.spawn(function()
+            local descendants = safeContainers[c]:GetDescendants()
+            for i = 1, #descendants do
+                local obj = descendants[i]
+                if obj:IsA("ModuleScript") then
+                    local lower = string.lower(obj.Name)
+                    if lower:find("flow") or lower:find("puzzle") or lower:find("pipe") or lower:find("connect") or lower:find("grid") then
+                        HookModule(obj)
+                    end
+                end
+                if i % 150 == 0 then task.wait() end -- Chống giật lag
+            end
+        end)
+    end
+end
+
+ScanModules()
+
+ReplicatedStorage.DescendantAdded:Connect(function(obj)
+    if obj:IsA("ModuleScript") then
+        local lower = string.lower(obj.Name)
+        if lower:find("flow") or lower:find("puzzle") or lower:find("pipe") or lower:find("connect") or lower:find("grid") then
+            task.wait(0.05)
+            HookModule(obj)
+        end
+    end
+end)
+
+-- =================================================================
+-- 6. MASTER LOOP (Luật 7: Loop siêu mỏng)
+-- =================================================================
+task.spawn(function()
+    while task.wait(0.15) do
+        ProcessAutoFlowLoop()
+    end
+end)
+
+-- =================================================================
+-- 7. UI MODULE (Luật 3 & 6: Giữ nguyên localization gốc)
+-- =================================================================
 TabHandles.Farm:Toggle({
     Title = "hutaohub:Auto_Finish_Generator",
     Desc = "hutaohub:Auto_Finish_Generator_Desc",
@@ -1698,7 +1660,7 @@ TabHandles.Farm:Toggle({
             if typeof(RemoveLoop) == "function" then
                 pcall(RemoveLoop, "AutoGenerator")
             end
-            solveGeneratorCooldown = false
+            getgenv().solveGeneratorCooldown = false -- Tránh lỗi Strict Mode
         end
     end
 })
@@ -1718,259 +1680,367 @@ TabHandles.Farm:Input({
     end
 })
 
-TabHandles.Farm:Section({ Title = "hutaohub:Items", Icon = "backpack" })
+TabHandles.Farm:Section({ Title = "hutaohub:Items_Settings", Icon = "backpack" })
 
-local AutoPickup = false
+-- =================================================================
+-- 1. SYSTEM STATE (Quy tắc 4: Biến phẳng hoàn toàn bằng getgenv)
+-- =================================================================
+getgenv().AutoPickupSelected = getgenv().AutoPickupSelected or false
+getgenv().AutoPickupNearest = getgenv().AutoPickupNearest or false
+getgenv().SelectedItemToPickup = getgenv().SelectedItemToPickup or nil
+getgenv().CachedItemHash = getgenv().CachedItemHash or ""
 
-local function isSurvivor()
-    return playerCharacter and playerCharacter.Parent == survivorsFolder
+-- =================================================================
+-- 2. HELPER MODULE (Quy tắc 1 & 2: Hàm nhỏ, độc lập)
+-- =================================================================
+local function IsSurvivor()
+    return localPlayer.Character and localPlayer.Character.Parent == survivorsFolder
 end
 
-local function getMap()
+local function GetMap()
     local mapContainer = Workspace:FindFirstChild("Map")
     local ingame = mapContainer and mapContainer:FindFirstChild("Ingame")
     return ingame and ingame:FindFirstChild("Map") or nil
 end
 
-local function getRootPart()
-    return playerCharacter and playerCharacter:FindFirstChild("HumanoidRootPart")
+local function GetRootPart()
+    return localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
 end
 
-local function pickUpNearest()
-    if not isSurvivor() then return end
-    
-    local rootPart = getRootPart()
-    if not rootPart then return end
-
-    local map = getMap()
-    if not map then return end
-
-    local closestItem = nil
-    local shortestDist = math.huge
+-- Hàm lọc tất cả các item hợp lệ trên bản đồ
+local function GetAvailableItems()
+    local map = GetMap()
+    local validItems = {}
+    if not map then return validItems end
 
     for _, item in ipairs(map:GetChildren()) do
-        if item:IsA("Tool") and item:FindFirstChild("ItemRoot") and item.ItemRoot:FindFirstChild("ProximityPrompt") then
+        if item:IsA("Tool") then
+            local root = item:FindFirstChild("ItemRoot")
+            local prompt = root and root:FindFirstChild("ProximityPrompt")
+            if root and prompt then
+                table.insert(validItems, item)
+            end
+        end
+    end
+    return validItems
+end
+
+-- Hàm Teleport mượt mà (tách riêng để tái sử dụng)
+local function TeleportAndPickup(item)
+    if not item then return end
+    local rootPart = GetRootPart()
+    if not rootPart then return end
+
+    local itemRoot = item:FindFirstChild("ItemRoot")
+    local prompt = itemRoot and itemRoot:FindFirstChild("ProximityPrompt")
+    if not itemRoot or not prompt then return end
+
+    -- Lưu vị trí cũ, Dịch chuyển -> Nhặt -> Quay về
+    local oldCFrame = rootPart.CFrame
+    rootPart.CFrame = itemRoot.CFrame
+    task.wait(0.25) -- Chờ server load vị trí
+    
+    pcall(function() fireproximityprompt(prompt) end)
+    
+    task.wait(0.3) -- Chờ nhặt xong
+    rootPart.CFrame = oldCFrame
+end
+
+-- =================================================================
+-- 3. LOGIC MODULE: CÁC CHẾ ĐỘ NHẶT ITEM (Luật 5: Chia scope)
+-- =================================================================
+local function PickUpSpecificItem(itemName)
+    local rootPart = GetRootPart()
+    if not rootPart then return end
+
+    local items = GetAvailableItems()
+    local closest, minDist = nil, math.huge
+
+    for _, item in ipairs(items) do
+        if item.Name == itemName then
             local dist = (rootPart.Position - item.ItemRoot.Position).Magnitude
-            if dist < shortestDist then
-                shortestDist = dist
-                closestItem = item
+            if dist < minDist then 
+                minDist = dist 
+                closest = item 
             end
         end
     end
 
-    if not closestItem then return end
-
-    local itemRoot = closestItem:FindFirstChild("ItemRoot")
-    local prompt = itemRoot and itemRoot:FindFirstChild("ProximityPrompt")
-
-    if not itemRoot or not prompt then return end
-
-    local oldCFrame = rootPart.CFrame
-
-    rootPart.CFrame = itemRoot.CFrame
-    task.wait(0.25)
-
-    pcall(function()
-        fireproximityprompt(prompt)
-    end)
-
-    task.wait(0.3)
-
-    rootPart.CFrame = oldCFrame
+    if closest then TeleportAndPickup(closest) end
 end
 
+local function PickUpNearestItem()
+    local rootPart = GetRootPart()
+    if not rootPart then return end
+
+    local items = GetAvailableItems()
+    local closest, minDist = nil, math.huge
+
+    for _, item in ipairs(items) do
+        local dist = (rootPart.Position - item.ItemRoot.Position).Magnitude
+        if dist < minDist then 
+            minDist = dist 
+            closest = item 
+        end
+    end
+
+    if closest then TeleportAndPickup(closest) end
+end
+
+local function PickUpRandomItem()
+    local items = GetAvailableItems()
+    if #items > 0 then
+        local randomItem = items[math.random(1, #items)]
+        TeleportAndPickup(randomItem)
+    end
+end
+
+-- Quản lý logic Loop tự động
+local function ProcessAutoPickup()
+    if not IsSurvivor() then return end
+    
+    if getgenv().AutoPickupNearest then
+        PickUpNearestItem()
+    elseif getgenv().AutoPickupSelected and getgenv().SelectedItemToPickup then
+        PickUpSpecificItem(getgenv().SelectedItemToPickup)
+    end
+end
+
+-- =================================================================
+-- 4. MASTER LOOP & AUTO UPDATER (Luật 7: Loop siêu mỏng)
+-- =================================================================
+-- Loop thực thi nhặt đồ (Chạy mỗi 0.8s để tránh spam Teleport quá nhanh)
+task.spawn(function()
+    while task.wait(0.8) do
+        ProcessAutoPickup()
+    end
+end)
+
+-- Loop chạy nền: Liên tục quét map để làm mới Dropdown mỗi 2 giây
+local ItemDropdown -- Khai báo trước để Loop dùng được
+task.spawn(function()
+    while task.wait(2) do
+        if ItemDropdown then
+            local items = GetAvailableItems()
+            local nameMap, uniqueNames = {}, {}
+            
+            for _, item in ipairs(items) do
+                if not nameMap[item.Name] then
+                    nameMap[item.Name] = true
+                    table.insert(uniqueNames, item.Name)
+                end
+            end
+            
+            -- Dùng chuỗi gộp để kiểm tra xem map có thay đổi item không
+            local newHash = table.concat(uniqueNames, ",")
+            if getgenv().CachedItemHash ~= newHash then
+                getgenv().CachedItemHash = newHash
+                -- Tự động cập nhật Dropdown an toàn
+                pcall(function()
+                    ItemDropdown:SetValues(uniqueNames)
+                end)
+                pcall(function()
+                    ItemDropdown:Refresh(uniqueNames) -- Hỗ trợ thêm cho các thư viện UI khác
+                end)
+            end
+        end
+    end
+end)
+
+ItemDropdown = TabHandles.Farm:Dropdown({
+    Title = "hutaohub:Select_Item",
+    Desc = "hutaohub:Select_Item_Desc",
+    Flag = "Select Pickup Item",
+    Values = {},
+    Value = nil,
+    Callback = function(value)
+        getgenv().SelectedItemToPickup = value
+    end
+})
+
 TabHandles.Farm:Button({
-    Title = "hutaohub:Pick_Up_Item",
-    Desc = "hutaohub:Pick_Up_Item_Desc",
+    Title = "hutaohub:Pick_Up_Selected_Item",
+    Desc = "hutaohub:Pick_Up_Selected_Item_Desc",
     Callback = function()
-        if isSurvivor() then
-            pickUpNearest()
+        if IsSurvivor() and getgenv().SelectedItemToPickup then
+            PickUpSpecificItem(getgenv().SelectedItemToPickup)
+        end
+    end
+})
+
+TabHandles.Farm:Button({
+    Title = "hutaohub:Pick_Up_Random_Item",
+    Desc = "hutaohub:Pick_Up_Random_Item_Desc",
+    Callback = function()
+        if IsSurvivor() then
+            PickUpRandomItem()
         end
     end
 })
 
 TabHandles.Farm:Toggle({
-    Title = "hutaohub:Auto_PickUp_Item",
-    Desc = "hutaohub:Auto_PickUp_Item_Desc",
-    Flag = "Auto PickUp Item",
+    Title = "hutaohub:Auto_PickUp_Selected_Item",
+    Desc = "hutaohub:Auto_PickUp_Selected_Item_Desc",
+    Flag = "Auto PickUp Selected",
     Value = false,
     Callback = function(state)
-        AutoPickup = state
-
-        if state then
-            task.spawn(function()
-                while AutoPickup do
-                    if isSurvivor() then
-                        pickUpNearest()
-                    end
-                    task.wait(0.2)
-                end
-            end)
-        end
+        getgenv().AutoPickupSelected = state
     end
 })
 
-local AutoAbility = {
-    Enabled = false,
-    Range = 25
-}
+TabHandles.Farm:Toggle({
+    Title = "hutaohub:Auto_PickUp_Nearest_Item",
+    Desc = "hutaohub:Auto_PickUp_Nearest_Item_Desc",
+    Flag = "Auto PickUp Nearest",
+    Value = false,
+    Callback = function(state)
+        getgenv().AutoPickupNearest = state
+    end
+})
 
+-- =================================================================
+-- 1. SYSTEM STATE (Quy tắc 4: Biến phẳng hoàn toàn bằng getgenv)
+-- =================================================================
+getgenv().AutoAbilityEnabled = getgenv().AutoAbilityEnabled or false
+getgenv().AutoAbilityRange = getgenv().AutoAbilityRange or 25
 getgenv().AutoUseAllSkills = getgenv().AutoUseAllSkills or true
 
-local AbilityButtons = {
-    "Carving Slash",
-    "Slash",
-    "Punch",
-    "Stab"
-}
+-- Biến phẳng hoàn toàn cho Extra Abilities theo Quy tắc 4
+getgenv().AutoRagingPace = getgenv().AutoRagingPace or false
+getgenv().AutoPizzaDelivery = getgenv().AutoPizzaDelivery or false
+getgenv().Auto404Error = getgenv().Auto404Error or false
+getgenv().AutoUnstableEye = getgenv().AutoUnstableEye or false
+getgenv().AutoBloodHunt = getgenv().AutoBloodHunt or false
 
-local ExtraAbilities = {
-    RagingPace = false,
-    PizzaDelivery = false,
-    ["404Error"] = false,
-    UnstableEye = false,
-    BloodHunt = false
-}
+-- NÚT MỚI: Tự động click QTE ActiveButton (Sử dụng getgenv phẳng)
+getgenv().AutoActiveButton = getgenv().AutoActiveButton or false
 
-local function isKiller()
+-- Mảng hằng số (Chỉ đọc, nằm ngoài loop để tối ưu RAM)
+local AbilityButtons = {"Carving Slash", "Slash", "Punch", "Stab"}
 
-    if not playerCharacter then
-        return false
-    end
-
-    return playerCharacter.Parent == killersFolder
+-- =================================================================
+-- 2. HELPER MODULE (Quy tắc 1: Hàm nhỏ, tối ưu hiệu năng)
+-- =================================================================
+local function IsKiller()
+    local char = localPlayer.Character
+    return char and char.Parent == killersFolder
 end
 
-local function getRoot(character)
-
-    return character
-        and character:FindFirstChild("HumanoidRootPart")
+local function GetHRP(character)
+    return character and character:FindFirstChild("HumanoidRootPart")
 end
 
-local function hasSurvivorInRange(range)
-
-    local myRoot = getRoot(playerCharacter)
-
-    if not myRoot then
-        return false
-    end
+local function HasSurvivorInRange(range)
+    local myHrp = GetHRP(localPlayer.Character)
+    if not myHrp then return false end
 
     for _, survivor in ipairs(survivorsFolder:GetChildren()) do
-
-        if survivor ~= playerCharacter then
-
-            local root = getRoot(survivor)
-
-            if root then
-
-                local distance = (
-                    root.Position - myRoot.Position
-                ).Magnitude
-
-                if distance <= range then
-                    return true
-                end
+        if survivor ~= localPlayer.Character then
+            local hrp = GetHRP(survivor)
+            if hrp and (hrp.Position - myHrp.Position).Magnitude <= range then
+                return true
             end
         end
     end
-
     return false
 end
 
-local function fireButton(btn)
-
-    if not btn then
-        return
-    end
-
-    pcall(function()
-        firesignal(btn.MouseButton1Click)
-    end)
-
-    pcall(function()
-        firesignal(btn.MouseButton1Down)
-    end)
-
-    pcall(function()
-        firesignal(btn.MouseButton1Up)
-    end)
-
-    pcall(function()
-        firesignal(btn.Activated)
-    end)
-
-    pcall(function()
-        btn:Activate()
-    end)
+local function FireButton(btn)
+    if not btn then return end
+    pcall(function() firesignal(btn.MouseButton1Click) end)
+    pcall(function() firesignal(btn.MouseButton1Down) end)
+    pcall(function() firesignal(btn.MouseButton1Up) end)
+    pcall(function() firesignal(btn.Activated) end)
+    pcall(function() btn:Activate() end)
 end
 
-task.spawn(function()
+-- =================================================================
+-- 3. LOGIC MODULE: SKILLS & QTE (Quy tắc 2: Loại bỏ hoàn toàn Nesting)
+-- =================================================================
 
-    while true do
+-- Logic xử lý click nút QTE ActiveButton (Đường dẫn tạm thời)
+local function ProcessQTEActiveButton()
+    if not getgenv().AutoActiveButton then return end
+    
+    local playerGui = localPlayer:FindFirstChildOfClass("PlayerGui")
+    local tempUI = playerGui and playerGui:FindFirstChild("TemporaryUI")
+    local qte = tempUI and tempUI:FindFirstChild("QTE")
+    local actBtn = qte and qte:FindFirstChild("ActiveButton")
+    
+    if actBtn then
+        FireButton(actBtn)
+    end
+end
 
-        if isKiller() then
-
-            local mainUI = localPlayer.PlayerGui:FindFirstChild("MainUI")
-
-            if mainUI then
-
-                local container = mainUI:FindFirstChild("AbilityContainer")
-
-                if container then
-
-                    if getgenv().AutoUseAllSkills
-                    and getgenv().AutoKillerFarm then
-
-                        for _, obj in ipairs(container:GetChildren()) do
-
-                            if obj:IsA("TextButton")
-                            or obj:IsA("ImageButton") then
-
-                                fireButton(obj)
-                            end
-                        end
-                    end
-
-                    if AutoAbility.Enabled
-                    and hasSurvivorInRange(AutoAbility.Range) then
-
-                        for _, name in ipairs(AbilityButtons) do
-
-                            local btn = container:FindFirstChild(name)
-
-                            if btn and (
-                                btn:IsA("TextButton")
-                                or btn:IsA("ImageButton")
-                            ) then
-
-                                fireButton(btn)
-                            end
-                        end
-                    end
-
-                    for name, enabled in pairs(ExtraAbilities) do
-
-                        if enabled then
-
-                            local btn = container:FindFirstChild(name)
-
-                            if btn and (
-                                btn:IsA("TextButton")
-                                or btn:IsA("ImageButton")
-                            ) then
-
-                                fireButton(btn)
-                            end
-                        end
-                    end
-                end
+-- Logic quét và xử lý skill trong Container (Chia nhỏ scope)
+local function ProcessAbilityContainer(container)
+    -- 1. Tự động dùng toàn bộ skill hiện có
+    if getgenv().AutoUseAllSkills and getgenv().AutoKillerFarm then
+        for _, obj in ipairs(container:GetChildren()) do
+            if obj:IsA("TextButton") or obj:IsA("ImageButton") then
+                FireButton(obj)
             end
         end
+    end
 
-        task.wait(0.1)
+    -- 2. Tự động combo skill cơ bản theo khoảng cách thiết lập
+    if getgenv().AutoAbilityEnabled and HasSurvivorInRange(getgenv().AutoAbilityRange) then
+        for _, name in ipairs(AbilityButtons) do
+            local btn = container:FindFirstChild(name)
+            if btn and (btn:IsA("TextButton") or btn:IsA("ImageButton")) then
+                FireButton(btn)
+            end
+        end
+    end
+
+    -- 3. Tự động kích hoạt các Skill bổ sung (Gọi trực tiếp getgenv phẳng)
+    if getgenv().AutoRagingPace then
+        local btn = container:FindFirstChild("RagingPace")
+        if btn and (btn:IsA("TextButton") or btn:IsA("ImageButton")) then FireButton(btn) end
+    end
+    if getgenv().AutoPizzaDelivery then
+        local btn = container:FindFirstChild("PizzaDelivery")
+        if btn and (btn:IsA("TextButton") or btn:IsA("ImageButton")) then FireButton(btn) end
+    end
+    if getgenv().Auto404Error then
+        local btn = container:FindFirstChild("404Error")
+        if btn and (btn:IsA("TextButton") or btn:IsA("ImageButton")) then FireButton(btn) end
+    end
+    if getgenv().AutoUnstableEye then
+        local btn = container:FindFirstChild("UnstableEye")
+        if btn and (btn:IsA("TextButton") or btn:IsA("ImageButton")) then FireButton(btn) end
+    end
+    if getgenv().AutoBloodHunt then
+        local btn = container:FindFirstChild("BloodHunt")
+        if btn and (btn:IsA("TextButton") or btn:IsA("ImageButton")) then FireButton(btn) end
+    end
+end
+
+local function ProcessAutoAbilities()
+    if not IsKiller() then return end
+    
+    local playerGui = localPlayer:FindFirstChildOfClass("PlayerGui")
+    local mainUI = playerGui and playerGui:FindFirstChild("MainUI")
+    local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
+    
+    if container then
+        ProcessAbilityContainer(container)
+    end
+end
+
+-- =================================================================
+-- 4. MASTER LOOP (Quy tắc 7: Vòng lặp siêu mỏng, chỉ thực thi Update)
+-- =================================================================
+task.spawn(function()
+    while task.wait(0.1) do
+        ProcessAutoAbilities()
+        ProcessQTEActiveButton() -- Thực thi song song độc lập
     end
 end)
 
+-- =================================================================
+-- 5. UI MODULE (Giữ nguyên chuỗi gốc gốc của bro + ánh xạ getgenv)
+-- =================================================================
 TabHandles.Killers:Input({
     Title = "hutaohub:Auto_Attack_Range",
     Desc = "hutaohub:Auto_Attack_Range_Desc",
@@ -1979,12 +2049,7 @@ TabHandles.Killers:Input({
     Value = 25,
     Numeric = true,
     Callback = function(value)
-
-        value = tonumber(value)
-
-        if value then
-            AutoAbility.Range = value
-        end
+        getgenv().AutoAbilityRange = tonumber(value) or 25
     end
 })
 
@@ -1994,8 +2059,7 @@ TabHandles.Killers:Toggle({
     Flag = "AutoAbilityToggle",
     Value = false,
     Callback = function(state)
-
-        AutoAbility.Enabled = state
+        getgenv().AutoAbilityEnabled = state
     end
 })
 
@@ -2010,7 +2074,6 @@ TabHandles.Killers:Toggle({
     Flag = "AutoUseAllSkills",
     Value = true,
     Callback = function(state)
-
         getgenv().AutoUseAllSkills = state
     end
 })
@@ -2021,8 +2084,7 @@ TabHandles.Killers:Toggle({
     Flag = "AutoRagingPace",
     Value = false,
     Callback = function(state)
-
-        ExtraAbilities.RagingPace = state
+        getgenv().AutoRagingPace = state
     end
 })
 
@@ -2032,8 +2094,7 @@ TabHandles.Killers:Toggle({
     Flag = "AutoPizzaDelivery",
     Value = false,
     Callback = function(state)
-
-        ExtraAbilities.PizzaDelivery = state
+        getgenv().AutoPizzaDelivery = state
     end
 })
 
@@ -2043,8 +2104,7 @@ TabHandles.Killers:Toggle({
     Flag = "Auto404Error",
     Value = false,
     Callback = function(state)
-
-        ExtraAbilities["404Error"] = state
+        getgenv().Auto404Error = state
     end
 })
 
@@ -2054,8 +2114,7 @@ TabHandles.Killers:Toggle({
     Flag = "AutoUnstableEye",
     Value = false,
     Callback = function(state)
-
-        ExtraAbilities.UnstableEye = state
+        getgenv().AutoUnstableEye = state
     end
 })
 
@@ -2065,8 +2124,19 @@ TabHandles.Killers:Toggle({
     Flag = "AutoBloodHunt",
     Value = false,
     Callback = function(state)
+        getgenv().AutoBloodHunt = state
+    end
+})
 
-        ExtraAbilities.BloodHunt = state
+TabHandles.Killers:Section({ Title = "Nosferatu", Icon = "moon-star" })
+
+TabHandles.Killers:Toggle({
+    Title = "hutaohub:Auto_Complete_Mini_Game",
+    Desc = "hutaohub:Auto_Complete_Mini_Game_Desc",
+    Flag = "AutoActiveButtonQTE",
+    Value = false,
+    Callback = function(state)
+        getgenv().AutoActiveButton = state
     end
 })
 
@@ -4574,7 +4644,12 @@ TabHandles.Misc:Toggle({
     end
 })
 
+-- ==========================================
+-- 1. STATE MANAGEMENT (Luật 4: Biến phẳng, không lồng sâu)
+-- ==========================================
 local ConfigManager = Window.ConfigManager
+local AUTOLOAD_FILE = "saveconfigv2.txt"
+local AUTOLOAD_CLONE = "saveconfigv2_clone.txt"
 
 local ConfigState = {
     Name = "",
@@ -4585,9 +4660,12 @@ local ConfigState = {
     AutoSaveLoop = nil
 }
 
-local AUTOLOAD_FILE = "saveconfigv2.txt"
-local AUTOLOAD_CLONE = "saveconfigv2_clone.txt"
+-- Biến toàn cục trong scope này để lưu trữ instance UI sau khi tạo
+local ConfigDropdownElement = nil
 
+-- ==========================================
+-- 2. UTILS & UI NOTIFY (Luật 1: Hàm nhỏ, đơn nhiệm)
+-- ==========================================
 local function Notify(title, content, icon)
     WindUI:Notify({
         Title = title,
@@ -4601,36 +4679,41 @@ local function GetConfigs()
     return ConfigManager:AllConfigs()
 end
 
+-- SỬA LỖI TẠI ĐÂY: Thay SetValue bằng Set (Hỗ trợ fallback an toàn)
 local function RefreshDropdown(dropdown)
-    dropdown:Refresh(GetConfigs())
-    dropdown:SetValue(ConfigState.Selected)
+    if not dropdown then return end
+    
+    local configs = GetConfigs()
+    dropdown:Refresh(configs)
+    
+    local targetValue = ConfigState.Selected
+    if dropdown.Set then
+        dropdown:Set(targetValue)
+    elseif dropdown.SetValue then
+        dropdown:SetValue(targetValue)
+    end
 end
 
 local function ConfigExists(name)
-    if not name or name == "" then
-        return false
-    end
-
+    if not name or name == "" then return false end
+    
     local list = GetConfigs()
-
     for i = 1, #list do
         if list[i] == name then
             return true
         end
     end
-
     return false
 end
 
+-- ==========================================
+-- 3. FILE LOGIC MODULE (Tách biệt logic xử lý file)
+-- ==========================================
 local function SaveAutoLoad(configName, state)
-    if not writefile then
-        return
-    end
-
-    writefile(
-        AUTOLOAD_FILE,
-        string.format("%s|%s", configName or "", state and "1" or "0")
-    )
+    if not writefile then return end
+    
+    local dataString = string.format("%s|%s", configName or "", state and "1" or "0")
+    writefile(AUTOLOAD_FILE, dataString)
 
     if state and isfile and isfile(AUTOLOAD_CLONE) then
         delfile(AUTOLOAD_CLONE)
@@ -4653,74 +4736,77 @@ local function LoadAutoLoad()
     end
 
     local success, result = pcall(readfile, AUTOLOAD_FILE)
-
     if not success then
         return "", false
     end
 
     local name, toggle = tostring(result):match("^(.-)|?(%d?)$")
-
     return name or "", toggle == "1"
 end
 
+-- ==========================================
+-- 4. CONFIG CORE LOGIC (Tách biệt logic cấu hình)
+-- ==========================================
+local function GetConfigObject(name)
+    local success, cfg = pcall(function()
+        return ConfigManager:CreateConfig(name)
+    end)
+    if success then return cfg end
+end
+
+local function SaveConfig(name)
+    local cfg = GetConfigObject(name)
+    if not cfg then return false end
+
+    local success = pcall(function() cfg:Save() end)
+    if success then
+        ConfigState.CurrentObject = cfg
+        Window.CurrentConfig = cfg
+    end
+    return success
+end
+
+local function LoadConfig(name)
+    local cfg = GetConfigObject(name)
+    if not cfg then return false end
+
+    local success = pcall(function() cfg:Load() end)
+    if success then
+        ConfigState.CurrentObject = cfg
+        Window.CurrentConfig = cfg
+    end
+    return success
+end
+
+-- ==========================================
+-- 5. LOOP MODULE (Luật 7: Vòng lặp mỏng, cô lập hành vi)
+-- ==========================================
 local function StopLoops()
     if ConfigState.InitLoop then
         task.cancel(ConfigState.InitLoop)
         ConfigState.InitLoop = nil
     end
-
     if ConfigState.AutoSaveLoop then
         task.cancel(ConfigState.AutoSaveLoop)
         ConfigState.AutoSaveLoop = nil
     end
 end
 
-local function GetConfigObject(name)
-    local success, cfg = pcall(function()
-        return ConfigManager:CreateConfig(name)
-    end)
-
-    if success then
-        return cfg
+local function ExecuteAutoSaveTick()
+    if not ConfigState.AutoLoad then return end
+    local selected = ConfigState.Selected
+    if selected and ConfigExists(selected) then
+        SaveConfig(selected)
     end
 end
 
-local function SaveConfig(name)
-    local cfg = GetConfigObject(name)
-
-    if not cfg then
-        return false
-    end
-
-    local success = pcall(function()
-        cfg:Save()
+local function StartAutoSaveLoop()
+    ConfigState.AutoSaveLoop = task.spawn(function()
+        while ConfigState.AutoLoad do
+            task.wait(5)
+            ExecuteAutoSaveTick()
+        end
     end)
-
-    if success then
-        ConfigState.CurrentObject = cfg
-        Window.CurrentConfig = cfg
-    end
-
-    return success
-end
-
-local function LoadConfig(name)
-    local cfg = GetConfigObject(name)
-
-    if not cfg then
-        return false
-    end
-
-    local success = pcall(function()
-        cfg:Load()
-    end)
-
-    if success then
-        ConfigState.CurrentObject = cfg
-        Window.CurrentConfig = cfg
-    end
-
-    return success
 end
 
 local function StartAutoSave()
@@ -4728,222 +4814,178 @@ local function StartAutoSave()
 
     ConfigState.InitLoop = task.spawn(function()
         for _ = 1, 3 do
-            if not ConfigState.AutoLoad then
-                return
-            end
-
+            if not ConfigState.AutoLoad then return end
             task.wait(1)
-
+            
             local selected = ConfigState.Selected
-
             if selected and ConfigExists(selected) then
                 SaveConfig(selected)
                 LoadConfig(selected)
             end
         end
 
-        if not ConfigState.AutoLoad then
-            return
-        end
+        if not ConfigState.AutoLoad then return end
+        StartAutoSaveLoop()
 
-        ConfigState.AutoSaveLoop = task.spawn(function()
-            while ConfigState.AutoLoad do
-                task.wait(5)
-
-                local selected = ConfigState.Selected
-
-                if selected and ConfigExists(selected) then
-                    SaveConfig(selected)
-                end
-            end
-        end)
-
-        Notify(
-            "hutaohub:Auto_Load",
-            "hutaohub:Config_Content13",
-            "refresh-cw"
-        )
+        Notify("hutaohub:Auto_Load", "hutaohub:Config_Content13", "refresh-cw")
     end)
 end
 
+-- ==========================================
+-- 6. UI CALLBACK HANDLERS (Luật 2, 6: Hàm phẳng làm callback)
+-- ==========================================
+local function OnConfigNameChanged(v)
+    ConfigState.Name = tostring(v or "")
+end
+
+local function OnConfigSelected(v)
+    ConfigState.Selected = v
+end
+
+local function OnMakeConfigPressed()
+    local name = ConfigState.Name
+    if name == "" then
+        Notify("hutaohub:Config", "hutaohub:Config_Content", "circle-alert")
+        return
+    end
+
+    if ConfigExists(name) then
+        Notify("hutaohub:Config", "hutaohub:Config_Content1", "circle-alert")
+        return
+    end
+
+    if not SaveConfig(name) then
+        Notify("hutaohub:Config", "Failed to create config", "circle-alert")
+        return
+    end
+
+    ConfigState.Selected = name
+    RefreshDropdown(ConfigDropdownElement)
+    Notify("hutaohub:Config", "hutaohub:Config_Content2", "check")
+end
+
+local function OnUpdateConfigPressed()
+    local selected = ConfigState.Selected
+    if not selected then
+        Notify("hutaohub:Config", "hutaohub:Config_Content3", "circle-alert")
+        return
+    end
+
+    if not ConfigExists(selected) then
+        Notify("hutaohub:Config", "hutaohub:Config_Content4", "circle-alert")
+        return
+    end
+
+    if SaveConfig(selected) then
+        Notify("hutaohub:Config", "hutaohub:Config_Content5", "refresh-cw")
+    end
+end
+
+local function OnLoadConfigPressed()
+    local selected = ConfigState.Selected
+    if not selected then
+        Notify("hutaohub:Config", "hutaohub:Config_Content6", "circle-alert")
+        return
+    end
+
+    if not ConfigExists(selected) then
+        Notify("hutaohub:Config", "hutaohub:Config_Content7", "circle-alert")
+        return
+    end
+
+    if LoadConfig(selected) then
+        Notify("hutaohub:Config", "hutaohub:Config_Content8", "check")
+    end
+end
+
+local function OnDeleteConfigPressed()
+    local selected = ConfigState.Selected
+    if not selected then
+        Notify("hutaohub:Config", "hutaohub:Config_Content9", "circle-alert")
+        return
+    end
+
+    if not ConfigExists(selected) then
+        Notify("hutaohub:Config", "hutaohub:Config_Content10", "circle-alert")
+        return
+    end
+
+    local cfg = GetConfigObject(selected)
+    if cfg then
+        pcall(function() cfg:Delete() end)
+    end
+
+    ConfigState.Selected = nil
+    ConfigState.CurrentObject = nil
+    RefreshDropdown(ConfigDropdownElement)
+    Notify("hutaohub:Config", "hutaohub:Config_Content11", "trash")
+end
+
+local function OnAutoLoadToggled(state)
+    ConfigState.AutoLoad = state
+    StopLoops()
+
+    if not state then
+        CreateCloneFile()
+        Notify("hutaohub:Auto_Load", "hutaohub:Disabled", "x")
+        return
+    end
+
+    local selected = ConfigState.Selected
+    if not selected then
+        ConfigState.AutoLoad = false
+        Notify("hutaohub:Auto_Load", "hutaohub:Config_Content12", "circle-alert")
+        return
+    end
+
+    SaveAutoLoad(selected, true)
+    Notify("hutaohub:Auto_Load", "Enabled: " .. selected, "check")
+    StartAutoSave()
+end
+
+-- ==========================================
+-- 7. UI GENERATION (Luật 3, 8: Chỉ khởi tạo UI và gán hàm)
+-- ==========================================
 TabHandles.Settings:Input({
     Title = "hutaohub:Config_Name",
     Desc = "hutaohub:Config_Name_Desc",
     Flag = "Config Name",
     Placeholder = "Enter new config name",
     Value = "",
-    Callback = function(v)
-        ConfigState.Name = tostring(v or "")
-    end
+    Callback = OnConfigNameChanged
 })
 
-local ConfigDropdown = TabHandles.Settings:Dropdown({
+ConfigDropdownElement = TabHandles.Settings:Dropdown({
     Title = "hutaohub:Config_List",
     Desc = "hutaohub:Config_List_Desc",
     Flag = "Config List",
     Values = GetConfigs(),
     Value = nil,
-    Callback = function(v)
-        ConfigState.Selected = v
-    end
+    Callback = OnConfigSelected
 })
 
 TabHandles.Settings:Button({
     Title = "hutaohub:Make_Config",
     Desc = "hutaohub:Make_Config_Desc",
-    Callback = function()
-        local name = ConfigState.Name
-
-        if name == "" then
-            Notify(
-                "hutaohub:Config",
-                "hutaohub:Config_Content",
-                "circle-alert"
-            )
-            return
-        end
-
-        if ConfigExists(name) then
-            Notify(
-                "hutaohub:Config",
-                "hutaohub:Config_Content1",
-                "circle-alert"
-            )
-            return
-        end
-
-        if not SaveConfig(name) then
-            Notify(
-                "hutaohub:Config",
-                "Failed to create config",
-                "circle-alert"
-            )
-            return
-        end
-
-        ConfigState.Selected = name
-
-        RefreshDropdown(ConfigDropdown)
-
-        Notify(
-            "hutaohub:Config",
-            "hutaohub:Config_Content2",
-            "check"
-        )
-    end
+    Callback = OnMakeConfigPressed
 })
 
 TabHandles.Settings:Button({
     Title = "hutaohub:Update_Config",
     Desc = "hutaohub:Update_Config_Content",
-    Callback = function()
-        local selected = ConfigState.Selected
-
-        if not selected then
-            Notify(
-                "hutaohub:Config",
-                "hutaohub:Config_Content3",
-                "circle-alert"
-            )
-            return
-        end
-
-        if not ConfigExists(selected) then
-            Notify(
-                "hutaohub:Config",
-                "hutaohub:Config_Content4",
-                "circle-alert"
-            )
-            return
-        end
-
-        if SaveConfig(selected) then
-            Notify(
-                "hutaohub:Config",
-                "hutaohub:Config_Content5",
-                "refresh-cw"
-            )
-        end
-    end
+    Callback = OnUpdateConfigPressed
 })
 
 TabHandles.Settings:Button({
     Title = "hutaohub:Load_Config",
     Desc = "hutaohub:Load_Config_Desc",
-    Callback = function()
-        local selected = ConfigState.Selected
-
-        if not selected then
-            Notify(
-                "hutaohub:Config",
-                "hutaohub:Config_Content6",
-                "circle-alert"
-            )
-            return
-        end
-
-        if not ConfigExists(selected) then
-            Notify(
-                "hutaohub:Config",
-                "hutaohub:Config_Content7",
-                "circle-alert"
-            )
-            return
-        end
-
-        if LoadConfig(selected) then
-            Notify(
-                "hutaohub:Config",
-                "hutaohub:Config_Content8",
-                "check"
-            )
-        end
-    end
+    Callback = OnLoadConfigPressed
 })
 
 TabHandles.Settings:Button({
     Title = "hutaohub:Delete_Config",
     Desc = "hutaohub:Delete_Config_Desc",
-    Callback = function()
-        local selected = ConfigState.Selected
-
-        if not selected then
-            Notify(
-                "hutaohub:Config",
-                "hutaohub:Config_Content9",
-                "circle-alert"
-            )
-            return
-        end
-
-        if not ConfigExists(selected) then
-            Notify(
-                "hutaohub:Config",
-                "hutaohub:Config_Content10",
-                "circle-alert"
-            )
-            return
-        end
-
-        local cfg = GetConfigObject(selected)
-
-        if cfg then
-            pcall(function()
-                cfg:Delete()
-            end)
-        end
-
-        ConfigState.Selected = nil
-        ConfigState.CurrentObject = nil
-
-        RefreshDropdown(ConfigDropdown)
-
-        Notify(
-            "hutaohub:Config",
-            "hutaohub:Config_Content11",
-            "trash"
-        )
-    end
+    Callback = OnDeleteConfigPressed
 })
 
 TabHandles.Settings:Toggle({
@@ -4951,79 +4993,30 @@ TabHandles.Settings:Toggle({
     Desc = "hutaohub:Auto_Load_Config_Desc",
     Flag = "Auto Load Config v2",
     Value = false,
-    Callback = function(state)
-        ConfigState.AutoLoad = state
-
-        StopLoops()
-
-        if not state then
-            CreateCloneFile()
-
-            Notify(
-                "hutaohub:Auto_Load",
-                "hutaohub:Disabled",
-                "x"
-            )
-
-            return
-        end
-
-        local selected = ConfigState.Selected
-
-        if not selected then
-            ConfigState.AutoLoad = false
-
-            Notify(
-                "hutaohub:Auto_Load",
-                "hutaohub:Config_Content12",
-                "circle-alert"
-            )
-
-            return
-        end
-
-        SaveAutoLoad(selected, true)
-
-        Notify(
-            "hutaohub:Auto_Load",
-            "Enabled: " .. selected,
-            "check"
-        )
-
-        StartAutoSave()
-    end
+    Callback = OnAutoLoadToggled
 })
 
+-- ==========================================
+-- 8. INITIALIZATION DEFERRED RUN
+-- ==========================================
 task.delay(1, function()
     local saved, enabled = LoadAutoLoad()
-
-    if saved == "" or not ConfigExists(saved) then
-        return
-    end
+    if saved == "" or not ConfigExists(saved) then return end
 
     ConfigState.Selected = saved
     ConfigState.AutoLoad = enabled
 
     LoadConfig(saved)
-
-    RefreshDropdown(ConfigDropdown)
+    RefreshDropdown(ConfigDropdownElement)
 
     if enabled then
         StartAutoSave()
-
-        Notify(
-            "hutaohub:Auto_Load",
-            "Loaded: " .. saved .. " (enabled)",
-            "check"
-        )
+        Notify("hutaohub:Auto_Load", "Loaded: " .. saved .. " (enabled)", "check")
     else
-        Notify(
-            "hutaohub:Auto_Load",
-            "Loaded: " .. saved .. " (disabled)",
-            "circle-alert"
-        )
+        Notify("hutaohub:Auto_Load", "Loaded: " .. saved .. " (disabled)", "circle-alert")
     end
 end)
+
 
 getgenv().showpingandfps = getgenv().showpingandfps ~= false
 
