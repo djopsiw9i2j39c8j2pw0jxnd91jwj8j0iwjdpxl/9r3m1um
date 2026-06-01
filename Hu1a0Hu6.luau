@@ -169,6 +169,8 @@ baseTranslations = {
     ["Auto_BloodHunt_Desc"] = "Auto use skill BloodHunt",
     ["Auto_Complete_Mini_Game"] = "Complete Mini Game",
     ["Auto_Complete_Mini_Game_Desc"] = "Auto complete the mini-game that appears on the screen.",
+    ["Bloodhook_Aimbot"] = "Bloodhook Aimbot",
+    ["Bloodhook_Aimbot_Desc"] = "Auto detect the nearest survivors and attack.",
     ["MassInfection_Aimbot"] = "MassInfection Aimbot",
     ["Entanglement_Aimbot"] = "Entanglement Aimbot",
     ["Massinfection_Entanglement_Desc"] = "Automatically aimbot the nearest survivors.",
@@ -662,7 +664,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.3.3", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.3.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -1682,73 +1684,83 @@ TabHandles.Farm:Input({
 
 TabHandles.Farm:Section({ Title = "hutaohub:Items_Settings", Icon = "backpack" })
 
--- =================================================================
--- 1. SYSTEM STATE (Quy tắc 4: Biến phẳng hoàn toàn bằng getgenv)
--- =================================================================
 getgenv().AutoPickupSelected = getgenv().AutoPickupSelected or false
 getgenv().AutoPickupNearest = getgenv().AutoPickupNearest or false
 getgenv().SelectedItemToPickup = getgenv().SelectedItemToPickup or nil
 getgenv().CachedItemHash = getgenv().CachedItemHash or ""
+getgenv().LiveItemCache = getgenv().LiveItemCache or {}
 
--- =================================================================
--- 2. HELPER MODULE (Quy tắc 1 & 2: Hàm nhỏ, độc lập)
--- =================================================================
 local function IsSurvivor()
-    return localPlayer.Character and localPlayer.Character.Parent == survivorsFolder
-end
-
-local function GetMap()
-    local mapContainer = Workspace:FindFirstChild("Map")
-    local ingame = mapContainer and mapContainer:FindFirstChild("Ingame")
-    return ingame and ingame:FindFirstChild("Map") or nil
+    return playerCharacter and playerCharacter.Parent == survivorsFolder
 end
 
 local function GetRootPart()
-    return localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    return playerCharacter and playerCharacter:FindFirstChild("HumanoidRootPart")
 end
 
--- Hàm lọc tất cả các item hợp lệ trên bản đồ
-local function GetAvailableItems()
-    local map = GetMap()
-    local validItems = {}
-    if not map then return validItems end
+local function InspectAndCacheObject(obj)
+    if not obj:IsA("ProximityPrompt") then return end
+    
+    local itemRoot = obj.Parent
+    if not itemRoot or itemRoot.Name ~= "ItemRoot" then return end
+    
+    local item = itemRoot.Parent
+    if not item or item:FindFirstChild("Humanoid") then return end
 
-    for _, item in ipairs(map:GetChildren()) do
-        if item:IsA("Tool") then
-            local root = item:FindFirstChild("ItemRoot")
-            local prompt = root and root:FindFirstChild("ProximityPrompt")
-            if root and prompt then
-                table.insert(validItems, item)
-            end
+    getgenv().LiveItemCache[item] = obj
+end
+
+Workspace.DescendantAdded:Connect(function(descendant)
+    task.delay(0.1, function() InspectAndCacheObject(descendant) end)
+end)
+
+task.spawn(function()
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        InspectAndCacheObject(obj)
+    end
+end)
+
+local function GetAvailableItems()
+    local validItems = {}
+    
+    for item, prompt in pairs(getgenv().LiveItemCache) do
+        if item and item.Parent and prompt and prompt.Parent and prompt.Enabled then
+            table.insert(validItems, item)
+        else
+            getgenv().LiveItemCache[item] = nil
         end
     end
+    
     return validItems
 end
 
--- Hàm Teleport mượt mà (tách riêng để tái sử dụng)
 local function TeleportAndPickup(item)
     if not item then return end
     local rootPart = GetRootPart()
     if not rootPart then return end
 
+    local prompt = getgenv().LiveItemCache[item]
     local itemRoot = item:FindFirstChild("ItemRoot")
-    local prompt = itemRoot and itemRoot:FindFirstChild("ProximityPrompt")
     if not itemRoot or not prompt then return end
 
-    -- Lưu vị trí cũ, Dịch chuyển -> Nhặt -> Quay về
     local oldCFrame = rootPart.CFrame
     rootPart.CFrame = itemRoot.CFrame
-    task.wait(0.25) -- Chờ server load vị trí
+    task.wait(0.25)
     
-    pcall(function() fireproximityprompt(prompt) end)
+    pcall(function() 
+        local oldLOS = prompt.RequiresLineOfSight
+        prompt.RequiresLineOfSight = false
+        fireproximityprompt(prompt) 
+        
+        task.delay(0.1, function()
+            if prompt and prompt.Parent then prompt.RequiresLineOfSight = oldLOS end
+        end)
+    end)
     
-    task.wait(0.3) -- Chờ nhặt xong
+    task.wait(0.3)
     rootPart.CFrame = oldCFrame
 end
 
--- =================================================================
--- 3. LOGIC MODULE: CÁC CHẾ ĐỘ NHẶT ITEM (Luật 5: Chia scope)
--- =================================================================
 local function PickUpSpecificItem(itemName)
     local rootPart = GetRootPart()
     if not rootPart then return end
@@ -1795,7 +1807,6 @@ local function PickUpRandomItem()
     end
 end
 
--- Quản lý logic Loop tự động
 local function ProcessAutoPickup()
     if not IsSurvivor() then return end
     
@@ -1806,18 +1817,13 @@ local function ProcessAutoPickup()
     end
 end
 
--- =================================================================
--- 4. MASTER LOOP & AUTO UPDATER (Luật 7: Loop siêu mỏng)
--- =================================================================
--- Loop thực thi nhặt đồ (Chạy mỗi 0.8s để tránh spam Teleport quá nhanh)
 task.spawn(function()
     while task.wait(0.8) do
         ProcessAutoPickup()
     end
 end)
 
--- Loop chạy nền: Liên tục quét map để làm mới Dropdown mỗi 2 giây
-local ItemDropdown -- Khai báo trước để Loop dùng được
+local ItemDropdown 
 task.spawn(function()
     while task.wait(2) do
         if ItemDropdown then
@@ -1831,17 +1837,12 @@ task.spawn(function()
                 end
             end
             
-            -- Dùng chuỗi gộp để kiểm tra xem map có thay đổi item không
             local newHash = table.concat(uniqueNames, ",")
             if getgenv().CachedItemHash ~= newHash then
                 getgenv().CachedItemHash = newHash
-                -- Tự động cập nhật Dropdown an toàn
-                pcall(function()
-                    ItemDropdown:SetValues(uniqueNames)
-                end)
-                pcall(function()
-                    ItemDropdown:Refresh(uniqueNames) -- Hỗ trợ thêm cho các thư viện UI khác
-                end)
+                
+                pcall(function() ItemDropdown:SetValues(uniqueNames) end)
+                pcall(function() ItemDropdown:Refresh(uniqueNames) end)
             end
         end
     end
@@ -1898,29 +1899,20 @@ TabHandles.Farm:Toggle({
     end
 })
 
--- =================================================================
--- 1. SYSTEM STATE (Quy tắc 4: Biến phẳng hoàn toàn bằng getgenv)
--- =================================================================
 getgenv().AutoAbilityEnabled = getgenv().AutoAbilityEnabled or false
 getgenv().AutoAbilityRange = getgenv().AutoAbilityRange or 25
 getgenv().AutoUseAllSkills = getgenv().AutoUseAllSkills or true
 
--- Biến phẳng hoàn toàn cho Extra Abilities theo Quy tắc 4
 getgenv().AutoRagingPace = getgenv().AutoRagingPace or false
 getgenv().AutoPizzaDelivery = getgenv().AutoPizzaDelivery or false
 getgenv().Auto404Error = getgenv().Auto404Error or false
 getgenv().AutoUnstableEye = getgenv().AutoUnstableEye or false
 getgenv().AutoBloodHunt = getgenv().AutoBloodHunt or false
 
--- NÚT MỚI: Tự động click QTE ActiveButton (Sử dụng getgenv phẳng)
 getgenv().AutoActiveButton = getgenv().AutoActiveButton or false
 
--- Mảng hằng số (Chỉ đọc, nằm ngoài loop để tối ưu RAM)
 local AbilityButtons = {"Carving Slash", "Slash", "Punch", "Stab"}
 
--- =================================================================
--- 2. HELPER MODULE (Quy tắc 1: Hàm nhỏ, tối ưu hiệu năng)
--- =================================================================
 local function IsKiller()
     local char = localPlayer.Character
     return char and char.Parent == killersFolder
@@ -1954,11 +1946,6 @@ local function FireButton(btn)
     pcall(function() btn:Activate() end)
 end
 
--- =================================================================
--- 3. LOGIC MODULE: SKILLS & QTE (Quy tắc 2: Loại bỏ hoàn toàn Nesting)
--- =================================================================
-
--- Logic xử lý click nút QTE ActiveButton (Đường dẫn tạm thời)
 local function ProcessQTEActiveButton()
     if not getgenv().AutoActiveButton then return end
     
@@ -1972,9 +1959,7 @@ local function ProcessQTEActiveButton()
     end
 end
 
--- Logic quét và xử lý skill trong Container (Chia nhỏ scope)
 local function ProcessAbilityContainer(container)
-    -- 1. Tự động dùng toàn bộ skill hiện có
     if getgenv().AutoUseAllSkills and getgenv().AutoKillerFarm then
         for _, obj in ipairs(container:GetChildren()) do
             if obj:IsA("TextButton") or obj:IsA("ImageButton") then
@@ -1983,7 +1968,6 @@ local function ProcessAbilityContainer(container)
         end
     end
 
-    -- 2. Tự động combo skill cơ bản theo khoảng cách thiết lập
     if getgenv().AutoAbilityEnabled and HasSurvivorInRange(getgenv().AutoAbilityRange) then
         for _, name in ipairs(AbilityButtons) do
             local btn = container:FindFirstChild(name)
@@ -1993,7 +1977,6 @@ local function ProcessAbilityContainer(container)
         end
     end
 
-    -- 3. Tự động kích hoạt các Skill bổ sung (Gọi trực tiếp getgenv phẳng)
     if getgenv().AutoRagingPace then
         local btn = container:FindFirstChild("RagingPace")
         if btn and (btn:IsA("TextButton") or btn:IsA("ImageButton")) then FireButton(btn) end
@@ -2028,19 +2011,13 @@ local function ProcessAutoAbilities()
     end
 end
 
--- =================================================================
--- 4. MASTER LOOP (Quy tắc 7: Vòng lặp siêu mỏng, chỉ thực thi Update)
--- =================================================================
 task.spawn(function()
     while task.wait(0.1) do
         ProcessAutoAbilities()
-        ProcessQTEActiveButton() -- Thực thi song song độc lập
+        ProcessQTEActiveButton()
     end
 end)
 
--- =================================================================
--- 5. UI MODULE (Giữ nguyên chuỗi gốc gốc của bro + ánh xạ getgenv)
--- =================================================================
 TabHandles.Killers:Input({
     Title = "hutaohub:Auto_Attack_Range",
     Desc = "hutaohub:Auto_Attack_Range_Desc",
@@ -2140,53 +2117,39 @@ TabHandles.Killers:Toggle({
     end
 })
 
-TabHandles.Killers:Section({ Title = "1x1x1x1", Icon = "swords" })
+getgenv().AimbotExtra = getgenv().AimbotExtra or false
+getgenv().AimbotMain = getgenv().AimbotMain or false
+getgenv().AimbotAlt = getgenv().AimbotAlt or false
 
-local enabled = {
-    main = false,
-    alt = false
-}
-
-local state = {
-    playing = { main = false, alt = false },
-    target = { main = nil, alt = nil }
-}
+local playExtra, playMain, playAlt = false, false, false
+local tarExtra, tarMain, tarAlt = nil, nil, nil
 
 local soundMaps = {
-    main = {
-        ["105934041806374"] = true,
-        ["132331977491979"] = true
-    },
-    alt = {
-        ["70845653728841"] = true
-    }
+    extra = { ["120038054863702"] = true }, -- SOUND MỚI
+    main = { ["105934041806374"] = true, ["132331977491979"] = true },
+    alt = { ["70845653728841"] = true }
 }
 
 local function isKiller()
-    if not playerCharacter then return false end
-
-    for _, v in ipairs(killersFolder:GetChildren()) do
-        if v == playerCharacter then
-            return true
-        end
-    end
-    return false
+    return playerCharacter and playerCharacter.Parent == killersFolder
 end
 
 local function getClosestSurvivor()
-    if not playerCharacter or not playerCharacter:FindFirstChild("HumanoidRootPart") then
-        return nil
-    end
+    if not playerCharacter then return nil end
+    local root = playerCharacter:FindFirstChild("HumanoidRootPart")
+    if not root then return nil end
 
-    local root = playerCharacter.HumanoidRootPart
     local closest, dist = nil, math.huge
 
     for _, plr in ipairs(survivorsFolder:GetChildren()) do
-        if plr:IsA("Model") and plr:FindFirstChild("HumanoidRootPart") then
-            local d = (root.Position - plr.HumanoidRootPart.Position).Magnitude
-            if d < dist then
-                dist = d
-                closest = plr
+        if plr ~= playerCharacter and plr:IsA("Model") then
+            local plrRoot = plr:FindFirstChild("HumanoidRootPart")
+            if plrRoot then
+                local d = (root.Position - plrRoot.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    closest = plr
+                end
             end
         end
     end
@@ -2200,13 +2163,20 @@ local function checkSound(map)
     for _, obj in ipairs(playerCharacter:GetDescendants()) do
         if obj:IsA("Sound") and obj.IsPlaying then
             local id = string.match(obj.SoundId, "%d+")
-            if id and map[id] then
-                return true
+            if id and map[id] then 
+                return true 
             end
         end
     end
-
     return false
+end
+
+local function setAutoRotate(state)
+    if not playerCharacter then return end
+    local humanoid = playerCharacter:FindFirstChild("Humanoid")
+    if humanoid and humanoid.AutoRotate ~= state then
+        humanoid.AutoRotate = state
+    end
 end
 
 local function face(target)
@@ -2221,56 +2191,93 @@ local function face(target)
         Vector3.new(troot.Position.X, root.Position.Y, troot.Position.Z)
     )
 
-    -- Sử dụng Lerp trực tiếp: Siêu mượt, không tạo Instance mới, không tốn RAM
     root.CFrame = root.CFrame:Lerp(goal, 0.99)
 end
 
---// MAIN LOOP (Gộp Main & Alt làm một để giải phóng thanh ghi)
-local loopKeys = {"main", "alt"}
+local function ProcessAimbotLogic()
+    if not isKiller() then return end
 
-local function RunAimbotLogicLoop()
-    while task.wait(0.05) do
-        if not isKiller() then continue end
+    local isAimingThisFrame = false
 
-        for _, key in ipairs(loopKeys) do
-            if enabled[key] then
-                local soundNow = checkSound(soundMaps[key])
-
-                -- START → LOCK ONCE
-                if soundNow and not state.playing[key] then
-                    state.playing[key] = true
-                    state.target[key] = getClosestSurvivor()
-                end
-
-                -- ACTIVE
-                if state.playing[key] then
-                    local currentTarget = state.target[key]
-                    if currentTarget and currentTarget.Parent then
-                        face(currentTarget)
-                    end
-
-                    -- END
-                    if not soundNow then
-                        state.playing[key] = false
-                        state.target[key] = nil
-                    end
-                end
+    if getgenv().AimbotExtra then
+        local soundNow = checkSound(soundMaps.extra)
+        if soundNow and not playExtra then
+            playExtra = true
+            tarExtra = getClosestSurvivor()
+        end
+        if playExtra then
+            if tarExtra and tarExtra.Parent then 
+                face(tarExtra) 
+                isAimingThisFrame = true
+            end
+            if not soundNow then
+                playExtra, tarExtra = false, nil
             end
         end
     end
+
+    if getgenv().AimbotMain then
+        local soundNow = checkSound(soundMaps.main)
+        if soundNow and not playMain then
+            playMain = true
+            tarMain = getClosestSurvivor()
+        end
+        if playMain then
+            if tarMain and tarMain.Parent then 
+                face(tarMain) 
+                isAimingThisFrame = true
+            end
+            if not soundNow then
+                playMain, tarMain = false, nil
+            end
+        end
+    end
+
+    if getgenv().AimbotAlt then
+        local soundNow = checkSound(soundMaps.alt)
+        if soundNow and not playAlt then
+            playAlt = true
+            tarAlt = getClosestSurvivor()
+        end
+        if playAlt then
+            if tarAlt and tarAlt.Parent then 
+                face(tarAlt) 
+                isAimingThisFrame = true
+            end
+            if not soundNow then
+                playAlt, tarAlt = false, nil
+            end
+        end
+    end
+
+    setAutoRotate(not isAimingThisFrame)
 end
 
--- Kích hoạt luồng chạy phẳng không lồng closure ẩn danh
-task.spawn(RunAimbotLogicLoop)
+task.spawn(function()
+    while task.wait(0.05) do
+        ProcessAimbotLogic()
+    end
+end)
 
---// TOGGLES (Kết nối mượt mà vào hệ thống WindUI toàn cục bên trên)
+TabHandles.Killers:Toggle({
+    Title = "hutaohub:Bloodhook_Aimbot", 
+    Desc = "hutaohub:Bloodhook_Aimbot_Desc",
+    Flag = "Bloodhook Aimbot",
+    Value = false,
+    Callback = function(state)
+        getgenv().AimbotExtra = state
+    end
+})
+
+TabHandles.Killers:Section({ Title = "1x1x1x1", Icon = "swords" })
+
 TabHandles.Killers:Toggle({
     Title = "hutaohub:MassInfection_Aimbot",
     Desc = "hutaohub:Massinfection_Entanglement_Desc",
     Flag = "MassInfection Aimbot",
     Value = false,
-    Callback = function(v)
-        enabled.main = v
+    Callback = function(state)
+        getgenv().AimbotMain = state
     end
 })
 
@@ -2279,11 +2286,10 @@ TabHandles.Killers:Toggle({
     Desc = "hutaohub:Massinfection_Entanglement_Desc",
     Flag = "Entanglement",
     Value = false,
-    Callback = function(v)
-        enabled.alt = v
+    Callback = function(state)
+        getgenv().AimbotAlt = state
     end
 })
-
 
 local function GetBestSteeringDir(rootPart, targetPos, sensorCount, sensorSpread, filterList)
     local dirToTarget = (Vector3.new(targetPos.X, rootPart.Position.Y, targetPos.Z) - rootPart.Position).Unit
@@ -2559,141 +2565,168 @@ TabHandles.Killers:Toggle({
     Callback = function(s) wallCheck = s end 
 })
 
+-- =================================================================
+-- 1. SYSTEM STATE (Quy tắc 4: Biến phẳng hoàn toàn bằng getgenv)
+-- =================================================================
+getgenv().FakeNameState = getgenv().FakeNameState or {
+    Enabled = false,
+    FakeName = "",
+    -- Kỹ thuật __mode = "k" giúp tự động xóa Object khỏi Table khi UI bị game hủy (Chống Memory Leak)
+    OriginalTexts = setmetatable({}, { __mode = "k" }), 
+    Connections = {}
+}
 
-TabHandles.Name:Section({
-    Title = "You Name",
-    Icon = "user-check"
-})
-
-local fakeName = ""
-local enabled = false
-local originalTexts = {}
-
-local FakeNameThread = nil
-
-local function getPlayerGui()
+-- =================================================================
+-- 2. HELPER MODULE (Quy tắc 1 & 2: Hàm nhỏ, logic độc lập)
+-- =================================================================
+local function GetPlayerGui()
     return localPlayer:FindFirstChildOfClass("PlayerGui")
 end
 
-local function getTargetGuis()
-    local pg = getPlayerGui()
-
-    if not pg then
-        return {}
-    end
+-- Định vị chính xác các khu vực chứa tên cần quét
+local function GetTargetGuis()
+    local pg = GetPlayerGui()
+    if not pg then return {} end
 
     local targets = {}
-
+    
     local tempUI = pg:FindFirstChild("TemporaryUI", true)
-
     if tempUI then
         local playerInfo = tempUI:FindFirstChild("PlayerInfo", true)
-
-        if playerInfo then
-            table.insert(targets, playerInfo)
-        end
+        if playerInfo then table.insert(targets, playerInfo) end
     end
 
     local mainUI = pg:FindFirstChild("MainUI", true)
-
     if mainUI then
         local playerList = mainUI:FindFirstChild("PlayerListHolder", true)
-
-        if playerList then
-            table.insert(targets, playerList)
-        end
+        if playerList then table.insert(targets, playerList) end
     end
 
     return targets
 end
 
-local function applyToObject(obj)
-    if not (
-        obj:IsA("TextLabel")
-        or obj:IsA("TextButton")
-        or obj:IsA("TextBox")
-    ) then
-        return
-    end
+-- =================================================================
+-- 3. CORE LOGIC ENGINE (Xử lý chuỗi và ép Text giả)
+-- =================================================================
+local function ApplyToObject(obj, state)
+    if not (obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox")) then return end
 
     local text = obj.Text
+    if not text or text == "" then return end
 
-    if not text or text == "" then
-        return
-    end
-
-    if not originalTexts[obj] then
+    -- Nếu chưa lưu text gốc, tiến hành kiểm tra và lưu lại
+    if not state.OriginalTexts[obj] then
         if string.find(text, localPlayer.Name) then
-            originalTexts[obj] = text
+            state.OriginalTexts[obj] = text
         else
             return
         end
     end
 
-    if enabled and fakeName ~= "" then
-        obj.Text = string.gsub(
-            originalTexts[obj],
-            localPlayer.Name,
-            fakeName
-        )
+    -- Thực hiện hoán đổi tên thật thành tên giả
+    if state.Enabled and state.FakeName ~= "" then
+        local targetText = string.gsub(state.OriginalTexts[obj], localPlayer.Name, state.FakeName)
+        if obj.Text ~= targetText then
+            obj.Text = targetText -- Chỉ đè khi khác biệt để tránh loop vô hạn
+        end
     else
-        obj.Text = originalTexts[obj]
-    end
-end
-
-local function applyFakeName()
-    for _, gui in ipairs(getTargetGuis()) do
-        if gui.Name == "PlayerListHolder" then
-            local label = gui:FindFirstChild("Username", true)
-
-            if label then
-                applyToObject(label)
-            end
-        else
-            for _, obj in ipairs(gui:GetDescendants()) do
-                applyToObject(obj)
-            end
+        if obj.Text ~= state.OriginalTexts[obj] then
+            obj.Text = state.OriginalTexts[obj]
         end
     end
 end
 
-local function startFakeNameLoop()
-    if FakeNameThread then
-        return
-    end
-
-    FakeNameThread = task.spawn(function()
-        while enabled do
-            pcall(applyFakeName)
-            task.wait(0.3)
+-- [ĐÃ FIX BUG] Quét sạch toàn bộ ngóc ngách, không bỏ sót bất kỳ Player nào
+local function ScanAndApplyFakeName()
+    local state = getgenv().FakeNameState
+    for _, gui in ipairs(GetTargetGuis()) do
+        -- Duyệt qua TOÀN BỘ Descendants thay vì chỉ tìm cái đầu tiên
+        for _, obj in ipairs(gui:GetDescendants()) do
+            ApplyToObject(obj, state)
         end
+    end
+end
 
-        FakeNameThread = nil
+-- Khôi phục lại tên thật khi tắt tính năng
+local function RestoreOriginalNames()
+    local state = getgenv().FakeNameState
+    for obj, text in pairs(state.OriginalTexts) do
+        if obj and obj.Parent then
+            pcall(function() obj.Text = text end)
+        end
+    end
+    table.clear(state.OriginalTexts)
+end
+
+-- =================================================================
+-- 4. MASTER SIGNAL CONTROLLER (Quản lý Event & Loop chạy nền)
+-- =================================================================
+local function CleanupConnections()
+    local state = getgenv().FakeNameState
+    for _, conn in ipairs(state.Connections) do
+        if conn then conn:Disconnect() end
+    end
+    table.clear(state.Connections)
+end
+
+local function StartFakeNameSystem()
+    local state = getgenv().FakeNameState
+    if not state.Enabled then return end
+
+    CleanupConnections()
+    ScanAndApplyFakeName()
+
+    -- Lắng nghe thời gian thực: Bảng điểm sinh ra dòng mới là đè Fake Name luôn lập tức (Không đợi loop)
+    local pg = GetPlayerGui()
+    if pg then
+        table.insert(state.Connections, pg.DescendantAdded:Connect(function(desc)
+            if not state.Enabled then return end
+            -- Chờ nhẹ 1 frame để game gán dữ liệu chữ vào UI xong xuôi
+            task.skip() 
+            local targets = GetTargetGuis()
+            for _, target in ipairs(targets) do
+                if desc:IsDescendantOf(target) then
+                    ApplyToObject(desc, state)
+                    break
+                end
+            end
+        end))
+    end
+end
+
+-- [QUY TẮC 7] Duy trì duy nhất 1 Loop chạy nền siêu mỏng toàn hệ thống (Chống đè thread khi re-execute)
+if not getgenv().FakeNameLoopInitialized then
+    getgenv().FakeNameLoopInitialized = true
+    task.spawn(function()
+        while task.wait(0.1) do -- 0.1 giây kiểm tra bảo vệ là quá đủ vì đã có Event bắt bên trên
+            local state = getgenv().FakeNameState
+            if state and state.Enabled then
+                pcall(ScanAndApplyFakeName)
+            end
+        end
     end)
 end
 
-local function stopFakeNameLoop()
-    enabled = false
-
-    -- Restore text gốc
-    for obj, text in pairs(originalTexts) do
-        if obj and obj.Parent then
-            obj.Text = text
-        end
-    end
-end
+-- =================================================================
+-- 5. UI BINDING (Ghép chuẩn thư viện UI của bro)
+-- =================================================================
+TabHandles.Name:Section({
+    Title = "You Name",
+    Icon = "user-check"
+})
 
 TabHandles.Name:Input({
     Title = "hutaohub:Custom_Name",
     Desc = "hutaohub:Custom_Name_Desc",
     Flag = "Custom Name",
-    Value = "",
+    Value = getgenv().FakeNameState.FakeName,
     Placeholder = "Enter Fake Name",
     Callback = function(v)
-        fakeName = tostring(v or "")
+        local state = getgenv().FakeNameState
+        state.FakeName = tostring(v or "")
 
-        if enabled then
-            applyFakeName()
+        if state.Enabled then
+            ScanAndApplyFakeName()
         end
     end
 })
@@ -2702,15 +2735,16 @@ TabHandles.Name:Toggle({
     Title = "hutaohub:Fake_Name",
     Desc = "hutaohub:Fake_Name_Desc",
     Flag = "Fake Name",
-    Value = false,
+    Value = getgenv().FakeNameState.Enabled,
     Callback = function(state)
-        enabled = state
+        local globalState = getgenv().FakeNameState
+        globalState.Enabled = state
 
         if state then
-            startFakeNameLoop()
-            applyFakeName()
+            StartFakeNameSystem()
         else
-            stopFakeNameLoop()
+            CleanupConnections()
+            RestoreOriginalNames()
         end
     end
 })
