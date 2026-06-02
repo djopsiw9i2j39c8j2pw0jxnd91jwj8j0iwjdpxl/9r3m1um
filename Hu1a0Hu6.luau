@@ -27,311 +27,6 @@ localPlayer.CharacterAdded:Connect(function(character)
     playerCharacter = character
 end)
 
-getgenv().FlowAutoSolve = false
-getgenv().FlowSolveDelay = 0.08
-getgenv().FlowDebug = false
-getgenv().FlowActivePuzzles = {}
-getgenv().FlowIsDrawing = false
-getgenv().FlowPathCache = {}
-getgenv().FlowUsedCache = {}
-
-local PlayerGui = localPlayer:WaitForChild("PlayerGui")
-
-local function debugPrint(...)
-    if getgenv().FlowDebug then
-        print("[FLOW DEBUG]:", ...)
-    end
-end
-
-local function safeCall(fn, ...)
-    local ok, res = pcall(fn, ...)
-    if ok then return res end
-    debugPrint("Lỗi thực thi hàm:", res)
-end
-
-getgenv().isFlowGuiVisible = function()
-    local puzzleUI = PlayerGui:FindFirstChild("PuzzleUI")
-    if puzzleUI and puzzleUI:IsA("ScreenGui") and puzzleUI.Enabled then
-        local container = puzzleUI:FindFirstChild("Container")
-        local gridHolder = container and container:FindFirstChild("GridHolder")
-        local grid = gridHolder and gridHolder:FindFirstChild("Grid")
-        
-        if grid and grid.Visible then
-            return grid
-        end
-    end
-    return nil
-end
-
-local function IsPuzzle(tbl)
-    if typeof(tbl) ~= "table" then return false end
-    if rawget(tbl, "Solution") then return true end
-    if rawget(tbl, "paths") and rawget(tbl, "updateGui") then return true end
-    return false
-end
-
-local function getDirection(r1, c1, r2, c2)
-    if r2 < r1 then return "up" end
-    if r2 > r1 then return "down" end
-    if c2 < c1 then return "left" end
-    if c2 > c1 then return "right" end
-end
-
-local function getConnections(prev, curr, nextNode)
-    local connections = {}
-    if prev and curr then
-        local dir = getDirection(curr.row, curr.col, prev.row, prev.col)
-        if dir == "up" then dir = "down"
-        elseif dir == "down" then dir = "up"
-        elseif dir == "left" then dir = "right"
-        elseif dir == "right" then dir = "left" end
-        if dir then connections[dir] = true end
-    end
-    if nextNode and curr then
-        local dir = getDirection(curr.row, curr.col, nextNode.row, nextNode.col)
-        if dir then connections[dir] = true end
-    end
-    return connections
-end
-
-local function isNeighbour(a, b)
-    return math.abs(a.row - b.row) + math.abs(a.col - b.col) == 1
-end
-
-local function sortPathByRealEnds(unorderedPath)
-    if not unorderedPath or #unorderedPath <= 1 then return unorderedPath end
-
-    table.clear(getgenv().FlowPathCache)
-    table.clear(getgenv().FlowUsedCache)
-    
-    for i = 1, #unorderedPath do
-        local node = unorderedPath[i]
-        getgenv().FlowPathCache[i] = {row = node.row, col = node.col}
-    end
-
-    local startNodeIndex = 1
-    for i = 1, #getgenv().FlowPathCache do
-        local nodeA = getgenv().FlowPathCache[i]
-        local neighbors = 0
-        for j = 1, #getgenv().FlowPathCache do
-            if i ~= j and isNeighbour(nodeA, getgenv().FlowPathCache[j]) then
-                neighbors = neighbors + 1
-            end
-        end
-        if neighbors == 1 then
-            startNodeIndex = i
-            break
-        end
-    end
-
-    local ordered = {}
-    ordered[1] = getgenv().FlowPathCache[startNodeIndex]
-    getgenv().FlowUsedCache[startNodeIndex] = true
-
-    for _ = 2, #getgenv().FlowPathCache do
-        local last = ordered[#ordered]
-        local foundNext = false
-
-        for i = 1, #getgenv().FlowPathCache do
-            if not getgenv().FlowUsedCache[i] and isNeighbour(last, getgenv().FlowPathCache[i]) then
-                table.insert(ordered, getgenv().FlowPathCache[i])
-                getgenv().FlowUsedCache[i] = true
-                foundNext = true
-                break
-            end
-        end
-
-        if not foundNext then
-            for i = 1, #getgenv().FlowPathCache do
-                if not getgenv().FlowUsedCache[i] then
-                    table.insert(ordered, getgenv().FlowPathCache[i])
-                    getgenv().FlowUsedCache[i] = true
-                    break
-                end
-            end
-        end
-    end
-
-    return ordered
-end
-
-local function findMethod(obj, names)
-    for i = 1, #names do
-        local name = names[i]
-        if typeof(obj[name]) == "function" then
-            return obj[name]
-        end
-    end
-end
-
-getgenv().SolveFlowPuzzle = function(puzzle, targetColorIndex)
-    if not getgenv().FlowAutoSolve or not IsPuzzle(puzzle) or not puzzle.Solution then return end
-
-    getgenv().FlowIsDrawing = true
-
-    puzzle.paths = puzzle.paths or {}
-    puzzle.gridConnections = puzzle.gridConnections or {}
-
-    local updateGui = findMethod(puzzle, {"updateGui", "UpdateGui", "Render", "render"})
-    local checkWin = findMethod(puzzle, {"checkForWin", "CheckForWin", "WinCheck"})
-    
-    local indices = {}
-    if targetColorIndex then
-        table.insert(indices, targetColorIndex)
-    else
-        for i = 1, #puzzle.Solution do 
-            table.insert(indices, i) 
-        end
-    end
-
-    for idx = 1, #indices do
-        local colorIndex = indices[idx]
-        local ordered = sortPathByRealEnds(puzzle.Solution[colorIndex])
-        
-        if ordered and #ordered > 0 then
-            puzzle.paths[colorIndex] = {}
-            for i = 1, #ordered do
-                puzzle.gridConnections[ordered[i].row.."-"..ordered[i].col] = nil
-            end
-
-            for i = 1, #ordered do
-                if not getgenv().FlowAutoSolve then 
-                    getgenv().FlowIsDrawing = false 
-                    return 
-                end 
-
-                local node = ordered[i]
-                table.insert(puzzle.paths[colorIndex], {row = node.row, col = node.col})
-
-                local prev = ordered[i-1]
-                local nextNode = ordered[i+1]
-
-                puzzle.gridConnections[node.row.."-"..node.col] = getConnections(prev, node, nextNode)
-
-                if updateGui and getgenv().isFlowGuiVisible() then
-                    safeCall(updateGui, puzzle)
-                end
-
-                if getgenv().isFlowGuiVisible() then
-                    task.wait(getgenv().FlowSolveDelay)
-                end
-            end
-        end
-
-        if checkWin and getgenv().isFlowGuiVisible() then
-            safeCall(checkWin, puzzle)
-        end
-    end
-
-    getgenv().FlowIsDrawing = false
-end
-
-getgenv().triggerFlowSolvers = function()
-    for puzzle, _ in pairs(getgenv().FlowActivePuzzles) do
-        task.spawn(function() getgenv().SolveFlowPuzzle(puzzle) end)
-    end
-end
-
-task.spawn(function()
-    local lastGuiState = false
-    while true do
-        task.wait(0.15)
-        
-        if getgenv().FlowAutoSolve then
-            local currentGuiState = (getgenv().isFlowGuiVisible() ~= nil)
-            
-            if currentGuiState and not lastGuiState then
-                task.wait(0.3) 
-                getgenv().triggerFlowSolvers()
-            end
-            
-            lastGuiState = currentGuiState
-            
-            if currentGuiState and not getgenv().FlowIsDrawing then
-                for puzzle, _ in pairs(getgenv().FlowActivePuzzles) do
-                    if puzzle.Solution and puzzle.paths then
-                        for colorIndex = 1, #puzzle.Solution do
-                            local currentPath = puzzle.paths[colorIndex]
-                            if not currentPath or #currentPath == 0 then
-                                getgenv().SolveFlowPuzzle(puzzle, colorIndex)
-                                break
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end)
-
-local HookedModules = {}
-local function HookModule(moduleScript)
-    if HookedModules[moduleScript] then return end
-    HookedModules[moduleScript] = true
-
-    local success, module = pcall(require, moduleScript)
-    if not success or typeof(module) ~= "table" or typeof(module.new) ~= "function" then return end
-
-    debugPrint("Đã kết nối thành công hệ thống:", moduleScript:GetFullName())
-
-    local oldNew = module.new
-    module.new = function(...)
-        local result = oldNew(...)
-        task.spawn(function()
-            task.wait(0.05)
-            safeCall(function()
-                if IsPuzzle(result) then
-                    getgenv().FlowActivePuzzles[result] = true
-                    getgenv().SolveFlowPuzzle(result)
-                    return
-                end
-                if typeof(result) == "table" then
-                    for _, v in pairs(result) do
-                        if IsPuzzle(v) then 
-                            getgenv().FlowActivePuzzles[v] = true
-                            getgenv().SolveFlowPuzzle(v) 
-                        end
-                    end
-                end
-            end)
-        end)
-        return result
-    end
-end
-
-local function ScanModules()
-    local safeContainers = {ReplicatedStorage, PlayerGui, StarterGui}
-
-    for c = 1, #safeContainers do
-        local container = safeContainers[c]
-        task.spawn(function()
-            local descendants = container:GetDescendants()
-            for i = 1, #descendants do
-                local obj = descendants[i]
-                if obj:IsA("ModuleScript") then
-                    local lower = string.lower(obj.Name)
-                    if lower:find("flow") or lower:find("puzzle") or lower:find("pipe") or lower:find("connect") or lower:find("grid") then
-                        HookModule(obj)
-                    end
-                end
-                if i % 150 == 0 then task.wait() end
-            end
-        end)
-    end
-end
-
-ScanModules()
-
-ReplicatedStorage.DescendantAdded:Connect(function(obj)
-    if obj:IsA("ModuleScript") then
-        local lower = string.lower(obj.Name)
-        if lower:find("flow") or lower:find("puzzle") or lower:find("pipe") or lower:find("connect") or lower:find("grid") then
-            task.wait(0.05)
-            HookModule(obj)
-        end
-    end
-end)
-
 if getgenv().loadalllanguage == nil then
     getgenv().loadalllanguage = true
 end
@@ -975,7 +670,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.3.6", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.3.7", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -1643,27 +1338,369 @@ TabHandles.Farm:Input({
     end
 })
 
+-- ====================================================
+-- [QUẢN LÝ TRẠNG THÁI HỆ THỐNG - WEAK TABLE]
+-- ====================================================
+getgenv().FlowAutoSolve = getgenv().FlowAutoSolve or false
+getgenv().FlowSolveDelay = getgenv().FlowSolveDelay or 0.08
+getgenv().FlowDebug = getgenv().FlowDebug or false
+
+if not getgenv().FlowKnownPuzzles then
+    getgenv().FlowKnownPuzzles = {}
+    setmetatable(getgenv().FlowKnownPuzzles, { __mode = "k" })
+end
+
+local FlowPathCache = {}
+local FlowUsedCache = {}
+local lastGuiState = false
+local HookedModules = {}
+local PlayerGui = localPlayer:WaitForChild("PlayerGui")
+
+-- ====================================================
+-- [HÀM TIỆN ÍCH LÕI]
+-- ====================================================
+local function debugPrint(...)
+    if getgenv().FlowDebug then print("[FLOW DEBUG]:", ...) end
+end
+
+local function safeCall(fn, ...)
+    local ok, res = pcall(fn, ...)
+    if ok then return res end
+    debugPrint("Lỗi thực thi hàm:", res)
+end
+
+getgenv().isFlowGuiVisible = function()
+    local puzzleUI = PlayerGui:FindFirstChild("PuzzleUI")
+    if not (puzzleUI and puzzleUI.Enabled) then return nil end
+    
+    local container = puzzleUI:FindFirstChild("Container")
+    local gridHolder = container and container:FindFirstChild("GridHolder")
+    local grid = gridHolder and gridHolder:FindFirstChild("Grid")
+    
+    if grid and grid.Visible then 
+        return grid 
+    end
+    return nil
+end
+
+local function IsPuzzle(tbl)
+    if typeof(tbl) ~= "table" then return false end
+    if rawget(tbl, "Solution") then return true end
+    if rawget(tbl, "paths") and rawget(tbl, "updateGui") then return true end
+    return false
+end
+
+local function getDirection(r1, c1, r2, c2)
+    if r2 < r1 then return "up" end
+    if r2 > r1 then return "down" end
+    if c2 < c1 then return "left" end
+    if c2 > c1 then return "right" end
+end
+
+local function getConnections(prev, curr, nextNode)
+    local connections = {}
+    if prev and curr then
+        local dir = getDirection(curr.row, curr.col, prev.row, prev.col)
+        if dir == "up" then dir = "down"
+        elseif dir == "down" then dir = "up"
+        elseif dir == "left" then dir = "right"
+        elseif dir == "right" then dir = "left" end
+        if dir then connections[dir] = true end
+    end
+    if nextNode and curr then
+        local dir = getDirection(curr.row, curr.col, nextNode.row, nextNode.col)
+        if dir then connections[dir] = true end
+    end
+    return connections
+end
+
+local function isNeighbour(a, b)
+    return math.abs(a.row - b.row) + math.abs(a.col - b.col) == 1
+end
+
+local function findMethod(obj, names)
+    for i = 1, #names do
+        if typeof(obj[names[i]]) == "function" then return obj[names[i]] end
+    end
+end
+
+-- ====================================================
+-- [THUẬT TOÁN HƯỚNG DẪN VIÊN - SẮP XẾP ĐƯỜNG ĐI]
+-- ====================================================
+local function findStartNode()
+    for i = 1, #FlowPathCache do
+        local neighbors = 0
+        for j = 1, #FlowPathCache do
+            if i ~= j and isNeighbour(FlowPathCache[i], FlowPathCache[j]) then
+                neighbors = neighbors + 1
+            end
+        end
+        if neighbors == 1 then return i end
+    end
+    return 1
+end
+
+local function sortPathByRealEnds(unorderedPath)
+    if not unorderedPath or #unorderedPath <= 1 then return unorderedPath end
+    table.clear(FlowPathCache)
+    table.clear(FlowUsedCache)
+    
+    for i = 1, #unorderedPath do
+        FlowPathCache[i] = {row = unorderedPath[i].row, col = unorderedPath[i].col}
+    end
+
+    local startNodeIndex = findStartNode()
+    local ordered = { FlowPathCache[startNodeIndex] }
+    FlowUsedCache[startNodeIndex] = true
+
+    for _ = 2, #FlowPathCache do
+        local last = ordered[#ordered]
+        local foundNext = false
+        for i = 1, #FlowPathCache do
+            if not FlowUsedCache[i] and isNeighbour(last, FlowPathCache[i]) then
+                table.insert(ordered, FlowPathCache[i])
+                FlowUsedCache[i] = true
+                foundNext = true
+                break
+            end
+        end
+        if not foundNext then
+            for i = 1, #FlowPathCache do
+                if not FlowUsedCache[i] then
+                    table.insert(ordered, FlowPathCache[i])
+                    FlowUsedCache[i] = true
+                    break
+                end
+            end
+        end
+    end
+    return ordered
+end
+
+-- ====================================================
+-- [KIỂM TRA HOÀN THÀNH BẢNG ĐỐ]
+-- ====================================================
+local function isPuzzleComplete(puzzle)
+    if not puzzle.Solution or not puzzle.paths then return false end
+    for colorIndex, solutionPath in pairs(puzzle.Solution) do
+        local currentPath = puzzle.paths[colorIndex]
+        if not currentPath or #currentPath ~= #solutionPath then
+            return false
+        end
+    end
+    return true
+end
+
+-- ====================================================
+-- [MÔ PHỎNG VẼ DẦN DẦN (GUIDE MODE)]
+-- ====================================================
+local function drawSingleColor(puzzle, colorIndex, solutionPath, updateGui)
+    -- Bước 1: Tìm full đường đi một lần duy nhất
+    local ordered = sortPathByRealEnds(solutionPath)
+    if not ordered or #ordered == 0 then return true end
+
+    -- Bước 2: Xóa sạch dây cũ của màu này để "Hướng dẫn viên" bắt đầu vẽ lại từ đầu
+    puzzle.paths[colorIndex] = {}
+    for i = 1, #ordered do 
+        puzzle.gridConnections[ordered[i].row.."-"..ordered[i].col] = nil 
+    end
+    if updateGui then safeCall(updateGui, puzzle) end
+
+    -- Bước 3: Script nhìn theo mảng "ordered" và nối dần dần từng ô
+    for i = 1, #ordered do
+        if not getgenv().FlowAutoSolve or not getgenv().isFlowGuiVisible() then return false end 
+        
+        local node = ordered[i]
+        table.insert(puzzle.paths[colorIndex], {row = node.row, col = node.col})
+        puzzle.gridConnections[node.row.."-"..node.col] = getConnections(ordered[i-1], node, ordered[i+1])
+
+        -- Ép UI hiện sợi dây ngay lập tức ở ô vừa đi qua
+        if updateGui then safeCall(updateGui, puzzle) end
+        
+        -- Nhịp nghỉ của hướng dẫn viên để tạo hiệu ứng mượt
+        task.wait(getgenv().FlowSolveDelay)
+    end
+    return true
+end
+
+getgenv().SolveFlowPuzzle = function(puzzle)
+    if not getgenv().FlowAutoSolve or not IsPuzzle(puzzle) or not puzzle.Solution then return end
+    
+    -- Ổ KHÓA CHỐNG ĐÈ LUỒNG: Bảng nào đang vẽ thì khóa chặt lại
+    if puzzle.GuideActive then return end 
+    puzzle.GuideActive = true 
+
+    puzzle.paths = puzzle.paths or {}
+    puzzle.gridConnections = puzzle.gridConnections or {}
+
+    local updateGui = findMethod(puzzle, {"updateGui", "UpdateGui", "Render", "render"})
+    local checkWin = findMethod(puzzle, {"checkForWin", "CheckForWin", "WinCheck"})
+    
+    if not getgenv().isFlowGuiVisible() then 
+        puzzle.GuideActive = false 
+        return 
+    end
+
+    for colorIndex = 1, #puzzle.Solution do
+        local currentPath = puzzle.paths[colorIndex]
+        -- Hướng dẫn viên chỉ vẽ sợi dây nào chưa hoàn chỉnh
+        if not currentPath or #currentPath ~= #puzzle.Solution[colorIndex] then
+            local success = drawSingleColor(puzzle, colorIndex, puzzle.Solution[colorIndex], updateGui)
+            if not success then break end
+        end
+    end
+
+    if checkWin and getgenv().isFlowGuiVisible() then safeCall(checkWin, puzzle) end
+    
+    -- Mở khóa sau khi hoàn tất toàn bộ bảng
+    puzzle.GuideActive = false
+end
+
+getgenv().triggerFlowSolvers = function()
+    for puzzle, _ in pairs(getgenv().FlowKnownPuzzles) do
+        task.spawn(function() getgenv().SolveFlowPuzzle(puzzle) end)
+    end
+end
+
+-- ====================================================
+-- [VÒNG LẶP KIỂM TRA SIÊU NHẸ]
+-- ====================================================
+local function ProcessAutoFlowLoop()
+    if not getgenv().FlowAutoSolve then return end
+
+    local currentGuiState = (getgenv().isFlowGuiVisible() ~= nil)
+    
+    if currentGuiState and not lastGuiState then
+        task.wait(0.3) 
+        getgenv().triggerFlowSolvers()
+    end
+    
+    lastGuiState = currentGuiState
+    
+    if currentGuiState then
+        for puzzle, _ in pairs(getgenv().FlowKnownPuzzles) do
+            -- Chỉ ra lệnh giải khi bảng bị đứt dây VÀ Hướng dẫn viên không làm việc
+            if puzzle.Solution and not puzzle.GuideActive and not isPuzzleComplete(puzzle) then
+                task.spawn(function() getgenv().SolveFlowPuzzle(puzzle) end)
+                break
+            end
+        end
+    end
+end
+
+-- ====================================================
+-- [HỆ THỐNG HOOK MODULE SCRIPT]
+-- ====================================================
+local function ProcessHookResult(result)
+    if IsPuzzle(result) then
+        getgenv().FlowKnownPuzzles[result] = true
+        getgenv().SolveFlowPuzzle(result)
+        return
+    end
+    if typeof(result) == "table" then
+        for _, v in pairs(result) do
+            if IsPuzzle(v) then 
+                getgenv().FlowKnownPuzzles[v] = true
+                getgenv().SolveFlowPuzzle(v) 
+            end
+        end
+    end
+end
+
+local function HookModule(moduleScript)
+    if HookedModules[moduleScript] then return end
+    HookedModules[moduleScript] = true
+
+    local success, module = pcall(require, moduleScript)
+    if not success or typeof(module) ~= "table" or typeof(module.new) ~= "function" then return end
+
+    debugPrint("Đã kết nối thành công hệ thống:", moduleScript:GetFullName())
+
+    local oldNew = module.new
+    module.new = function(...)
+        local result = oldNew(...)
+        task.spawn(function()
+            task.wait(0.05)
+            safeCall(ProcessHookResult, result)
+        end)
+        return result
+    end
+end
+
+local function ScanModules()
+    local safeContainers = {ReplicatedStorage, game:GetService("StarterGui")}
+    for c = 1, #safeContainers do
+        task.spawn(function()
+            local descendants = safeContainers[c]:GetDescendants()
+            for i = 1, #descendants do
+                local obj = descendants[i]
+                if obj:IsA("ModuleScript") then
+                    local lower = string.lower(obj.Name)
+                    if lower:find("flow") or lower:find("puzzle") or lower:find("pipe") or lower:find("connect") or lower:find("grid") then
+                        HookModule(obj)
+                    end
+                end
+                if i % 40 == 0 then game:GetService("RunService").Heartbeat:Wait() end
+            end
+        end)
+    end
+end
+
+ScanModules()
+
+ReplicatedStorage.DescendantAdded:Connect(function(obj)
+    if obj:IsA("ModuleScript") then
+        local lower = string.lower(obj.Name)
+        if lower:find("flow") or lower:find("puzzle") or lower:find("pipe") or lower:find("connect") or lower:find("grid") then
+            task.wait(0.05)
+            HookModule(obj)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        game:GetService("RunService").Heartbeat:Wait()
+        local LastTick = getgenv().FlowLoopTick or 0
+        if tick() - LastTick >= 0.15 then
+            getgenv().FlowLoopTick = tick()
+            ProcessAutoFlowLoop()
+        end
+    end
+end)
+
+-- ====================================================
+-- [TÁCH BIỆT UI CALLBACKS]
+-- ====================================================
+local function onToggleFarmState(state)
+    getgenv().FlowAutoSolve = state
+    if state then
+        task.spawn(getgenv().triggerFlowSolvers)
+        if typeof(AddLoop) == "function" then
+            pcall(AddLoop, "AutoGenerator", AutoGenLoop, 0.1, 5)
+        end
+    else
+        if typeof(RemoveLoop) == "function" then
+            pcall(RemoveLoop, "AutoGenerator")
+        end
+        getgenv().solveGeneratorCooldown = false
+    end
+end
+
+local function onDelayInputChange(value)
+    local num = tonumber(value)
+    if num then
+        getgenv().FlowSolveDelay = math.clamp(num, 0.01, 10)
+    end
+end
+
 TabHandles.Farm:Toggle({
     Title = "hutaohub:Auto_Finish_Generator",
     Desc = "hutaohub:Auto_Finish_Generator_Desc",
     Flag = "Auto Finish Generator",
     Locked = false,
     Value = false,
-    Callback = function(state)
-        getgenv().FlowAutoSolve = state
-
-        if state then
-            task.spawn(getgenv().triggerFlowSolvers)
-            if typeof(AddLoop) == "function" then
-                pcall(AddLoop, "AutoGenerator", AutoGenLoop, 0.1, 5)
-            end
-        else
-            if typeof(RemoveLoop) == "function" then
-                pcall(RemoveLoop, "AutoGenerator")
-            end
-            solveGeneratorCooldown = false
-        end
-    end
+    Callback = onToggleFarmState
 })
 
 TabHandles.Farm:Input({
@@ -1673,13 +1710,9 @@ TabHandles.Farm:Input({
     Placeholder = "0.08 - 10",
     Value = tostring(getgenv().FlowSolveDelay),
     Numeric = true,
-    Callback = function(value)
-        local num = tonumber(value)
-        if num then
-            getgenv().FlowSolveDelay = math.clamp(num, 0.08, 10)
-        end
-    end
+    Callback = onDelayInputChange
 })
+
 
 TabHandles.Farm:Section({ Title = "hutaohub:Items_Settings", Icon = "backpack" })
 
@@ -2761,143 +2794,140 @@ TabHandles.Killers:Toggle({
     Callback = function(s) wallCheck = s end 
 })
 
-getgenv().FakeNameState = getgenv().FakeNameState or {
-    Enabled = false,
-    FakeName = "",
-    OriginalTexts = setmetatable({}, { __mode = "k" }), 
-    Connections = {}
-}
-
-local function GetPlayerGui()
-    return localPlayer:FindFirstChildOfClass("PlayerGui")
-end
-
-local function GetTargetGuis()
-    local pg = GetPlayerGui()
-    if not pg then return {} end
-
-    local targets = {}
-    
-    local tempUI = pg:FindFirstChild("TemporaryUI", true)
-    if tempUI then
-        local playerInfo = tempUI:FindFirstChild("PlayerInfo", true)
-        if playerInfo then table.insert(targets, playerInfo) end
-    end
-
-    local mainUI = pg:FindFirstChild("MainUI", true)
-    if mainUI then
-        local playerList = mainUI:FindFirstChild("PlayerListHolder", true)
-        if playerList then table.insert(targets, playerList) end
-    end
-
-    return targets
-end
-
-local function ApplyToObject(obj, state)
-    if not (obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox")) then return end
-
-    local text = obj.Text
-    if not text or text == "" then return end
-
-    if not state.OriginalTexts[obj] then
-        if string.find(text, localPlayer.Name) then
-            state.OriginalTexts[obj] = text
-        else
-            return
-        end
-    end
-
-    if state.Enabled and state.FakeName ~= "" then
-        local targetText = string.gsub(state.OriginalTexts[obj], localPlayer.Name, state.FakeName)
-        if obj.Text ~= targetText then
-            obj.Text = targetText
-        end
-    else
-        if obj.Text ~= state.OriginalTexts[obj] then
-            obj.Text = state.OriginalTexts[obj]
-        end
-    end
-end
-
-local function ScanAndApplyFakeName()
-    local state = getgenv().FakeNameState
-    for _, gui in ipairs(GetTargetGuis()) do
-        for _, obj in ipairs(gui:GetDescendants()) do
-            ApplyToObject(obj, state)
-        end
-    end
-end
-
-local function RestoreOriginalNames()
-    local state = getgenv().FakeNameState
-    for obj, text in pairs(state.OriginalTexts) do
-        if obj and obj.Parent then
-            pcall(function() obj.Text = text end)
-        end
-    end
-    table.clear(state.OriginalTexts)
-end
-
-local function CleanupConnections()
-    local state = getgenv().FakeNameState
-    for _, conn in ipairs(state.Connections) do
-        if conn then conn:Disconnect() end
-    end
-    table.clear(state.Connections)
-end
-
-local function StartFakeNameSystem()
-    local state = getgenv().FakeNameState
-    if not state.Enabled then return end
-
-    CleanupConnections()
-    ScanAndApplyFakeName()
-
-    local pg = GetPlayerGui()
-    if pg then
-        table.insert(state.Connections, pg.DescendantAdded:Connect(function(desc)
-            if not state.Enabled then return end
-            task.skip() 
-            local targets = GetTargetGuis()
-            for _, target in ipairs(targets) do
-                if desc:IsDescendantOf(target) then
-                    ApplyToObject(desc, state)
-                    break
-                end
-            end
-        end))
-    end
-end
-
-if not getgenv().FakeNameLoopInitialized then
-    getgenv().FakeNameLoopInitialized = true
-    task.spawn(function()
-        while task.wait(0.1) do
-            local state = getgenv().FakeNameState
-            if state and state.Enabled then
-                pcall(ScanAndApplyFakeName)
-            end
-        end
-    end)
-end
-
 TabHandles.Name:Section({
     Title = "You Name",
     Icon = "user-check"
 })
 
+local fakeName = ""
+local enabled = false
+local originalTexts = {}
+
+local FakeNameThread = nil
+
+local function getPlayerGui()
+    return localPlayer:FindFirstChildOfClass("PlayerGui")
+end
+
+local function getTargetGuis()
+    local pg = getPlayerGui()
+
+    if not pg then
+        return {}
+    end
+
+    local targets = {}
+
+    local tempUI = pg:FindFirstChild("TemporaryUI", true)
+
+    if tempUI then
+        local playerInfo = tempUI:FindFirstChild("PlayerInfo", true)
+
+        if playerInfo then
+            table.insert(targets, playerInfo)
+        end
+    end
+
+    local mainUI = pg:FindFirstChild("MainUI", true)
+
+    if mainUI then
+        local playerList = mainUI:FindFirstChild("PlayerListHolder", true)
+
+        if playerList then
+            table.insert(targets, playerList)
+        end
+    end
+
+    return targets
+end
+
+local function applyToObject(obj)
+    if not (
+        obj:IsA("TextLabel")
+        or obj:IsA("TextButton")
+        or obj:IsA("TextBox")
+    ) then
+        return
+    end
+
+    local text = obj.Text
+
+    if not text or text == "" then
+        return
+    end
+
+    if not originalTexts[obj] then
+        if string.find(text, localPlayer.Name) then
+            originalTexts[obj] = text
+        else
+            return
+        end
+    end
+
+    if enabled and fakeName ~= "" then
+        obj.Text = string.gsub(
+            originalTexts[obj],
+            localPlayer.Name,
+            fakeName
+        )
+    else
+        obj.Text = originalTexts[obj]
+    end
+end
+
+local function applyFakeName()
+    for _, gui in ipairs(getTargetGuis()) do
+        if gui.Name == "PlayerListHolder" then
+            local label = gui:FindFirstChild("Username", true)
+
+            if label then
+                applyToObject(label)
+            end
+        else
+            for _, obj in ipairs(gui:GetDescendants()) do
+                applyToObject(obj)
+            end
+        end
+    end
+end
+
+local function startFakeNameLoop()
+    if FakeNameThread then
+        return
+    end
+
+    FakeNameThread = task.spawn(function()
+        while enabled do
+            pcall(applyFakeName)
+            task.wait(0.3)
+        end
+
+        FakeNameThread = nil
+    end)
+end
+
+local function stopFakeNameLoop()
+    enabled = false
+
+    -- Restore text gốc
+    for obj, text in pairs(originalTexts) do
+        if obj and obj.Parent then
+            obj.Text = text
+        end
+    end
+end
+
 TabHandles.Name:Input({
     Title = "hutaohub:Custom_Name",
     Desc = "hutaohub:Custom_Name_Desc",
     Flag = "Custom Name",
-    Value = getgenv().FakeNameState.FakeName,
+    Value = "",
     Placeholder = "Enter Fake Name",
     Callback = function(v)
-        local state = getgenv().FakeNameState
-        state.FakeName = tostring(v or "")
+        fakeName = tostring(v or "")
 
-        if state.Enabled then
-            ScanAndApplyFakeName()
+        if enabled then
+            applyFakeName()
         end
     end
 })
@@ -2906,16 +2936,15 @@ TabHandles.Name:Toggle({
     Title = "hutaohub:Fake_Name",
     Desc = "hutaohub:Fake_Name_Desc",
     Flag = "Fake Name",
-    Value = getgenv().FakeNameState.Enabled,
+    Value = false,
     Callback = function(state)
-        local globalState = getgenv().FakeNameState
-        globalState.Enabled = state
+        enabled = state
 
         if state then
-            StartFakeNameSystem()
+            startFakeNameLoop()
+            applyFakeName()
         else
-            CleanupConnections()
-            RestoreOriginalNames()
+            stopFakeNameLoop()
         end
     end
 })
