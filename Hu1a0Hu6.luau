@@ -18,13 +18,318 @@ PathfindingService = game:GetService("PathfindingService")
 LocalizationService = game:GetService("LocalizationService")
 Debris = game:GetService("Debris")
 
-local killersFolder = Workspace:WaitForChild("Players"):WaitForChild("Killers")
-local survivorsFolder = Workspace:WaitForChild("Players"):WaitForChild("Survivors")
-local localPlayer = Players.LocalPlayer
-local playerCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+killersFolder = Workspace:WaitForChild("Players"):WaitForChild("Killers")
+survivorsFolder = Workspace:WaitForChild("Players"):WaitForChild("Survivors")
+localPlayer = Players.LocalPlayer
+playerCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
 
 localPlayer.CharacterAdded:Connect(function(character)
     playerCharacter = character
+end)
+
+getgenv().FlowAutoSolve = false
+getgenv().FlowSolveDelay = 0.08
+getgenv().FlowDebug = false
+getgenv().FlowActivePuzzles = {}
+getgenv().FlowIsDrawing = false
+getgenv().FlowPathCache = {}
+getgenv().FlowUsedCache = {}
+
+local PlayerGui = localPlayer:WaitForChild("PlayerGui")
+
+local function debugPrint(...)
+    if getgenv().FlowDebug then
+        print("[FLOW DEBUG]:", ...)
+    end
+end
+
+local function safeCall(fn, ...)
+    local ok, res = pcall(fn, ...)
+    if ok then return res end
+    debugPrint("Lỗi thực thi hàm:", res)
+end
+
+getgenv().isFlowGuiVisible = function()
+    local puzzleUI = PlayerGui:FindFirstChild("PuzzleUI")
+    if puzzleUI and puzzleUI:IsA("ScreenGui") and puzzleUI.Enabled then
+        local container = puzzleUI:FindFirstChild("Container")
+        local gridHolder = container and container:FindFirstChild("GridHolder")
+        local grid = gridHolder and gridHolder:FindFirstChild("Grid")
+        
+        if grid and grid.Visible then
+            return grid
+        end
+    end
+    return nil
+end
+
+local function IsPuzzle(tbl)
+    if typeof(tbl) ~= "table" then return false end
+    if rawget(tbl, "Solution") then return true end
+    if rawget(tbl, "paths") and rawget(tbl, "updateGui") then return true end
+    return false
+end
+
+local function getDirection(r1, c1, r2, c2)
+    if r2 < r1 then return "up" end
+    if r2 > r1 then return "down" end
+    if c2 < c1 then return "left" end
+    if c2 > c1 then return "right" end
+end
+
+local function getConnections(prev, curr, nextNode)
+    local connections = {}
+    if prev and curr then
+        local dir = getDirection(curr.row, curr.col, prev.row, prev.col)
+        if dir == "up" then dir = "down"
+        elseif dir == "down" then dir = "up"
+        elseif dir == "left" then dir = "right"
+        elseif dir == "right" then dir = "left" end
+        if dir then connections[dir] = true end
+    end
+    if nextNode and curr then
+        local dir = getDirection(curr.row, curr.col, nextNode.row, nextNode.col)
+        if dir then connections[dir] = true end
+    end
+    return connections
+end
+
+local function isNeighbour(a, b)
+    return math.abs(a.row - b.row) + math.abs(a.col - b.col) == 1
+end
+
+local function sortPathByRealEnds(unorderedPath)
+    if not unorderedPath or #unorderedPath <= 1 then return unorderedPath end
+
+    table.clear(getgenv().FlowPathCache)
+    table.clear(getgenv().FlowUsedCache)
+    
+    for i = 1, #unorderedPath do
+        local node = unorderedPath[i]
+        getgenv().FlowPathCache[i] = {row = node.row, col = node.col}
+    end
+
+    local startNodeIndex = 1
+    for i = 1, #getgenv().FlowPathCache do
+        local nodeA = getgenv().FlowPathCache[i]
+        local neighbors = 0
+        for j = 1, #getgenv().FlowPathCache do
+            if i ~= j and isNeighbour(nodeA, getgenv().FlowPathCache[j]) then
+                neighbors = neighbors + 1
+            end
+        end
+        if neighbors == 1 then
+            startNodeIndex = i
+            break
+        end
+    end
+
+    local ordered = {}
+    ordered[1] = getgenv().FlowPathCache[startNodeIndex]
+    getgenv().FlowUsedCache[startNodeIndex] = true
+
+    for _ = 2, #getgenv().FlowPathCache do
+        local last = ordered[#ordered]
+        local foundNext = false
+
+        for i = 1, #getgenv().FlowPathCache do
+            if not getgenv().FlowUsedCache[i] and isNeighbour(last, getgenv().FlowPathCache[i]) then
+                table.insert(ordered, getgenv().FlowPathCache[i])
+                getgenv().FlowUsedCache[i] = true
+                foundNext = true
+                break
+            end
+        end
+
+        if not foundNext then
+            for i = 1, #getgenv().FlowPathCache do
+                if not getgenv().FlowUsedCache[i] then
+                    table.insert(ordered, getgenv().FlowPathCache[i])
+                    getgenv().FlowUsedCache[i] = true
+                    break
+                end
+            end
+        end
+    end
+
+    return ordered
+end
+
+local function findMethod(obj, names)
+    for i = 1, #names do
+        local name = names[i]
+        if typeof(obj[name]) == "function" then
+            return obj[name]
+        end
+    end
+end
+
+getgenv().SolveFlowPuzzle = function(puzzle, targetColorIndex)
+    if not getgenv().FlowAutoSolve or not IsPuzzle(puzzle) or not puzzle.Solution then return end
+
+    getgenv().FlowIsDrawing = true
+
+    puzzle.paths = puzzle.paths or {}
+    puzzle.gridConnections = puzzle.gridConnections or {}
+
+    local updateGui = findMethod(puzzle, {"updateGui", "UpdateGui", "Render", "render"})
+    local checkWin = findMethod(puzzle, {"checkForWin", "CheckForWin", "WinCheck"})
+    
+    local indices = {}
+    if targetColorIndex then
+        table.insert(indices, targetColorIndex)
+    else
+        for i = 1, #puzzle.Solution do 
+            table.insert(indices, i) 
+        end
+    end
+
+    for idx = 1, #indices do
+        local colorIndex = indices[idx]
+        local ordered = sortPathByRealEnds(puzzle.Solution[colorIndex])
+        
+        if ordered and #ordered > 0 then
+            puzzle.paths[colorIndex] = {}
+            for i = 1, #ordered do
+                puzzle.gridConnections[ordered[i].row.."-"..ordered[i].col] = nil
+            end
+
+            for i = 1, #ordered do
+                if not getgenv().FlowAutoSolve then 
+                    getgenv().FlowIsDrawing = false 
+                    return 
+                end 
+
+                local node = ordered[i]
+                table.insert(puzzle.paths[colorIndex], {row = node.row, col = node.col})
+
+                local prev = ordered[i-1]
+                local nextNode = ordered[i+1]
+
+                puzzle.gridConnections[node.row.."-"..node.col] = getConnections(prev, node, nextNode)
+
+                if updateGui and getgenv().isFlowGuiVisible() then
+                    safeCall(updateGui, puzzle)
+                end
+
+                if getgenv().isFlowGuiVisible() then
+                    task.wait(getgenv().FlowSolveDelay)
+                end
+            end
+        end
+
+        if checkWin and getgenv().isFlowGuiVisible() then
+            safeCall(checkWin, puzzle)
+        end
+    end
+
+    getgenv().FlowIsDrawing = false
+end
+
+getgenv().triggerFlowSolvers = function()
+    for puzzle, _ in pairs(getgenv().FlowActivePuzzles) do
+        task.spawn(function() getgenv().SolveFlowPuzzle(puzzle) end)
+    end
+end
+
+task.spawn(function()
+    local lastGuiState = false
+    while true do
+        task.wait(0.15)
+        
+        if getgenv().FlowAutoSolve then
+            local currentGuiState = (getgenv().isFlowGuiVisible() ~= nil)
+            
+            if currentGuiState and not lastGuiState then
+                task.wait(0.3) 
+                getgenv().triggerFlowSolvers()
+            end
+            
+            lastGuiState = currentGuiState
+            
+            if currentGuiState and not getgenv().FlowIsDrawing then
+                for puzzle, _ in pairs(getgenv().FlowActivePuzzles) do
+                    if puzzle.Solution and puzzle.paths then
+                        for colorIndex = 1, #puzzle.Solution do
+                            local currentPath = puzzle.paths[colorIndex]
+                            if not currentPath or #currentPath == 0 then
+                                getgenv().SolveFlowPuzzle(puzzle, colorIndex)
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+local HookedModules = {}
+local function HookModule(moduleScript)
+    if HookedModules[moduleScript] then return end
+    HookedModules[moduleScript] = true
+
+    local success, module = pcall(require, moduleScript)
+    if not success or typeof(module) ~= "table" or typeof(module.new) ~= "function" then return end
+
+    debugPrint("Đã kết nối thành công hệ thống:", moduleScript:GetFullName())
+
+    local oldNew = module.new
+    module.new = function(...)
+        local result = oldNew(...)
+        task.spawn(function()
+            task.wait(0.05)
+            safeCall(function()
+                if IsPuzzle(result) then
+                    getgenv().FlowActivePuzzles[result] = true
+                    getgenv().SolveFlowPuzzle(result)
+                    return
+                end
+                if typeof(result) == "table" then
+                    for _, v in pairs(result) do
+                        if IsPuzzle(v) then 
+                            getgenv().FlowActivePuzzles[v] = true
+                            getgenv().SolveFlowPuzzle(v) 
+                        end
+                    end
+                end
+            end)
+        end)
+        return result
+    end
+end
+
+local function ScanModules()
+    local safeContainers = {ReplicatedStorage, PlayerGui, StarterGui}
+
+    for c = 1, #safeContainers do
+        local container = safeContainers[c]
+        task.spawn(function()
+            local descendants = container:GetDescendants()
+            for i = 1, #descendants do
+                local obj = descendants[i]
+                if obj:IsA("ModuleScript") then
+                    local lower = string.lower(obj.Name)
+                    if lower:find("flow") or lower:find("puzzle") or lower:find("pipe") or lower:find("connect") or lower:find("grid") then
+                        HookModule(obj)
+                    end
+                end
+                if i % 150 == 0 then task.wait() end
+            end
+        end)
+    end
+end
+
+ScanModules()
+
+ReplicatedStorage.DescendantAdded:Connect(function(obj)
+    if obj:IsA("ModuleScript") then
+        local lower = string.lower(obj.Name)
+        if lower:find("flow") or lower:find("puzzle") or lower:find("pipe") or lower:find("connect") or lower:find("grid") then
+            task.wait(0.05)
+            HookModule(obj)
+        end
+    end
 end)
 
 if getgenv().loadalllanguage == nil then
@@ -150,6 +455,10 @@ baseTranslations = {
     ["Auto_PickUp_Selected_Item_Desc"] = "Auto pick up the selected item in the dropdown menu.",
     ["Auto_PickUp_Nearest_Item"] = "Auto PickUp Nearest Item",
     ["Auto_PickUp_Nearest_Item_Desc"] = "Auto picks up the nearest item around you.",
+    ["Instant_Invisible"] = "Instant Invisible",
+    ["Instant_Invisible_Desc"] = "Instant invisibility when the function is activated.",
+    ["Invisible_If_Cloned"] = "Invisible If Cloned",
+    ["Invisible_If_Cloned_Desc"] = "Activate the stealth function every time you use a skill.",
     ["Auto_Attack_Range"] = "Auto Attack Range",
     ["Auto_Attack_Range_Desc"] = "Distance check to survivors",
     ["Auto_Attack_Survivors"] = "Auto Attack Survivors",
@@ -213,6 +522,8 @@ baseTranslations = {
     ["Game_Play"] = "Game Play",
     ["Remove_Effects"] = "Remove Effects",
     ["Remove_Effects_Desc"] = "Detele all bad effects for you.",
+    ["Remove_BlackScreen"] = "Remove BlackScreen",
+    ["Remove_BlackScreen_Desc"] = "Remove black screen that the game intentionally leaves unremoved.",
     ["Anti_Slow"] = "Anti-Slow",
     ["Anti_Slow_Desc"] = "No more slowing down when using items or skills.",
     ["Show_Chat"] = "Show Chat",
@@ -262,7 +573,7 @@ baseTranslations = {
     ["Subspace_ESP_Desc"] = "Display the location of the Subspace mine.",
     ["Digital_Trap_ESP"] = "Digital Trap ESP",
     ["Digital_Trap_ESP_Desc"] = "Shows the location where killers placed Digital Traps.",
-        ["Config_Name"] = "Config Name",
+    ["Config_Name"] = "Config Name",
     ["Config_Name_Desc"] = "Enter the name of the config you want.",
     ["Config_List"] = "Config List",
     ["Config_List_Desc"] = "Select your created config.",
@@ -664,7 +975,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.3.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.3.6", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -684,7 +995,10 @@ function InitializeWindUI()
         Misc = Tabs.System:Tab({ Title = "hutaohub:Misc", Icon = "menu" }),
         Settings = Tabs.System:Tab({ Title = "hutaohub:Settings", Icon = "settings" }),
     }
-
+    
+    local baseUrl = "https://raw.githubusercontent.com/djopsiw9i2j39c8j2pw0jxnd91jwj8j0iwjdpxl/50ur3-c0d3/refs/heads/main/"
+    local Visual = loadstring(game:HttpGet(baseUrl .. "Visual.luau"))()
+    
     TabHandles.Settings:Dropdown({
         Title = "hutaohub:Language",
         Desc = "hutaohub:Language_Desc",
@@ -1095,9 +1409,6 @@ Info:Paragraph({
     }
 })
 
--- =================================================================
--- 1. SYSTEM STATE (Quy tắc 4: Giảm table state, dùng biến phẳng)
--- =================================================================
 getgenv().AutoKillerFarm = getgenv().AutoKillerFarm or false
 getgenv().AutoFarmGen = getgenv().AutoFarmGen or false
 getgenv().SafeModeGen = getgenv().SafeModeGen or false
@@ -1105,13 +1416,10 @@ getgenv().SafeRangeGen = getgenv().SafeRangeGen or 45
 
 local lastGenPosition = nil
 local currentGenerator = nil
-local currentMap = nil    -- Biến theo dõi Map hiện tại
-local mapLoadTime = 0     -- Mốc thời gian Map vừa load
+local currentMap = nil
+local mapLoadTime = 0
 local isHoldingPrompt = false
 
--- =================================================================
--- 2. HELPER MODULE (Quy tắc 1: Tách hàm nhỏ, tái sử dụng)
--- =================================================================
 local function GetCharacter()
     playerCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
     return playerCharacter
@@ -1157,9 +1465,6 @@ local function IsPositionOccupied(pos, myCharacter)
     return false
 end
 
--- =================================================================
--- 3. LOGIC MODULE: AUTO KILLER (Quy tắc 5: Chia nhỏ scope biến local)
--- =================================================================
 local function FindNearestSurvivor(hrp, myCharacter)
     local nearest, minDist = nil, math.huge
     for _, survivor in ipairs(survivorsFolder:GetChildren()) do
@@ -1186,19 +1491,14 @@ local function ProcessAutoKiller()
 
     local targetHrp = FindNearestSurvivor(hrp, character)
     if targetHrp then
-        -- Vừa dịch chuyển, vừa hướng mặt vào Survivor (lookAt)
         hrp.CFrame = CFrame.lookAt((targetHrp.CFrame * CFrame.new(0, 0, 3)).Position, targetHrp.Position)
     end
 end
 
--- =================================================================
--- 4. LOGIC MODULE: AUTO GENERATOR (Tách logic dò tìm và xử lý Prompt)
--- =================================================================
 local function FindSafeGenerator()
     local mapContainer = workspace:FindFirstChild("Map")
     local map = mapContainer and mapContainer:FindFirstChild("Ingame") and mapContainer.Ingame:FindFirstChild("Map")
     
-    -- LOGIC MỚI: Check Map load. Chỉ delay 3s khi Map MỚI xuất hiện
     if map and map ~= currentMap then
         currentMap = map
         mapLoadTime = tick()
@@ -1225,7 +1525,7 @@ local function GetSafeGenPosition(genPart, character)
     }
     for _, posCF in ipairs(positions) do
         if not IsPositionOccupied(posCF.Position, character) and not IsKillerNear(posCF.Position) then
-            -- LOGIC MỚI: Trả về CFrame đã được xoay sẵn hướng mặt vào Generator
+
             return CFrame.lookAt(posCF.Position, genPart.Position)
         end
     end
@@ -1269,14 +1569,12 @@ local function ProcessAutoGenerator()
         isAlreadyAtValidPos = not IsPositionOccupied(lastGenPosition.Position, character)
     end
 
-    -- Xử lý Teleport & Xoay Camera
     if not isAlreadyAtValidPos or currentGenerator ~= foundGen then
         local chosenPos = GetSafeGenPosition(genPart, character)
         if chosenPos then
             lastGenPosition = chosenPos
             currentGenerator = foundGen
-            
-            -- 1. Dịch chuyển nhân vật (Nhân vật đã được quay sẵn mặt vào Gen nhờ GetSafeGenPosition)
+
             hrp.CFrame = chosenPos
 
         end
@@ -1345,305 +1643,6 @@ TabHandles.Farm:Input({
     end
 })
 
--- =================================================================
--- 1. SYSTEM STATE (Quy tắc 4: Biến phẳng)
--- =================================================================
-getgenv().FlowAutoSolve = getgenv().FlowAutoSolve or false
-getgenv().FlowSolveDelay = getgenv().FlowSolveDelay or 0.08
-getgenv().FlowDebug = getgenv().FlowDebug or false
-getgenv().FlowActivePuzzles = getgenv().FlowActivePuzzles or {}
-getgenv().FlowIsDrawing = getgenv().FlowIsDrawing or false
-
--- CHÚ Ý TỐI ƯU: Chuyển Cache thuật toán về local table. 
--- Tốc độ truy xuất local table trong Luau nhanh hơn getgenv() gấp ~20 lần!
-local FlowPathCache = {}
-local FlowUsedCache = {}
-local lastGuiState = false
-local HookedModules = {}
-
--- Lấy PlayerGui an toàn
-local PlayerGui = localPlayer:WaitForChild("PlayerGui")
-
--- =================================================================
--- 2. HELPER MODULE (Quy tắc 1 & 2: Tách hàm nhỏ, phẳng hóa if-then)
--- =================================================================
-local function debugPrint(...)
-    if getgenv().FlowDebug then print("[FLOW DEBUG]:", ...) end
-end
-
-local function safeCall(fn, ...)
-    local ok, res = pcall(fn, ...)
-    if ok then return res end
-    debugPrint("Lỗi thực thi hàm:", res)
-end
-
--- Tối ưu Guard Clauses (Luật 2)
-getgenv().isFlowGuiVisible = function()
-    local puzzleUI = PlayerGui:FindFirstChild("PuzzleUI")
-    if not (puzzleUI and puzzleUI:IsA("ScreenGui") and puzzleUI.Enabled) then return nil end
-    
-    local container = puzzleUI:FindFirstChild("Container")
-    local gridHolder = container and container:FindFirstChild("GridHolder")
-    local grid = gridHolder and gridHolder:FindFirstChild("Grid")
-    
-    if grid and grid.Visible then return grid end
-    return nil
-end
-
-local function IsPuzzle(tbl)
-    if typeof(tbl) ~= "table" then return false end
-    if rawget(tbl, "Solution") then return true end
-    if rawget(tbl, "paths") and rawget(tbl, "updateGui") then return true end
-    return false
-end
-
-local function getDirection(r1, c1, r2, c2)
-    if r2 < r1 then return "up" end
-    if r2 > r1 then return "down" end
-    if c2 < c1 then return "left" end
-    if c2 > c1 then return "right" end
-end
-
-local function getConnections(prev, curr, nextNode)
-    local connections = {}
-    if prev and curr then
-        local dir = getDirection(curr.row, curr.col, prev.row, prev.col)
-        if dir == "up" then dir = "down"
-        elseif dir == "down" then dir = "up"
-        elseif dir == "left" then dir = "right"
-        elseif dir == "right" then dir = "left" end
-        if dir then connections[dir] = true end
-    end
-    if nextNode and curr then
-        local dir = getDirection(curr.row, curr.col, nextNode.row, nextNode.col)
-        if dir then connections[dir] = true end
-    end
-    return connections
-end
-
-local function isNeighbour(a, b)
-    return math.abs(a.row - b.row) + math.abs(a.col - b.col) == 1
-end
-
-local function findMethod(obj, names)
-    for i = 1, #names do
-        if typeof(obj[names[i]]) == "function" then return obj[names[i]] end
-    end
-end
-
--- =================================================================
--- 3. ALGORITHM MODULE (Thuật toán xâu chuỗi siêu tốc)
--- =================================================================
-local function sortPathByRealEnds(unorderedPath)
-    if not unorderedPath or #unorderedPath <= 1 then return unorderedPath end
-
-    table.clear(FlowPathCache)
-    table.clear(FlowUsedCache)
-    
-    for i = 1, #unorderedPath do
-        FlowPathCache[i] = {row = unorderedPath[i].row, col = unorderedPath[i].col}
-    end
-
-    local startNodeIndex = 1
-    for i = 1, #FlowPathCache do
-        local neighbors = 0
-        for j = 1, #FlowPathCache do
-            if i ~= j and isNeighbour(FlowPathCache[i], FlowPathCache[j]) then
-                neighbors = neighbors + 1
-            end
-        end
-        if neighbors == 1 then
-            startNodeIndex = i
-            break
-        end
-    end
-
-    local ordered = { FlowPathCache[startNodeIndex] }
-    FlowUsedCache[startNodeIndex] = true
-
-    for _ = 2, #FlowPathCache do
-        local last = ordered[#ordered]
-        local foundNext = false
-
-        for i = 1, #FlowPathCache do
-            if not FlowUsedCache[i] and isNeighbour(last, FlowPathCache[i]) then
-                table.insert(ordered, FlowPathCache[i])
-                FlowUsedCache[i] = true
-                foundNext = true
-                break
-            end
-        end
-
-        if not foundNext then
-            for i = 1, #FlowPathCache do
-                if not FlowUsedCache[i] then
-                    table.insert(ordered, FlowPathCache[i])
-                    FlowUsedCache[i] = true
-                    break
-                end
-            end
-        end
-    end
-
-    return ordered
-end
-
--- =================================================================
--- 4. LOGIC MODULE (Luật 5: Tách nhỏ logic giải đố)
--- =================================================================
-getgenv().SolveFlowPuzzle = function(puzzle, targetColorIndex)
-    if not getgenv().FlowAutoSolve or not IsPuzzle(puzzle) or not puzzle.Solution then return end
-    getgenv().FlowIsDrawing = true
-    puzzle.paths = puzzle.paths or {}
-    puzzle.gridConnections = puzzle.gridConnections or {}
-
-    local updateGui = findMethod(puzzle, {"updateGui", "UpdateGui", "Render", "render"})
-    local checkWin = findMethod(puzzle, {"checkForWin", "CheckForWin", "WinCheck"})
-    local indices = targetColorIndex and {targetColorIndex} or {}
-    
-    if #indices == 0 then
-        for i = 1, #puzzle.Solution do table.insert(indices, i) end
-    end
-
-    for idx = 1, #indices do
-        local colorIndex = indices[idx]
-        local ordered = sortPathByRealEnds(puzzle.Solution[colorIndex])
-        
-        if ordered and #ordered > 0 then
-            puzzle.paths[colorIndex] = {}
-            for i = 1, #ordered do puzzle.gridConnections[ordered[i].row.."-"..ordered[i].col] = nil end
-
-            for i = 1, #ordered do
-                if not getgenv().FlowAutoSolve then getgenv().FlowIsDrawing = false return end 
-                local node = ordered[i]
-                table.insert(puzzle.paths[colorIndex], {row = node.row, col = node.col})
-                puzzle.gridConnections[node.row.."-"..node.col] = getConnections(ordered[i-1], node, ordered[i+1])
-
-                if updateGui and getgenv().isFlowGuiVisible() then safeCall(updateGui, puzzle) end
-                if getgenv().isFlowGuiVisible() then task.wait(getgenv().FlowSolveDelay) end
-            end
-        end
-        if checkWin and getgenv().isFlowGuiVisible() then safeCall(checkWin, puzzle) end
-    end
-    getgenv().FlowIsDrawing = false
-end
-
-getgenv().triggerFlowSolvers = function()
-    for puzzle, _ in pairs(getgenv().FlowActivePuzzles) do
-        task.spawn(function() getgenv().SolveFlowPuzzle(puzzle) end)
-    end
-end
-
--- Tách logic loop ra thành 1 hàm (Luật 7)
-local function ProcessAutoFlowLoop()
-    if not getgenv().FlowAutoSolve then return end
-
-    local currentGuiState = (getgenv().isFlowGuiVisible() ~= nil)
-    
-    if currentGuiState and not lastGuiState then
-        task.wait(0.3) 
-        getgenv().triggerFlowSolvers()
-    end
-    
-    lastGuiState = currentGuiState
-    
-    if currentGuiState and not getgenv().FlowIsDrawing then
-        for puzzle, _ in pairs(getgenv().FlowActivePuzzles) do
-            if puzzle.Solution and puzzle.paths then
-                for colorIndex = 1, #puzzle.Solution do
-                    local currentPath = puzzle.paths[colorIndex]
-                    if not currentPath or #currentPath == 0 then
-                        getgenv().SolveFlowPuzzle(puzzle, colorIndex)
-                        break
-                    end
-                end
-            end
-        end
-    end
-end
-
--- =================================================================
--- 5. HOOKING MODULE (Quét Module an toàn)
--- =================================================================
-local function ProcessHookResult(result)
-    if IsPuzzle(result) then
-        getgenv().FlowActivePuzzles[result] = true
-        getgenv().SolveFlowPuzzle(result)
-        return
-    end
-    if typeof(result) == "table" then
-        for _, v in pairs(result) do
-            if IsPuzzle(v) then 
-                getgenv().FlowActivePuzzles[v] = true
-                getgenv().SolveFlowPuzzle(v) 
-            end
-        end
-    end
-end
-
-local function HookModule(moduleScript)
-    if HookedModules[moduleScript] then return end
-    HookedModules[moduleScript] = true
-
-    local success, module = pcall(require, moduleScript)
-    if not success or typeof(module) ~= "table" or typeof(module.new) ~= "function" then return end
-
-    debugPrint("Đã kết nối thành công hệ thống:", moduleScript:GetFullName())
-
-    local oldNew = module.new
-    module.new = function(...)
-        local result = oldNew(...)
-        task.spawn(function()
-            task.wait(0.05)
-            safeCall(ProcessHookResult, result)
-        end)
-        return result
-    end
-end
-
-local function ScanModules()
-    local safeContainers = {ReplicatedStorage, PlayerGui, game:GetService("StarterGui")}
-    for c = 1, #safeContainers do
-        task.spawn(function()
-            local descendants = safeContainers[c]:GetDescendants()
-            for i = 1, #descendants do
-                local obj = descendants[i]
-                if obj:IsA("ModuleScript") then
-                    local lower = string.lower(obj.Name)
-                    if lower:find("flow") or lower:find("puzzle") or lower:find("pipe") or lower:find("connect") or lower:find("grid") then
-                        HookModule(obj)
-                    end
-                end
-                if i % 150 == 0 then task.wait() end -- Chống giật lag
-            end
-        end)
-    end
-end
-
-ScanModules()
-
-ReplicatedStorage.DescendantAdded:Connect(function(obj)
-    if obj:IsA("ModuleScript") then
-        local lower = string.lower(obj.Name)
-        if lower:find("flow") or lower:find("puzzle") or lower:find("pipe") or lower:find("connect") or lower:find("grid") then
-            task.wait(0.05)
-            HookModule(obj)
-        end
-    end
-end)
-
--- =================================================================
--- 6. MASTER LOOP (Luật 7: Loop siêu mỏng)
--- =================================================================
-task.spawn(function()
-    while task.wait(0.15) do
-        ProcessAutoFlowLoop()
-    end
-end)
-
--- =================================================================
--- 7. UI MODULE (Luật 3 & 6: Giữ nguyên localization gốc)
--- =================================================================
 TabHandles.Farm:Toggle({
     Title = "hutaohub:Auto_Finish_Generator",
     Desc = "hutaohub:Auto_Finish_Generator_Desc",
@@ -1662,7 +1661,7 @@ TabHandles.Farm:Toggle({
             if typeof(RemoveLoop) == "function" then
                 pcall(RemoveLoop, "AutoGenerator")
             end
-            getgenv().solveGeneratorCooldown = false -- Tránh lỗi Strict Mode
+            solveGeneratorCooldown = false
         end
     end
 })
@@ -1899,6 +1898,206 @@ TabHandles.Farm:Toggle({
     end
 })
 
+TabHandles.Survivors:Section({ Title = "007n7", Icon = "ghost" })
+
+-- ====================================================
+-- [CẤU HÌNH TRẠNG THÁI INVIS] (Tách biến state)
+-- ====================================================
+local INVIS_ANIM_ID = "rbxassetid://115509603980568"
+local CLONE_DURATION = 5
+
+if not getgenv().InvisSettings then
+    getgenv().InvisSettings = {
+        InstantEnabled = false,
+        CloneEnabled = false,
+        AnimTrack = nil,
+        IsPlaying = false,
+        CloneActive = false,
+        WasOnCooldown = false,
+        IsValidRole = false -- [MỚI] Biến theo dõi trạng thái S/K
+    }
+end
+
+local Settings = getgenv().InvisSettings
+
+-- ====================================================
+-- [CÁC HÀM TIỆN ÍCH UI & ANIMATION] (Cấu trúc phẳng)
+-- ====================================================
+local function getAnimator()
+    if not playerCharacter then return nil end
+    local hum = playerCharacter:FindFirstChildOfClass("Humanoid")
+    if not hum then return nil end
+    return hum:FindFirstChildOfClass("Animator")
+end
+
+local function getCloneButton()
+    local playerGui = localPlayer:FindFirstChild("PlayerGui")
+    if not playerGui then return nil end
+    
+    local mainUI = playerGui:FindFirstChild("MainUI")
+    if not mainUI then return nil end
+    
+    local abilityContainer = mainUI:FindFirstChild("AbilityContainer")
+    if not abilityContainer then return nil end
+    
+    return abilityContainer:FindFirstChild("Clone")
+end
+
+local function getCooldownText()
+    local button = getCloneButton()
+    if not button then return nil end
+    
+    if button:IsA("TextButton") then return button.Text end
+    
+    local label = button:FindFirstChildWhichIsA("TextLabel", true)
+    if label then return label.Text end
+    
+    return nil
+end
+
+local function isCooldownActive()
+    local text = getCooldownText()
+    return text and text ~= "" and tonumber(text) ~= nil
+end
+
+local function stopAnimation()
+    if not Settings.AnimTrack then return end
+    Settings.AnimTrack:Stop(0.1)
+    Settings.AnimTrack = nil
+    Settings.IsPlaying = false
+end
+
+local function playAnimation()
+    if Settings.IsPlaying then return end
+
+    local animator = getAnimator()
+    if not animator then return end
+
+    local anim = Instance.new("Animation")
+    anim.AnimationId = INVIS_ANIM_ID
+
+    local track = animator:LoadAnimation(anim)
+    track.Priority = Enum.AnimationPriority.Action4
+    track:Play(0.1)
+    track:AdjustSpeed(0)
+
+    Settings.AnimTrack = track
+    Settings.IsPlaying = true
+end
+
+-- ====================================================
+-- [LOGIC ĐIỀU KHIỂN & KIỂM TRA ROLE]
+-- ====================================================
+local function updateAnimation()
+    -- Chỉ phát hoạt ảnh nếu đang bật tính năng VÀ đang là S/K
+    local shouldPlay = (Settings.InstantEnabled or Settings.CloneActive) and Settings.IsValidRole
+
+    if shouldPlay then
+        playAnimation()
+    else
+        stopAnimation()
+    end
+end
+
+local function deactivateClone()
+    Settings.CloneActive = false
+    updateAnimation()
+end
+
+local function activateClone()
+    if Settings.CloneActive then return end
+    Settings.CloneActive = true
+    updateAnimation()
+    task.delay(CLONE_DURATION, deactivateClone)
+end
+
+local function updateCloneDetection()
+    local onCooldown = isCooldownActive()
+    if onCooldown and not Settings.WasOnCooldown then
+        activateClone()
+    end
+    Settings.WasOnCooldown = onCooldown
+end
+
+-- Hàm kiểm tra xem người chơi có đang nằm trong thư mục S/K hay không
+local function checkValidRole()
+    if not playerCharacter or not playerCharacter.Parent then return false end
+    return playerCharacter:IsDescendantOf(survivorsFolder) or playerCharacter:IsDescendantOf(killersFolder)
+end
+
+-- Hàm xử lý khi người chơi chuyển từ sảnh (Lobby) vào game (S/K) và ngược lại
+local function handleRoleTransition(currentlyValid)
+    -- Khi vừa trở thành S/K
+    if currentlyValid and not Settings.IsValidRole then
+        Settings.IsValidRole = true
+        updateAnimation() -- Tự động áp dụng nếu Toggle đang bật
+        
+    -- Khi vừa chết hoặc hết trận (Mất trạng thái S/K)
+    elseif not currentlyValid and Settings.IsValidRole then
+        Settings.IsValidRole = false
+        Settings.CloneActive = false
+        Settings.WasOnCooldown = false
+        stopAnimation() -- Bắt buộc dừng ngay lập tức
+    end
+end
+
+-- ====================================================
+-- [LOOP XỬ LÝ SIÊU MỎNG BẰNG HEARTBEAT] (Rule 7)
+-- ====================================================
+local function ProcessInvisLoop()
+    -- 1. Cập nhật trạng thái Role liên tục
+    local currentlyValid = checkValidRole()
+    handleRoleTransition(currentlyValid)
+
+    -- 2. Chỉ quét UI Clone nếu tính năng bật và đang là S/K
+    if currentlyValid and Settings.CloneEnabled then
+        updateCloneDetection()
+    end
+end
+
+local InvisLastTick = tick()
+RunService.Heartbeat:Connect(function()
+    -- Giới hạn tần số quét 0.2s để không tốn CPU (Giống task.wait(0.2))
+    if tick() - InvisLastTick >= 0.2 then
+        InvisLastTick = tick()
+        ProcessInvisLoop()
+    end
+end)
+
+-- ====================================================
+-- [UI CALLBACKS - CHỈ GỌI HÀM CHÍNH] (Rule 6)
+-- ====================================================
+local function onInstantInvisToggled(value)
+    Settings.InstantEnabled = value
+    updateAnimation()
+end
+
+local function onCloneInvisToggled(value)
+    Settings.CloneEnabled = value
+    if not value then
+        Settings.CloneActive = false
+        Settings.WasOnCooldown = false
+    end
+    updateAnimation()
+end
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Instant_Invisible",
+    Desc = "hutaohub:Instant_Invisible_Desc",
+    Flag = "Instant Invisible",
+    Value = Settings.InstantEnabled,
+    Callback = onInstantInvisToggled
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Invisible_If_Cloned",
+    Desc = "hutaohub:Invisible_If_Cloned_Desc",
+    Flag = "Invisible If Cloned",
+    Value = Settings.CloneEnabled,
+    Callback = onCloneInvisToggled
+})
+
+
 getgenv().AutoAbilityEnabled = getgenv().AutoAbilityEnabled or false
 getgenv().AutoAbilityRange = getgenv().AutoAbilityRange or 25
 getgenv().AutoUseAllSkills = getgenv().AutoUseAllSkills or true
@@ -2125,7 +2324,7 @@ local playExtra, playMain, playAlt = false, false, false
 local tarExtra, tarMain, tarAlt = nil, nil, nil
 
 local soundMaps = {
-    extra = { ["120038054863702"] = true }, -- SOUND MỚI
+    extra = { ["120038054863702"] = true },
     main = { ["105934041806374"] = true, ["132331977491979"] = true },
     alt = { ["70845653728841"] = true }
 }
@@ -2338,7 +2537,6 @@ function VoidRushController:RotateTo(targetPart)
     local humanoid = playerCharacter and playerCharacter:FindFirstChildOfClass("Humanoid")
     if not root or not humanoid then return end
     
-    -- FIX FLING: Nếu nhân vật đang bị game khóa vật lý (Animation kết liễu), dừng ngay việc ép CFrame
     local state = humanoid:GetState()
     if state == Enum.HumanoidStateType.Physics or state == Enum.HumanoidStateType.PlatformStanding then 
         return 
@@ -2539,7 +2737,6 @@ end)
 
 TabHandles.Killers:Section({ Title = "c00lkidd", Icon = "flame" })
 
--- Toggle đầu tiên
 TabHandles.Killers:Toggle({ 
     Title = "hutaohub:Walkspeed_Override_Controller",
     Desc = "hutaohub:Walkspeed_Override_Controller_Desc",
@@ -2548,7 +2745,6 @@ TabHandles.Killers:Toggle({
     Callback = function(s) enabled = s end 
 })
 
--- Toggle thứ hai
 TabHandles.Killers:Toggle({ 
     Title = "hutaohub:Walkspeed_Override_Aimbot",
     Desc = "hutaohub:Walkspeed_Override_Aimbot_Desc",
@@ -2565,25 +2761,17 @@ TabHandles.Killers:Toggle({
     Callback = function(s) wallCheck = s end 
 })
 
--- =================================================================
--- 1. SYSTEM STATE (Quy tắc 4: Biến phẳng hoàn toàn bằng getgenv)
--- =================================================================
 getgenv().FakeNameState = getgenv().FakeNameState or {
     Enabled = false,
     FakeName = "",
-    -- Kỹ thuật __mode = "k" giúp tự động xóa Object khỏi Table khi UI bị game hủy (Chống Memory Leak)
     OriginalTexts = setmetatable({}, { __mode = "k" }), 
     Connections = {}
 }
 
--- =================================================================
--- 2. HELPER MODULE (Quy tắc 1 & 2: Hàm nhỏ, logic độc lập)
--- =================================================================
 local function GetPlayerGui()
     return localPlayer:FindFirstChildOfClass("PlayerGui")
 end
 
--- Định vị chính xác các khu vực chứa tên cần quét
 local function GetTargetGuis()
     local pg = GetPlayerGui()
     if not pg then return {} end
@@ -2605,16 +2793,12 @@ local function GetTargetGuis()
     return targets
 end
 
--- =================================================================
--- 3. CORE LOGIC ENGINE (Xử lý chuỗi và ép Text giả)
--- =================================================================
 local function ApplyToObject(obj, state)
     if not (obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox")) then return end
 
     local text = obj.Text
     if not text or text == "" then return end
 
-    -- Nếu chưa lưu text gốc, tiến hành kiểm tra và lưu lại
     if not state.OriginalTexts[obj] then
         if string.find(text, localPlayer.Name) then
             state.OriginalTexts[obj] = text
@@ -2623,11 +2807,10 @@ local function ApplyToObject(obj, state)
         end
     end
 
-    -- Thực hiện hoán đổi tên thật thành tên giả
     if state.Enabled and state.FakeName ~= "" then
         local targetText = string.gsub(state.OriginalTexts[obj], localPlayer.Name, state.FakeName)
         if obj.Text ~= targetText then
-            obj.Text = targetText -- Chỉ đè khi khác biệt để tránh loop vô hạn
+            obj.Text = targetText
         end
     else
         if obj.Text ~= state.OriginalTexts[obj] then
@@ -2636,18 +2819,15 @@ local function ApplyToObject(obj, state)
     end
 end
 
--- [ĐÃ FIX BUG] Quét sạch toàn bộ ngóc ngách, không bỏ sót bất kỳ Player nào
 local function ScanAndApplyFakeName()
     local state = getgenv().FakeNameState
     for _, gui in ipairs(GetTargetGuis()) do
-        -- Duyệt qua TOÀN BỘ Descendants thay vì chỉ tìm cái đầu tiên
         for _, obj in ipairs(gui:GetDescendants()) do
             ApplyToObject(obj, state)
         end
     end
 end
 
--- Khôi phục lại tên thật khi tắt tính năng
 local function RestoreOriginalNames()
     local state = getgenv().FakeNameState
     for obj, text in pairs(state.OriginalTexts) do
@@ -2658,9 +2838,6 @@ local function RestoreOriginalNames()
     table.clear(state.OriginalTexts)
 end
 
--- =================================================================
--- 4. MASTER SIGNAL CONTROLLER (Quản lý Event & Loop chạy nền)
--- =================================================================
 local function CleanupConnections()
     local state = getgenv().FakeNameState
     for _, conn in ipairs(state.Connections) do
@@ -2676,12 +2853,10 @@ local function StartFakeNameSystem()
     CleanupConnections()
     ScanAndApplyFakeName()
 
-    -- Lắng nghe thời gian thực: Bảng điểm sinh ra dòng mới là đè Fake Name luôn lập tức (Không đợi loop)
     local pg = GetPlayerGui()
     if pg then
         table.insert(state.Connections, pg.DescendantAdded:Connect(function(desc)
             if not state.Enabled then return end
-            -- Chờ nhẹ 1 frame để game gán dữ liệu chữ vào UI xong xuôi
             task.skip() 
             local targets = GetTargetGuis()
             for _, target in ipairs(targets) do
@@ -2694,11 +2869,10 @@ local function StartFakeNameSystem()
     end
 end
 
--- [QUY TẮC 7] Duy trì duy nhất 1 Loop chạy nền siêu mỏng toàn hệ thống (Chống đè thread khi re-execute)
 if not getgenv().FakeNameLoopInitialized then
     getgenv().FakeNameLoopInitialized = true
     task.spawn(function()
-        while task.wait(0.1) do -- 0.1 giây kiểm tra bảo vệ là quá đủ vì đã có Event bắt bên trên
+        while task.wait(0.1) do
             local state = getgenv().FakeNameState
             if state and state.Enabled then
                 pcall(ScanAndApplyFakeName)
@@ -2707,9 +2881,6 @@ if not getgenv().FakeNameLoopInitialized then
     end)
 end
 
--- =================================================================
--- 5. UI BINDING (Ghép chuẩn thư viện UI của bro)
--- =================================================================
 TabHandles.Name:Section({
     Title = "You Name",
     Icon = "user-check"
@@ -2749,7 +2920,6 @@ TabHandles.Name:Toggle({
     end
 })
 
--- Quản lý trạng thái cho Anti-Stun
 local AntiStunState = {
     Active = false,
     Connection = nil,
@@ -2762,7 +2932,6 @@ local AntiStunState = {
 
 local BLOCK_ACTION_NAME = "hutaohub_BlockMovement"
 
--- Hàm tìm joystick/mobile controls
 local function SetTouchControlsVisible(visible)
     local playerGui = localPlayer:FindFirstChildOfClass("PlayerGui")
 
@@ -2774,7 +2943,6 @@ local function SetTouchControlsVisible(visible)
         if gui:IsA("GuiObject") then
             local name = gui.Name:lower()
 
-            -- Các tên joystick/control phổ biến Roblox
             if name:find("joystick")
             or name:find("thumbstick")
             or name:find("move")
@@ -2792,7 +2960,6 @@ local function SetTouchControlsVisible(visible)
     end
 end
 
--- Hàm tạm thời vô hiệu input điều khiển
 local function DisableCharacterControl(duration)
     if AntiStunState.ControlBlocked then
         return
@@ -2807,10 +2974,8 @@ local function DisableCharacterControl(duration)
         return
     end
 
-    -- Ẩn joystick/mobile controls
     SetTouchControlsVisible(false)
 
-    -- Chặn toàn bộ movement input
     ContextActionService:BindAction(
         BLOCK_ACTION_NAME,
         function()
@@ -2824,7 +2989,6 @@ local function DisableCharacterControl(duration)
         Enum.PlayerActions.CharacterJump
     )
 
-    -- Force đứng yên liên tục
     if AntiStunState.MovementConnection then
         AntiStunState.MovementConnection:Disconnect()
         AntiStunState.MovementConnection = nil
@@ -2834,7 +2998,6 @@ local function DisableCharacterControl(duration)
         if humanoid and humanoid.Parent then
             humanoid:Move(Vector3.zero, true)
 
-            -- Reset velocity để chắc chắn đứng yên
             local rootPart = humanoid.RootPart
 
             if rootPart then
@@ -2844,16 +3007,13 @@ local function DisableCharacterControl(duration)
     end)
 
     task.delay(duration or 0.2, function()
-        -- Cleanup movement force
         if AntiStunState.MovementConnection then
             AntiStunState.MovementConnection:Disconnect()
             AntiStunState.MovementConnection = nil
         end
 
-        -- Mở lại input
         ContextActionService:UnbindAction(BLOCK_ACTION_NAME)
 
-        -- Hiện lại joystick/mobile controls
         SetTouchControlsVisible(true)
 
         local currentHumanoid = playerCharacter and playerCharacter:FindFirstChildOfClass("Humanoid")
@@ -2861,7 +3021,6 @@ local function DisableCharacterControl(duration)
         if currentHumanoid then
             task.wait()
 
-            -- Refresh movement state
             currentHumanoid:Move(currentHumanoid.MoveDirection, true)
         end
 
@@ -2869,7 +3028,6 @@ local function DisableCharacterControl(duration)
     end)
 end
 
--- Hàm chặn animation stun tạm thời
 local function BlockAnimations(character, duration)
     if AntiStunState.AnimationBlock then
         return
@@ -2880,12 +3038,10 @@ local function BlockAnimations(character, duration)
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 
     if humanoid then
-        -- Stop toàn bộ animation hiện tại
         for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
             track:Stop(0)
         end
 
-        -- Force reset movement state
         DisableCharacterControl(0.1)
     end
 
@@ -2894,7 +3050,6 @@ local function BlockAnimations(character, duration)
     end)
 end
 
--- Hàm thực thi chính
 local function ToggleAntiStun(enabled)
     AntiStunState.Active = enabled
     
@@ -2920,13 +3075,9 @@ local function ToggleAntiStun(enabled)
                 local stunned = multipliers:FindFirstChild("Stunned")
 
                 local isStunned = stunned and stunned.Value < 1
-                
-                -- Trigger 1 lần mỗi lần bị stun
                 if isStunned and not AntiStunState.LastStun then
-                    -- Chặn animation stun
                     BlockAnimations(char, 0.1)
 
-                    -- Xóa stun
                     stunned.Value = 1
                 end
 
@@ -2934,32 +3085,26 @@ local function ToggleAntiStun(enabled)
             end)
         end
     else
-        -- Cleanup Heartbeat
         if AntiStunState.Connection then
             AntiStunState.Connection:Disconnect()
             AntiStunState.Connection = nil
         end
 
-        -- Cleanup movement force
         if AntiStunState.MovementConnection then
             AntiStunState.MovementConnection:Disconnect()
             AntiStunState.MovementConnection = nil
         end
 
-        -- Cleanup input block
         ContextActionService:UnbindAction(BLOCK_ACTION_NAME)
 
-        -- Restore joystick
         SetTouchControlsVisible(true)
 
-        -- Reset trạng thái
         AntiStunState.AnimationBlock = false
         AntiStunState.LastStun = false
         AntiStunState.ControlBlocked = false
     end
 end
 
--- UI Setup
 TabHandles.Player:Section({
     Title = "hutaohub:Anti_CC",
     Icon = "shield-alert"
@@ -2975,7 +3120,6 @@ TabHandles.Player:Toggle({
     end
 })
 
--- Character respawn support
 localPlayer.CharacterAdded:Connect(function(character)
     playerCharacter = character
 end)
@@ -2985,7 +3129,6 @@ TabHandles.Player:Section({
     Icon = "wind"
 })
 
--- Module path
 local StaminaModulePath = ReplicatedStorage
     :WaitForChild("Systems")
     :WaitForChild("Character")
@@ -3368,817 +3511,55 @@ TabHandles.Player:Toggle({
     end
 })
 
-local genFolder = nil
--- ==========================================
--- MAIN ESP SYSTEM CONFIGURATION
--- ==========================================
-local ESP = {
-    System = {
-        Enabled = {},
-        Objects = {},
-        Connections = {},
-        UpdateLoop = nil,
-        GlobalScanLoop = nil,
-        LogicScanLoop = nil, 
-        LastUpdate = 0
-    },
-    ConfigsMap = {},
-
-    Config = {
-        FONT_SIZE = 12,
-        HEARTBEAT_RATE = 0.1,
-        DISTANCE_RATE = 0.1,
-        GENERATOR_DUPLICATE_RADIUS = 10,
-        CLONE_IGNORE_POSITION = Vector3.new(-3552.90, 11.88, 267.95),
-        CLONE_IGNORE_RADIUS = 500
-    },
-
-    Names = {
-        Survivors = {
-            Eliot = true, Shedletsky = true, Chance = true, ["007n7"] = true,
-            Builderman = true, Veeronica = true, JaneDoe = true, Taph = true,
-            Guest1337 = true, TwoTime = true, Noob = true, Dusekkar = true
-        },
-        Killers = {
-            Slasher = true, c00lkidd = true, Noli = true, ["1x1x1x1"] = true,
-            ["John Doe"] = true, Sixer = true, Nosferatu = true
-        }
-    },
-
-    Utils = {},
-    Validators = {}
-}
-
-local ESPSystem = ESP.System
-local ESPUtils = ESP.Utils
-local ESPValidators = ESP.Validators
-local ESPConfig = ESP.Config
-
-local EXCLUDED_NPC_KEYWORDS = {
-    "taphtripwire",
-    "subspacetripmine",
-    "buildermandispenser",
-    "buildermansentry",
-    "pray"
-}
-
-local EXCLUDED_MODELS = {
-    ["rig"] = true,
-    ["bowrig"] = true,
-}
-
--- ==========================================
--- UTILS FUNCTIONS
--- ==========================================
-function ESPUtils.getCharacter()
-    return localPlayer.Character
-end
-
-function ESPUtils.getRoot(model)
-    if not model then return nil end
-    if model:IsA("BasePart") then return model end
-
-    return model.PrimaryPart
-        or model:FindFirstChild("HumanoidRootPart")
-        or model:FindFirstChildWhichIsA("BasePart")
-end
-
-function ESPUtils.getHumanoid(model)
-    if not model then return nil end
-    return model:FindFirstChildWhichIsA("Humanoid")
-end
-
-function ESPUtils.isAlive(model)
-    local h = ESPUtils.getHumanoid(model)
-    return h and h.Health > 0
-end
-
-function ESPUtils.isLocalCharacter(model)
-    local character = ESPUtils.getCharacter()
-    if not character or not model then return false end
-
-    return model == character
-        or model:IsDescendantOf(character)
-        or character:IsDescendantOf(model)
-end
-
-local CachedRoot
-
-RunService.Heartbeat:Connect(function()
-    local char = ESPUtils.getCharacter()
-    CachedRoot = char and ESPUtils.getRoot(char)
-end)
-
-function ESPUtils.getDistance(part)
-    if not CachedRoot or not part then
-        return 0
-    end
-    return math.floor((CachedRoot.Position - part.Position).Magnitude)
-end
-
-function ESPUtils.isSurvivor(obj)
-    return obj
-        and obj:IsA("Model")
-        and (
-            ESP.Names.Survivors[obj.Name]
-            or (survivorsFolder and obj:IsDescendantOf(survivorsFolder))
-            or obj.Parent == survivorsFolder
-        )
-end
-
-function ESPUtils.isKiller(obj)
-    return obj
-        and obj:IsA("Model")
-        and (
-            ESP.Names.Killers[obj.Name]
-            or (killersFolder and obj:IsDescendantOf(killersFolder))
-            or obj.Parent == killersFolder
-        )
-end
-
-function ESPUtils.isIgnoredClonePosition(root)
-    if not root then return false end
-    return (root.Position - ESPConfig.CLONE_IGNORE_POSITION).Magnitude <= ESPConfig.CLONE_IGNORE_RADIUS
-end
-
-function ESPUtils.isExcluded(name)
-    local lower = name:lower()
-    for _, keyword in ipairs(EXCLUDED_NPC_KEYWORDS) do
-        if lower:find(keyword) then
-            return true
-        end
-    end
-    return false
-end
-
-function ESPUtils.getModelVolume(model)
-    local minPos, maxPos
-
-    for _, v in ipairs(model:GetDescendants()) do
-        if v:IsA("BasePart") then
-            local pos = v.Position
-            if not minPos then
-                minPos = pos
-                maxPos = pos
-            else
-                minPos = Vector3.new(
-                    math.min(minPos.X, pos.X),
-                    math.min(minPos.Y, pos.Y),
-                    math.min(minPos.Z, pos.Z)
-                )
-                maxPos = Vector3.new(
-                    math.max(maxPos.X, pos.X),
-                    math.max(maxPos.Y, pos.Y),
-                    math.max(maxPos.Z, pos.Z)
-                )
-            end
-        end
-    end
-
-    if not minPos or not maxPos then return 0 end
-    local size = maxPos - minPos
-    return size.X * size.Y * size.Z
-end
-
-local function removeESP(id, object)
-    local cache = ESPSystem.Objects[id]
-    if not cache then return end
-
-    local data = cache[object]
-    if not data then return end
-
-    if data.Connections then
-        for _, connection in ipairs(data.Connections) do
-            pcall(function() connection:Disconnect() end)
-        end
-    end
-
-    cache[object] = nil
-
-    if data.Highlight then pcall(function() data.Highlight:Destroy() end) end
-    if data.Billboard then pcall(function() data.Billboard:Destroy() end) end
-end
-
-local function cleanupEmptyESP()
-    for id, objects in pairs(ESPSystem.Objects) do
-        for object in pairs(objects) do
-            if typeof(object) ~= "Instance" or object.Parent == nil then
-                objects[object] = nil
-            end
-        end
-    end
-end
-
-local function createProtectedHighlight(object, color, transparency)
-    local h = Instance.new("Highlight")
-    h.Name = "HutaoESPHighlight"
-    h.FillColor = color
-    h.OutlineColor = Color3.new(1,1,1)
-    h.FillTransparency = transparency or 0.5
-    h.OutlineTransparency = 0
-    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    h.Adornee = object
-    h.Enabled = true
-    h.Parent = CoreGui
-    return h
-end
-
-local function createProtectedBillboard(root, color)
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "HutaoESP"
-    billboard.AlwaysOnTop = true
-    billboard.LightInfluence = 0
-    billboard.ResetOnSpawn = false
-    billboard.MaxDistance = math.huge
-    billboard.Size = UDim2.new(0, 220, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.Adornee = root
-
-    local text = Instance.new("TextLabel")
-    text.BackgroundTransparency = 1
-    text.Size = UDim2.new(1,0,1,0)
-    text.Font = Enum.Font.GothamBold
-    text.TextColor3 = color
-    text.TextStrokeTransparency = 0
-    text.TextStrokeColor3 = Color3.new(0,0,0)
-    text.TextSize = ESPConfig.FONT_SIZE
-    text.TextScaled = false
-    text.RichText = false
-    text.Parent = billboard
-
-    billboard.Parent = CoreGui
-    return billboard, text
-end
-
-local function createESP(id, object, config)
-    if not ESPSystem.Enabled[id] then return end
-    if not object or not object.Parent or ESPUtils.isLocalCharacter(object) then return end
-
-    ESPSystem.Objects[id] = ESPSystem.Objects[id] or {}
-    local cache = ESPSystem.Objects[id]
-    if cache and cache[object] then
-        return
-    end
-
-    local root = ESPUtils.getRoot(object)
-    if not root then return end
-
-    local billboard, text = createProtectedBillboard(root, config.Color)
-    local highlight = createProtectedHighlight(object, config.Color, config.FillTransparency)
-
-    local data = {
-        Object = object,
-        Billboard = billboard,
-        Text = text,
-        Highlight = highlight,
-        Config = config,
-        CachedText = "",
-        Volume = ESPUtils.getModelVolume(object),
-        LastDistanceUpdate = 0,
-        Connections = {}
-    }
-
-    table.insert(data.Connections, object.AncestryChanged:Connect(function(_, parent)
-        if not parent then removeESP(id, object) end
-    end))
-
-    table.insert(data.Connections, billboard.AncestryChanged:Connect(function(_, parent)
-        if not parent and object.Parent and ESPSystem.Objects[id][object] then
-            billboard.Parent = CoreGui
-        end
-    end))
-
-    table.insert(data.Connections, data.Highlight.AncestryChanged:Connect(function(_, parent)
-        if not parent and object.Parent and ESPSystem.Objects[id][object] then
-            data.Highlight = createProtectedHighlight(object, config.Color, config.FillTransparency)
-            data.Highlight.Enabled = ESPSystem.Enabled[id] or false
-        end
-    end))
-
-    ESPSystem.Objects[id][object] = data
-end
-
-local function validateAndCreate(id, obj, config)
-    if not ESPSystem.Enabled[id] then return end
-    if not obj or not obj.Parent or ESPUtils.isLocalCharacter(obj) then return end
-
-    if obj:IsA("Model") then
-        local name = obj.Name:lower()
-        if EXCLUDED_MODELS[name] then return end
-    end
-
-    local success, valid = pcall(config.Validator, obj)
-    if success and valid then
-        createESP(id, obj, config)
-    end
-end
-
--- ==========================================
--- HỆ THỐNG VÒNG LẶP TỔNG (GLOBAL SCAN LOOP)
--- ==========================================
-if ESPSystem.GlobalScanLoop then task.cancel(ESPSystem.GlobalScanLoop) end
-ESPSystem.GlobalScanLoop = task.spawn(function()
-    while true do
-        task.wait(10)
-        local descendants = Workspace:GetDescendants()
-        for i = 1, #descendants do
-            local obj = descendants[i]
-            if obj:IsA("Model") or obj:IsA("Tool") then
-                for id, config in pairs(ESP.ConfigsMap) do
-                    if id == "Item" then continue end
-                    if ESPSystem.Enabled[id] then
-                       validateAndCreate(id, obj, config)
-                    end
-                end
-            end
-            if i % 500 == 0 then task.wait() end
-        end
-    end
-end)
-
-Workspace.DescendantAdded:Connect(function(obj)
-    if obj:IsA("Tool") then
-        local itemRoot = obj:FindFirstChild("ItemRoot")
-        if itemRoot and itemRoot:FindFirstChild("ProximityPrompt") and ESPSystem.Enabled["Item"] then
-            local itemConfig = ESP.ConfigsMap["Item"]
-            if itemConfig then validateAndCreate("Item", obj, itemConfig) end
-        end
-        return
-    end
-
-    if not obj:IsA("Model") then return end
-
-    task.defer(function()
-        if not obj.Parent then return end
-        for id, config in pairs(ESP.ConfigsMap) do
-            if id == "Item" then continue end
-            if ESPSystem.Enabled[id] then
-                validateAndCreate(id, obj, config)
-            end
-        end
-    end)
-end)
-
-Workspace.DescendantRemoving:Connect(function(obj)
-    for id in pairs(ESPSystem.Objects) do
-        removeESP(id, obj)
-    end
-end)
-
-local function registerESP(config)
-    local id = config.Id
-    ESP.ConfigsMap[id] = config
-    ESPSystem.Objects[id] = ESPSystem.Objects[id] or {}
-
-    if config.WatchFolder then
-        table.insert(ESPSystem.Connections, config.WatchFolder.ChildAdded:Connect(function(obj)
-            task.defer(function() validateAndCreate(id, obj, config) end)
-        end))
-    end
-
-    -- ĐÃ FIX BOMB: Lỗi thiếu 'else' và thừa 'end' làm bể ngoặc UI
-    TabHandles.Visual:Toggle({
-        Title = config.Title,
-        Desc = config.Desc,
-        Flag = "ESP_" .. id,
-        Locked = false,
-        Value = false,
-        Callback = function(state)
-            ESPSystem.Enabled[id] = state
-
-            if state then
-                task.spawn(function()
-                    if id == "Item" and config.WatchFolder then
-                        local descendants = config.WatchFolder:GetDescendants()
-                        for _, obj in ipairs(descendants) do
-                            if obj:IsA("Tool") then
-                                validateAndCreate(id, obj, config)
-                            end
-                        end
-                    else
-                        local descendants = Workspace:GetDescendants()
-                        for i, obj in ipairs(descendants) do
-                            if obj:IsA("Model") or obj:IsA("Tool") then
-                                validateAndCreate(id, obj, config)
-                            end
-                            if i % 1000 == 0 then task.wait() end
-                        end
-                        if config.WatchFolder then
-                            for _, obj in ipairs(config.WatchFolder:GetChildren()) do
-                                validateAndCreate(id, obj, config)
-                            end
-                        end
-                    end
-                end)
-            else
-                -- FIX: Thêm Else đàng hoàng để tắt ESP thay vì rớt ra ngoài hàm
-                if ESPSystem.Objects[id] then
-                    for obj, data in pairs(ESPSystem.Objects[id]) do
-                        if data.Highlight and data.Highlight.Enabled then data.Highlight.Enabled = false end
-                        if data.Billboard and data.Billboard.Enabled then data.Billboard.Enabled = false end
-                    end
-                end
-            end
-        end
-    })
-end
-
-if ESPSystem.LogicScanLoop then task.cancel(ESPSystem.LogicScanLoop) end
-local cleanupTick = 0
-
-ESPSystem.LogicScanLoop = task.spawn(function()
-    while true do
-        task.wait(1) 
-        
-        cleanupTick += 1
-        if cleanupTick >= 20 then
-           cleanupTick = 0
-           cleanupEmptyESP()
-        end
-        
-        for id, objects in pairs(ESPSystem.Objects) do
-            local isEnabled = ESPSystem.Enabled[id]
-            if not isEnabled then continue end
-
-            for object, data in pairs(objects) do
-                if not object or not object.Parent or ESPUtils.isLocalCharacter(object) then
-                    removeESP(id, object)
-                    continue
-                end
-
-                if object.Name == "Rig" then
-                    removeESP(id, object)
-                    continue
-                end
-
-                if ESPUtils.isExcluded(object.Name) then
-                    local special = (id == "Trap" or id == "Sentry" or id == "Dispenser" or id == "Subspace" or id == "JohnDoeTrap")
-                    if not special then
-                        removeESP(id, object)
-                        continue
-                    end
-                end
-
-                local root = ESPUtils.getRoot(object)
-                if not root or not root.Parent then
-                    removeESP(id, object)
-                    continue
-                end
-
-                if id == "Clone" then
-                    local h = ESPUtils.getHumanoid(object)
-                    if not h or h.Health <= 0 or ESPUtils.isSurvivor(object) or ESPUtils.isKiller(object) or ESPUtils.isIgnoredClonePosition(root) then
-                        removeESP(id, object)
-                        continue
-                    end
-                end
-
-                if data.Config.Living and not ESPUtils.isAlive(object) then
-                    removeESP(id, object)
-                    continue
-                end
-
-                if data.Config.Generator then
-                    local p = object:FindFirstChild("Progress", true)
-                    if p and p:IsA("NumberValue") and p.Value >= 100 then
-                        removeESP(id, object)
-                        continue
-                    end
-
-                    local myRoot = root
-                    for otherObject, otherData in pairs(objects) do
-                        if otherObject ~= object and otherData and otherData.Config and otherData.Config.Generator then
-                            local otherRoot = ESPUtils.getRoot(otherObject)
-                            if otherRoot then
-                                local magnitude = (myRoot.Position - otherRoot.Position).Magnitude
-                                if magnitude <= ESPConfig.GENERATOR_DUPLICATE_RADIUS then
-                                    local myY = myRoot.Position.Y
-                                    local otherY = otherRoot.Position.Y
-
-                                    if myY < otherY then
-                                        removeESP(id, object)
-                                        break
-                                    elseif math.abs(myY - otherY) <= 2 then
-                                        if data.Volume < (otherData.Volume or 0) then
-                                            removeESP(id, object)
-                                            break
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-
-                if data.Config.Item then
-                  local itemRoot = object:FindFirstChild("ItemRoot")
-                  if not object.Parent or not itemRoot or not itemRoot:FindFirstChild("ProximityPrompt") then
-                   removeESP(id, object)
-                   continue
-                  end
-                end
-            end
-        end
-    end
-end)
-
--- ==========================================
--- LUỒNG RENDER UI BẰNG HEARTBEAT SIÊU NHẸ
--- ==========================================
-if ESPSystem.UpdateLoop then ESPSystem.UpdateLoop:Disconnect() end
-ESPSystem.UpdateLoop = RunService.Heartbeat:Connect(function(delta)
-    ESPSystem.LastUpdate += delta
-    if ESPSystem.LastUpdate < ESPConfig.HEARTBEAT_RATE then return end
-    ESPSystem.LastUpdate = 0
-
-    local now = tick()
-    for id, objects in pairs(ESPSystem.Objects) do
-        if not ESPSystem.Enabled[id] then continue end
-
-        for object, data in pairs(objects) do
-            local root = ESPUtils.getRoot(object)
-            if not root then continue end
-
-            local dist = ESPUtils.getDistance(root)
-            local withinRange = (dist <= 500)
-
-            -- ĐÃ FIX BOMB: Đóng mở If cho LastProtectionCheck cẩn thận, không nuốt code ở dưới
-            if now - (data.LastProtectionCheck or 0) >= 2 then
-                data.LastProtectionCheck = now
-                if not data.Highlight or not data.Highlight.Parent then
-                   data.Highlight = createProtectedHighlight(object, data.Config.Color, data.Config.FillTransparency)
-                end
-                if not data.Billboard or not data.Billboard.Parent then
-                   data.Billboard, data.Text = createProtectedBillboard(root, data.Config.Color)
-                end
-            end
-
-            if data.Highlight.Adornee ~= object then data.Highlight.Adornee = object end
-            if data.Highlight.Enabled ~= withinRange then data.Highlight.Enabled = withinRange end
-            
-            if data.Billboard.Adornee ~= root then data.Billboard.Adornee = root end
-            if data.Billboard.Enabled ~= withinRange then data.Billboard.Enabled = withinRange end
-
-            if withinRange and (now - data.LastDistanceUpdate >= ESPConfig.DISTANCE_RATE) then
-                data.LastDistanceUpdate = now
-                local text
-
-                if id == "JohnDoeTrap" then
-                    text = "Digital Trap [" .. dist .. "m]"
-                else
-                    if data.Config.ShowHealth then
-                        local h = ESPUtils.getHumanoid(object)
-                        if h then
-                            text = string.format("%s [%sm] [HP : %d/%d]", object.Name, dist, math.floor(h.Health), math.floor(h.MaxHealth))
-                        else
-                            text = string.format("%s [%sm]", object.Name, dist)
-                        end
-                    else
-                        text = string.format("%s [%sm]", object.Name, dist)
-                    end
-                end
-
-                if data.CachedText ~= text then
-                    data.CachedText = text
-                    if data.Text then data.Text.Text = text end
-                end
-            end
-        end
-    end
-end)
-
--- ==========================================
--- BỘ VALIDATOR (GIỮ NGUYÊN 100% - DỌN RÁC BIẾN)
--- ==========================================
-function ESPValidators.Clone(obj)
-    if not obj or not obj:IsA("Model") or ESPUtils.isLocalCharacter(obj) then return false end
-    if ESPUtils.isExcluded(obj.Name) then return false end
-    
-    if obj.Name == "Rig" then return false end
-    if ESPUtils.isSurvivor(obj) or ESPUtils.isKiller(obj) then return false end
-
-    local h = ESPUtils.getHumanoid(obj)
-    local root = ESPUtils.getRoot(obj)
-
-    return h and h.Health > 0 and root and not ESPUtils.isIgnoredClonePosition(root)
-end
-
-function ESPValidators.Model(obj)
-    return obj and obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) and not ESPUtils.isLocalCharacter(obj) and ESPUtils.getRoot(obj)
-end
-
-function ESPValidators.Survivor(obj)
-    local h = ESPUtils.getHumanoid(obj)
-    return obj and obj:IsA("Model") and not ESPUtils.isLocalCharacter(obj) and ESPUtils.getRoot(obj) and h and h.Health > 0 and ESPUtils.isSurvivor(obj)
-end
-
-function ESPValidators.Killer(obj)
-    local h = ESPUtils.getHumanoid(obj)
-    return obj and obj:IsA("Model") and not ESPUtils.isLocalCharacter(obj) and ESPUtils.getRoot(obj) and h and h.Health > 0 and ESPUtils.isKiller(obj)
-end
-
-function ESPValidators.Generator(obj)
-    if not obj or not obj:IsA("Model") then return false end
-    if obj.Name ~= "Generator" then return false end
-
-    local mapContainer = Workspace:FindFirstChild("Map")
-    local ingame = mapContainer and mapContainer:FindFirstChild("Ingame")
-    local map = ingame and ingame:FindFirstChild("Map")
-    
-    if not map or not obj:IsDescendantOf(map) then return false end
-
-    local root = ESPUtils.getRoot(obj)
-    if not root then return false end
-
-    local parent = obj.Parent
-    if parent and parent:IsA("Model") and parent.Name:lower():find("generator") then return false end
-
-    local p = obj:FindFirstChild("Progress", true)
-    if p and p:IsA("NumberValue") and p.Value >= 100 then return false end
-
-    local myVolume = ESPUtils.getModelVolume(obj)
-
-    for _, other in ipairs(map:GetChildren()) do
-        if other ~= obj and other:IsA("Model") and other.Name:lower():find("generator") then
-            local otherRoot = ESPUtils.getRoot(other)
-            if otherRoot then
-                local magnitude = (root.Position - otherRoot.Position).Magnitude
-                if magnitude <= ESPConfig.GENERATOR_DUPLICATE_RADIUS then
-                    local otherVolume = ESPUtils.getModelVolume(other)
-                    if otherVolume > myVolume then return false end
-                end
-            end
-        end
-    end
-    return true
-end
-
-function ESPValidators.Item(obj)
-    if not obj or not obj:IsA("Tool") then return false end
-    local itemRoot = obj:FindFirstChild("ItemRoot")
-    if not itemRoot or not itemRoot:FindFirstChild("ProximityPrompt") then return false end
-    return true
-end
-
-function ESPValidators.Dispenser(obj)
-    return obj and obj:IsA("Model") and obj.Name:lower():find("dispenser") and not ESPUtils.isLocalCharacter(obj) and ESPUtils.getRoot(obj)
-end
-
-function ESPValidators.Sentry(obj)
-    return obj and obj:IsA("Model") and obj.Name:lower():find("sentry") and not ESPUtils.isLocalCharacter(obj) and ESPUtils.getRoot(obj)
-end
-
-function ESPValidators.Trap(obj)
-    return obj and obj:IsA("Model") and obj.Name:find("TaphTripwire") and not ESPUtils.isLocalCharacter(obj) and ESPUtils.getRoot(obj)
-end
-
-function ESPValidators.Subspace(obj)
-    return obj and obj:IsA("Model") and obj.Name == "SubspaceTripmine" and not ESPUtils.isLocalCharacter(obj) and ESPUtils.getRoot(obj)
-end
-
-function ESPValidators.JohnDoeTrap(obj)
-    local n = obj.Name:lower()
-    return obj and (n == "shadow" or n:find("shadow")) and not ESPUtils.isLocalCharacter(obj) and ESPUtils.getRoot(obj)
-end
-
-function ESPValidators.FakeGenerator(obj)
-    if not obj or not obj:IsA("Model") then return false end
-    if obj.Name ~= "FakeGenerator" then return false end
-
-    local mapContainer = Workspace:FindFirstChild("Map")
-    local ingame = mapContainer and mapContainer:FindFirstChild("Ingame")
-    local map = ingame and ingame:FindFirstChild("Map")
-
-    return map and obj:IsDescendantOf(map) and ESPUtils.getRoot(obj)
-end
-
--- ==========================================
--- ĐĂNG KÝ GIAO DIỆN
--- ==========================================
+local Sys = getgenv().HutaoESPSystem
+
+Sys.Folders.Survivors = survivorsFolder
+Sys.Folders.Killers = killersFolder
+Sys.Folders.Gen = genFolder
+
+local dynamicMap = Sys.Internal.GetDynamicMapFolder()
+
+-- 3. Khởi tạo cấu hình Runtime chuyển tiếp gọn nhẹ (Giảm thiểu khai báo biến local)
+Sys.Internal.RegisterRuntimeConfig("Clone", { Id = "Clone", Color = Color3.fromRGB(0,255,0), ShowHealth = true, Living = true, WorkspaceOnly = true, Validator = Sys.Validators.Clone })
+Sys.Internal.RegisterRuntimeConfig("Model", { Id = "Model", Color = Color3.fromRGB(255,170,0), Validator = Sys.Validators.Model })
+Sys.Internal.RegisterRuntimeConfig("Survivor", { Id = "Survivor", Color = Color3.fromRGB(255,255,255), ShowHealth = true, Living = true, WatchFolder = survivorsFolder, WorkspaceOnly = true, Validator = Sys.Validators.Survivor })
+Sys.Internal.RegisterRuntimeConfig("Killer", { Id = "Killer", Color = Color3.fromRGB(255,0,0), ShowHealth = true, Living = true, WatchFolder = killersFolder, WorkspaceOnly = true, Validator = Sys.Validators.Killer })
+Sys.Internal.RegisterRuntimeConfig("Generator", { Id = "Generator", Color = Color3.fromRGB(0,255,255), Generator = true, WatchFolder = dynamicMap, WorkspaceOnly = not genFolder, Validator = Sys.Validators.Generator })
+Sys.Internal.RegisterRuntimeConfig("FakeGenerator", { Id = "FakeGenerator", Color = Color3.fromRGB(170, 0, 255), WatchFolder = dynamicMap, Validator = Sys.Validators.FakeGenerator })
+Sys.Internal.RegisterRuntimeConfig("Item", { Id = "Item", Color = Color3.fromRGB(255,215,0), Item = true, WatchFolder = dynamicMap, Validator = Sys.Validators.Item })
+Sys.Internal.RegisterRuntimeConfig("Dispenser", { Id = "Dispenser", Color = Color3.fromRGB(0,162,255), Validator = Sys.Validators.Dispenser })
+Sys.Internal.RegisterRuntimeConfig("Sentry", { Id = "Sentry", Color = Color3.fromRGB(128,128,128), Validator = Sys.Validators.Sentry })
+Sys.Internal.RegisterRuntimeConfig("Trap", { Id = "Trap", Color = Color3.fromRGB(255,85,0), Validator = Sys.Validators.Trap })
+Sys.Internal.RegisterRuntimeConfig("Subspace", { Id = "Subspace", Color = Color3.fromRGB(160,32,240), Validator = Sys.Validators.Subspace })
+Sys.Internal.RegisterRuntimeConfig("JohnDoeTrap", { Id = "JohnDoeTrap", Color = Color3.fromRGB(255,0,0), FillTransparency = 0.2, Validator = Sys.Validators.JohnDoeTrap })
+
+-- 4. Tạo cây thư mục giao diện UI bằng các Callback Router siêu phẳng
 TabHandles.Visual:Section({ Title = "Clone", Icon = "copy" })
-registerESP({
-    Id = "Clone",
-    Title = "hutaohub:Clone_ESP",
-    Desc = "hutaohub:Clone_ESP_Desc",
-    Color = Color3.fromRGB(0,255,0),
-    ShowHealth = true,
-    Living = true,
-    WorkspaceOnly = true,
-    Validator = ESPValidators.Clone
-})
+TabHandles.Visual:Toggle({ Title = "hutaohub:Clone_ESP", Desc = "hutaohub:Clone_ESP_Desc", Flag = "ESP_Clone", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Clone", state) end })
 
 TabHandles.Visual:Section({ Title = "Model", Icon = "box" })
-registerESP({
-    Id = "Model",
-    Title = "hutaohub:Model_ESP",
-    Desc = "hutaohub:Model_ESP_Desc",
-    Color = Color3.fromRGB(255,170,0),
-    Validator = ESPValidators.Model
-})
+TabHandles.Visual:Toggle({ Title = "hutaohub:Model_ESP", Desc = "hutaohub:Model_ESP_Desc", Flag = "ESP_Model", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Model", state) end })
 
 TabHandles.Visual:Section({ Title = "Player", Icon = "user" })
-registerESP({
-    Id = "Survivor",
-    Title = "hutaohub:Survivors_ESP",
-    Desc = "hutaohub:Survivors_ESP_Desc",
-    Color = Color3.fromRGB(255,255,255),
-    ShowHealth = true,
-    Living = true,
-    WatchFolder = survivorsFolder,
-    WorkspaceOnly = true,
-    Validator = ESPValidators.Survivor
-})
-
-registerESP({
-    Id = "Killer",
-    Title = "hutaohub:Killers_ESP",
-    Desc = "hutaohub:Killers_ESP_Desc",
-    Color = Color3.fromRGB(255,0,0),
-    ShowHealth = true,
-    Living = true,
-    WatchFolder = killersFolder,
-    WorkspaceOnly = true,
-    Validator = ESPValidators.Killer
-})
+TabHandles.Visual:Toggle({ Title = "hutaohub:Survivors_ESP", Desc = "hutaohub:Survivors_ESP_Desc", Flag = "ESP_Survivor", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Survivor", state) end })
+TabHandles.Visual:Toggle({ Title = "hutaohub:Killers_ESP", Desc = "hutaohub:Killers_ESP_Desc", Flag = "ESP_Killer", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Killer", state) end })
 
 TabHandles.Visual:Section({ Title = "Other", Icon = "layers" })
-local mapContainer = Workspace:FindFirstChild("Map")
-local ingame = mapContainer and mapContainer:FindFirstChild("Ingame")
-local map = ingame and ingame:FindFirstChild("Map")
-
-registerESP({
-    Id = "Generator",
-    Title = "hutaohub:Generator_ESP",
-    Desc = "hutaohub:Generator_ESP_Desc",
-    Color = Color3.fromRGB(0,255,255),
-    Generator = true,
-    WatchFolder = map,
-    WorkspaceOnly = not genFolder,
-    Validator = ESPValidators.Generator
-})
-
-registerESP({
-    Id = "FakeGenerator",
-    Title = "hutaohub:FakeGenerator_ESP",
-    Desc = "hutaohub:FakeGenerator_ESP_Desc",
-    Color = Color3.fromRGB(170, 0, 255),
-    WatchFolder = map,
-    Validator = ESPValidators.FakeGenerator
-})
-
-registerESP({
-    Id = "Item",
-    Title = "hutaohub:Items_ESP",
-    Desc = "hutaohub:Items_ESP_Desc",
-    Color = Color3.fromRGB(255,215,0),
-    Item = true,
-    WatchFolder = map,
-    Validator = ESPValidators.Item
-})
+TabHandles.Visual:Toggle({ Title = "hutaohub:Generator_ESP", Desc = "hutaohub:Generator_ESP_Desc", Flag = "ESP_Generator", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Generator", state) end })
+TabHandles.Visual:Toggle({ Title = "hutaohub:FakeGenerator_ESP", Desc = "hutaohub:FakeGenerator_ESP_Desc", Flag = "ESP_FakeGenerator", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("FakeGenerator", state) end })
+TabHandles.Visual:Toggle({ Title = "hutaohub:Items_ESP", Desc = "hutaohub:Items_ESP_Desc", Flag = "ESP_Item", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Item", state) end })
 
 TabHandles.Visual:Section({ Title = "Builderman", Icon = "pen-tool" })
-registerESP({
-    Id = "Dispenser",
-    Title = "hutaohub:Dispenser_ESP",
-    Desc = "hutaohub:Dispenser_ESP_Desc",
-    Color = Color3.fromRGB(0,162,255),
-    Validator = ESPValidators.Dispenser
-})
-
-registerESP({
-    Id = "Sentry",
-    Title = "hutaohub:Sentry_ESP",
-    Desc = "hutaohub:Sentry_ESP_Desc",
-    Color = Color3.fromRGB(128,128,128),
-    Validator = ESPValidators.Sentry
-})
+TabHandles.Visual:Toggle({ Title = "hutaohub:Dispenser_ESP", Desc = "hutaohub:Dispenser_ESP_Desc", Flag = "ESP_Dispenser", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Dispenser", state) end })
+TabHandles.Visual:Toggle({ Title = "hutaohub:Sentry_ESP", Desc = "hutaohub:Sentry_ESP_Desc", Flag = "ESP_Sentry", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Sentry", state) end })
 
 TabHandles.Visual:Section({ Title = "Trap / Tapt", Icon = "triangle-alert" })
-registerESP({
-    Id = "Trap",
-    Title = "hutaohub:Tripwire_ESP",
-    Desc = "hutaohub:Tripwire_ESP_Desc",
-    Color = Color3.fromRGB(255,85,0),
-    Validator = ESPValidators.Trap
-})
-
-registerESP({
-    Id = "Subspace",
-    Title = "hutaohub:Subspace_ESP",
-    Desc = "hutaohub:Subspace_ESP_Desc",
-    Color = Color3.fromRGB(160,32,240),
-    Validator = ESPValidators.Subspace
-})
+TabHandles.Visual:Toggle({ Title = "hutaohub:Tripwire_ESP", Desc = "hutaohub:Tripwire_ESP_Desc", Flag = "ESP_Trap", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Trap", state) end })
+TabHandles.Visual:Toggle({ Title = "hutaohub:Subspace_ESP", Desc = "hutaohub:Subspace_ESP_Desc", Flag = "ESP_Subspace", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Subspace", state) end })
 
 TabHandles.Visual:Section({ Title = "John Doe", Icon = "donut" })
-registerESP({
-    Id = "JohnDoeTrap",
-    Title = "hutaohub:Digital_Trap_ESP",
-    Desc = "hutaohub:Digital_Trap_ESP_Desc",
-    Color = Color3.fromRGB(255,0,0),
-    FillTransparency = 0.2,
-    Validator = ESPValidators.JohnDoeTrap
-})
+TabHandles.Visual:Toggle({ Title = "hutaohub:Digital_Trap_ESP", Desc = "hutaohub:Digital_Trap_ESP_Desc", Flag = "ESP_JohnDoeTrap", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("JohnDoeTrap", state) end })
+
 
 local function ServerHop()
     local placeId = game.PlaceId
@@ -4222,119 +3603,78 @@ TabHandles.Misc:Button({
     end
 })
 
-TabHandles.Misc:Section({
-    Title = "hutaohub:Camera",
-    Icon = "camera"
-})
-
-local MiscState = {
-    FullBright = false,
-    Fog = false,
-    InfiniteZoom = false,
-    AntiSlow = false,
-    ShowChat = false,
-    RemoveNPCNoli = false,
-    AntiAFK = false
-}
-
-local DEFAULT_CAMERA = {
-    Max = 128,
-    Min = 0.5
-}
-
-local EFFECT_NAMES = {
-    BlurEffect = true,
-    ColorCorrectionEffect = true,
-    BloomEffect = true,
-    SunRaysEffect = true,
-    DepthOfFieldEffect = true,
-    ScreenFlash = true,
-    HitEffect = true,
-    DamageOverlay = true,
-    BloodEffect = true,
-    Vignette = true,
-    BlackScreen = true,
-    WhiteScreen = true,
-    ShockEffect = true,
-    Darkness = true,
-    JumpScare = true,
-    LowHealthOverlay = true,
-    Flashbang = true,
-    FadeEffect = true
-}
-
-local EFFECT_CLASSES = {
-    BlurEffect = true,
-    BloomEffect = true,
-    SunRaysEffect = true,
-    DepthOfFieldEffect = true,
-    ColorCorrectionEffect = true
-}
-
-local AntiSlowConfigs = {
-    {
-        "SlowedStatus"
-    },
-    {
-        "StunningKiller",
-        "EatFriedChicken",
-        "GuestBlocking",
-        "PunchAbility",
-        "SubspaceTripmine",
-        "TaphTripwire",
-        "PlasmaBeam",
-        "SpawnProtection",
-        "c00lgui",
-        "ShootingGun",
-        "TwoTimeStab",
-        "TwoTimeCrouching",
-        "DrinkingCola",
-        "DrinkingSlateskin",
-        "SlateskinStatus",
-        "EatingGhostburger"
-    },
-    {
-        "BloxyColaItem",
-        "Medkit"
-    },
-    {
-        "Emoting"
-    },
-    {
-        "DispenserConstruction",
-        "SentryConstruction"
+-- ==========================================
+-- GOM TOÀN BỘ BIẾN LOCAL VÀO 1 TABLE DUY NHẤT ĐỂ FIX LỖI 200 REGISTERS
+-- ==========================================
+if not getgenv().MiscModule then
+    getgenv().MiscModule = {
+        Settings = {
+            FullBright = false,
+            Fog = false,
+            InfiniteZoom = false,
+            AntiSlow = false,
+            ShowChat = false,
+            RemoveNPCNoli = false,
+            AntiAFK = true,
+            RemoveEffects = false,
+            RemoveBlackScreen = true
+        },
+        Constants = {
+            DefaultCamera = { Max = 128, Min = 0.5 },
+            EffectNames = {
+                BlurEffect = true, ColorCorrectionEffect = true, BloomEffect = true, SunRaysEffect = true,
+                DepthOfFieldEffect = true, ScreenFlash = true, HitEffect = true, DamageOverlay = true,
+                BloodEffect = true, Vignette = true, BlackScreen = true, WhiteScreen = true,
+                ShockEffect = true, Darkness = true, JumpScare = true, LowHealthOverlay = true,
+                Flashbang = true, FadeEffect = true
+            },
+            EffectClasses = {
+                BlurEffect = true, BloomEffect = true, SunRaysEffect = true, 
+                DepthOfFieldEffect = true, ColorCorrectionEffect = true
+            },
+            AntiSlowConfigs = {
+                {"SlowedStatus"},
+                {"StunningKiller", "EatFriedChicken", "GuestBlocking", "PunchAbility", "SubspaceTripmine", "TaphTripwire", "PlasmaBeam", "SpawnProtection", "c00lgui", "ShootingGun", "TwoTimeStab", "TwoTimeCrouching", "DrinkingCola", "DrinkingSlateskin", "SlateskinStatus", "EatingGhostburger"},
+                {"BloxyColaItem", "Medkit"},
+                {"Emoting"},
+                {"DispenserConstruction", "SentryConstruction"}
+            }
+        },
+        Cache = {
+            EffectCons = {},
+            BlackScreenCons = {},
+            AntiAFKCons = {},
+            AntiAFKConn = nil,
+            ChatWindow = game:GetService("TextChatService"):FindFirstChild("ChatWindowConfiguration")
+        }
     }
-}
+end
 
-local EffectConnections = {}
-local antiAFKCons = {}
-local antiAFKConnection
+local M = getgenv().MiscModule
 
-local TextChatService = game:GetService("TextChatService")
-local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
-
+-- ==========================================
+-- CÁC HÀM XỬ LÝ LOGIC PHẲNG
+-- ==========================================
 local function ApplyVisuals()
-    if MiscState.FullBright then
+    if M.Settings.FullBright then
         Lighting.Ambient = Color3.fromRGB(200, 200, 200)
         Lighting.Brightness = 4
         Lighting.GlobalShadows = false
     end
 
-    if MiscState.Fog then
+    if M.Settings.Fog then
         Lighting.FogStart = 0
         Lighting.FogEnd = 999999
-
         local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
-
         if atmosphere then
             atmosphere.Density = 0
             atmosphere.Haze = 0
         end
     end
 
-    if MiscState.InfiniteZoom then
+    if M.Settings.InfiniteZoom then
         localPlayer.CameraMaxZoomDistance = math.huge
-        localPlayer.CameraMinZoomDistance = DEFAULT_CAMERA.Min
+        localPlayer.CameraMinZoomDistance = M.Constants.DefaultCamera.Min
     end
 end
 
@@ -4347,9 +3687,7 @@ end
 local function ResetFog()
     Lighting.FogStart = 200
     Lighting.FogEnd = 1000
-
     local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
-
     if atmosphere then
         atmosphere.Density = 0.3
         atmosphere.Haze = 0.5
@@ -4357,330 +3695,270 @@ local function ResetFog()
 end
 
 local function ResetZoom()
-    localPlayer.CameraMaxZoomDistance = DEFAULT_CAMERA.Max
-    localPlayer.CameraMinZoomDistance = DEFAULT_CAMERA.Min
+    localPlayer.CameraMaxZoomDistance = M.Constants.DefaultCamera.Max
+    localPlayer.CameraMinZoomDistance = M.Constants.DefaultCamera.Min
 end
 
-task.spawn(function()
-    while true do
-        if MiscState.FullBright
-        or MiscState.Fog
-        or MiscState.InfiniteZoom then
-            ApplyVisuals()
-        end
-
-        if MiscState.AntiSlow and playerCharacter then
-            local speedFolder = playerCharacter:FindFirstChild("SpeedMultipliers")
-
-            if speedFolder then
-                for _, group in ipairs(AntiSlowConfigs) do
-                    for i = 1, #group do
-                        local obj = speedFolder:FindFirstChild(group[i])
-
-                        if obj
-                        and obj:IsA("NumberValue")
-                        and obj.Value ~= 1 then
-                            obj.Value = 1
-                        end
-                    end
-                end
-            end
-
-            local pg = localPlayer:FindFirstChild("PlayerGui")
-
-            if pg then
-                local mainUI = pg:FindFirstChild("MainUI")
-
-                if mainUI then
-                    local status = mainUI:FindFirstChild("StatusContainer")
-
-                    if status then
-                        local slowUI = status:FindFirstChild("Slowness")
-
-                        if slowUI then
-                            slowUI.Visible = false
-                        end
-                    end
+local function processAntiSlow()
+    if not M.Settings.AntiSlow or not playerCharacter then return end
+    
+    local speedFolder = playerCharacter:FindFirstChild("SpeedMultipliers")
+    if speedFolder then
+        for _, group in ipairs(M.Constants.AntiSlowConfigs) do
+            for i = 1, #group do
+                local obj = speedFolder:FindFirstChild(group[i])
+                if obj and obj:IsA("NumberValue") and obj.Value ~= 1 then
+                    obj.Value = 1
                 end
             end
         end
+    end
 
-        if MiscState.RemoveNPCNoli then
-            for _, v in ipairs(workspace:GetDescendants()) do
-                if v:IsA("Model")
-                and v.Name == "Noli"
-                and not Players:GetPlayerFromCharacter(v) then
+    local pg = localPlayer:FindFirstChild("PlayerGui")
+    if pg then
+        local mainUI = pg:FindFirstChild("MainUI")
+        local status = mainUI and mainUI:FindFirstChild("StatusContainer")
+        local slowUI = status and status:FindFirstChild("Slowness")
+        if slowUI then slowUI.Visible = false end
+    end
+end
 
-                    local hum = v:FindFirstChildOfClass("Humanoid")
-
-                    if hum then
-                        pcall(v.Destroy, v)
-                    end
-                end
+local function processRemoveNoli()
+    if not M.Settings.RemoveNPCNoli then return end
+    for _, v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("Model") and v.Name == "Noli" and not Players:GetPlayerFromCharacter(v) then
+            if v:FindFirstChildOfClass("Humanoid") then
+                pcall(v.Destroy, v)
             end
         end
-
-        task.wait(0.5)
     end
-end)
-
-TabHandles.Misc:Toggle({
-    Title = "hutaohub:Full_Bright",
-    Desc = "hutaohub:Full_Bright_Desc",
-    Flag = "FullBright",
-    Value = false,
-    Callback = function(state)
-        MiscState.FullBright = state
-
-        if state then
-            ApplyVisuals()
-        else
-            ResetFullBright()
-        end
-    end
-})
-
-TabHandles.Misc:Toggle({
-    Title = "hutaohub:Remove_Fog",
-    Desc = "hutaohub:Remove_Fog_Desc",
-    Flag = "RemoveFog",
-    Value = false,
-    Callback = function(state)
-        MiscState.Fog = state
-
-        if state then
-            ApplyVisuals()
-        else
-            ResetFog()
-        end
-    end
-})
-
-TabHandles.Misc:Toggle({
-    Title = "hutaohub:Infinite_Zoom",
-    Desc = "hutaohub:Infinite_Zoom_Desc",
-    Flag = "Infinite Zoom",
-    Value = false,
-    Callback = function(state)
-        MiscState.InfiniteZoom = state
-
-        if not state then
-            ResetZoom()
-        end
-    end
-})
-
-TabHandles.Misc:Section({
-    Title = "hutaohub:Game_Play",
-    Icon = "joystick"
-})
+end
 
 local function TryRemoveEffect(obj)
-    if not MiscState.RemoveEffects then
-        return
-    end
+    if not M.Settings.RemoveEffects or not obj or not obj.Parent then return end
 
-    if not obj or not obj.Parent then
-        return
-    end
-
-    local remove =
-        EFFECT_NAMES[obj.Name]
-        or EFFECT_CLASSES[obj.ClassName]
-
-    if not remove
-    and (
-        obj:IsA("ScreenGui")
-        or obj:IsA("BillboardGui")
-        or obj:IsA("SurfaceGui")
-    ) then
+    local remove = M.Constants.EffectNames[obj.Name] or M.Constants.EffectClasses[obj.ClassName]
+    if not remove and (obj:IsA("ScreenGui") or obj:IsA("BillboardGui") or obj:IsA("SurfaceGui")) then
         local lname = string.lower(obj.Name)
-
-        remove =
-            string.find(lname, "overlay")
-            or string.find(lname, "effect")
+        remove = string.find(lname, "overlay") or string.find(lname, "effect")
     end
 
-    if remove then
+    if remove then pcall(obj.Destroy, obj) end
+end
+
+local function TryRemoveBlackScreen(obj)
+    if not M.Settings.RemoveBlackScreen or not obj or not obj.Parent then return end
+    
+    local nameLower = string.lower(obj.Name)
+    local isBlackTarget = (nameLower == "blackscreen") 
+        or (nameLower == "fadescreen") 
+        or (nameLower == "fadeeffect") 
+        or (nameLower == "darkness")
+        or (nameLower == "loadinggui")
+        
+    if not isBlackTarget and obj:IsA("Frame") then
+        isBlackTarget = string.find(nameLower, "black") or string.find(nameLower, "fade")
+    end
+    
+    if isBlackTarget then
         pcall(obj.Destroy, obj)
     end
 end
 
-TabHandles.Misc:Toggle({
-    Title = "hutaohub:Remove_Effects",
-    Desc = "hutaohub:Remove_Effects_Desc",
-    Flag = "RemoveAllBadEffects",
-    Value = false,
-    Callback = function(state)
-        MiscState.RemoveEffects = state
-
-        for i = 1, #EffectConnections do
-            EffectConnections[i]:Disconnect()
-        end
-
-        table.clear(EffectConnections)
-
-        if not state then
-            return
-        end
-
-        local pg = localPlayer:FindFirstChild("PlayerGui")
-
-        if pg then
-            for _, obj in ipairs(pg:GetDescendants()) do
-                TryRemoveEffect(obj)
-            end
-
-            EffectConnections[#EffectConnections + 1] =
-                pg.DescendantAdded:Connect(TryRemoveEffect)
-        end
-
-        for _, obj in ipairs(Lighting:GetDescendants()) do
-            TryRemoveEffect(obj)
-        end
-
-        EffectConnections[#EffectConnections + 1] =
-            Lighting.DescendantAdded:Connect(TryRemoveEffect)
+local function cleanAllBlackScreens()
+    if not M.Settings.RemoveBlackScreen then return end
+    local pg = localPlayer:FindFirstChild("PlayerGui")
+    if not pg then return end
+    
+    for _, obj in ipairs(pg:GetDescendants()) do
+        TryRemoveBlackScreen(obj)
     end
-})
+end
 
-TabHandles.Misc:Toggle({
-    Title = "hutaohub:Anti_Slow",
-    Desc = "hutaohub:Anti_Slow_Desc",
-    Flag = "Anti Slow",
-    Value = false,
-    Callback = function(state)
-        MiscState.AntiSlow = state
+-- ==========================================
+-- LOOP SIÊU MỎNG (THIN LOOP)
+-- ==========================================
+task.spawn(function()
+    while true do
+        if M.Settings.FullBright or M.Settings.Fog or M.Settings.InfiniteZoom then
+            ApplyVisuals()
+        end
+        processAntiSlow()
+        processRemoveNoli()
+        cleanAllBlackScreens()
+        task.wait(0.5)
     end
-})
+end)
 
-if chatWindow then
-    chatWindow:GetPropertyChangedSignal("Enabled"):Connect(function()
-        if chatWindow.Enabled ~= MiscState.ShowChat then
-            chatWindow.Enabled = MiscState.ShowChat
+-- ==========================================
+-- HÀM ĐIỀU HƯỚNG TỪ UI CALLBACK
+-- ==========================================
+local function setFullBright(state)
+    M.Settings.FullBright = state
+    if state then ApplyVisuals() else ResetFullBright() end
+end
+
+local function setRemoveFog(state)
+    M.Settings.Fog = state
+    if state then ApplyVisuals() else ResetFog() end
+end
+
+local function setInfiniteZoom(state)
+    M.Settings.InfiniteZoom = state
+    if not state then ResetZoom() end
+end
+
+local function setRemoveEffects(state)
+    M.Settings.RemoveEffects = state
+    for i = 1, #M.Cache.EffectCons do M.Cache.EffectCons[i]:Disconnect() end
+    table.clear(M.Cache.EffectCons)
+
+    if not state then return end
+    local pg = localPlayer:FindFirstChild("PlayerGui")
+    if pg then
+        for _, obj in ipairs(pg:GetDescendants()) do TryRemoveEffect(obj) end
+        table.insert(M.Cache.EffectCons, pg.DescendantAdded:Connect(TryRemoveEffect))
+    end
+    for _, obj in ipairs(Lighting:GetDescendants()) do TryRemoveEffect(obj) end
+    table.insert(M.Cache.EffectCons, Lighting.DescendantAdded:Connect(TryRemoveEffect))
+end
+
+local function setRemoveBlackScreen(state)
+    M.Settings.RemoveBlackScreen = state
+    for i = 1, #M.Cache.BlackScreenCons do M.Cache.BlackScreenCons[i]:Disconnect() end
+    table.clear(M.Cache.BlackScreenCons)
+
+    if not state then return end
+    cleanAllBlackScreens()
+    
+    local pg = localPlayer:FindFirstChild("PlayerGui")
+    if pg then
+        table.insert(M.Cache.BlackScreenCons, pg.DescendantAdded:Connect(TryRemoveBlackScreen))
+    end
+end
+
+local function setAntiSlow(state)
+    M.Settings.AntiSlow = state
+end
+
+local function setShowChat(state)
+    M.Settings.ShowChat = state
+    if M.Cache.ChatWindow then M.Cache.ChatWindow.Enabled = state end
+end
+
+local function setAntiScreenRec(state)
+    if type(setfflag) ~= "function" then return end
+    pcall(function()
+        setfflag("AbuseReportScreenshot", state and "False" or "True")
+        setfflag("AbuseReportScreenshotPercentage", state and "0" or "100")
+    end)
+end
+
+local function setRemoveFakeNoli(state)
+    M.Settings.RemoveNPCNoli = state
+end
+
+local function performAntiAFKAction()
+    pcall(function()
+        VirtualUser:CaptureController()
+        VirtualUser:Button2Down(Vector2.new(0, 0), Workspace.CurrentCamera.CFrame)
+        task.wait(0.1)
+        VirtualUser:Button2Up(Vector2.new(0, 0), Workspace.CurrentCamera.CFrame)
+    end)
+end
+
+local function setAntiAFK(state)
+    M.Settings.AntiAFK = state
+    if not getconnections then return end
+    local idleCons = getconnections(localPlayer.Idled)
+
+    if state then
+        for _, c in ipairs(idleCons) do
+            M.Cache.AntiAFKCons[c] = true
+            pcall(c.Disable, c)
+        end
+        if M.Cache.AntiAFKConn then M.Cache.AntiAFKConn:Disconnect() end
+        M.Cache.AntiAFKConn = localPlayer.Idled:Connect(performAntiAFKAction)
+    else
+        for c in pairs(M.Cache.AntiAFKCons) do
+            if c and c.Enable then pcall(c.Enable, c) end
+        end
+        M.Cache.AntiAFKCons = {}
+        if M.Cache.AntiAFKConn then
+            M.Cache.AntiAFKConn:Disconnect()
+            M.Cache.AntiAFKConn = nil
+        end
+    end
+end
+
+if M.Cache.ChatWindow then
+    M.Cache.ChatWindow:GetPropertyChangedSignal("Enabled"):Connect(function()
+        if M.Cache.ChatWindow.Enabled ~= M.Settings.ShowChat then
+            M.Cache.ChatWindow.Enabled = M.Settings.ShowChat
         end
     end)
 end
 
-TabHandles.Misc:Toggle({
-    Title = "hutaohub:Show_Chat",
-    Desc = "hutaohub:Show_Chat_Desc",
-    Flag = "ShowChat",
-    Value = false,
-    Callback = function(state)
-        MiscState.ShowChat = state
-
-        if chatWindow then
-            chatWindow.Enabled = state
-        end
-    end
-})
-
-TabHandles.Misc:Section({
-    Title = "hutaohub:Protect",
-    Icon = "shield-alert"
-})
-
-TabHandles.Misc:Toggle({
-    Title = "hutaohub:Anti_Screen_Recording",
-    Desc = "hutaohub:Anti_Screen_Recording",
-    Flag = "Anti Screen Recording",
-    Value = true,
-    Callback = function(state)
-        if type(setfflag) ~= "function" then
-            return
-        end
-
-        pcall(function()
-            setfflag(
-                "AbuseReportScreenshot",
-                state and "False" or "True"
-            )
-
-            setfflag(
-                "AbuseReportScreenshotPercentage",
-                state and "0" or "100"
-            )
-        end)
-    end
-})
-
-TabHandles.Misc:Toggle({
-    Title = "hutaohub:Remove_Fake_Noli",
-    Desc = "hutaohub:Remove_Fake_Noli_Desc",
-    Flag = "Remove Fake Noli",
-    Value = true,
-    Callback = function(state)
-        MiscState.RemoveNPCNoli = state
-    end
-})
-
-TabHandles.Misc:Toggle({
-    Title = "hutaohub:Anti_AFK_Roblox",
-    Desc = "hutaohub:Anti_AFK_Roblox_Desc",
-    Flag = "Anti AFK",
-    Value = true,
-    Callback = function(state)
-        MiscState.AntiAFK = state
-
-        if not getconnections then
-            return
-        end
-
-        local idleCons = getconnections(localPlayer.Idled)
-
-        if state then
-            for _, c in ipairs(idleCons) do
-                antiAFKCons[c] = true
-
-                pcall(function()
-                    c:Disable()
-                end)
-            end
-
-            if antiAFKConnection then
-                antiAFKConnection:Disconnect()
-            end
-
-            antiAFKConnection = localPlayer.Idled:Connect(function()
-                pcall(function()
-                    VirtualUser:CaptureController()
-
-                    VirtualUser:Button2Down(
-                        Vector2.new(0, 0),
-                        Workspace.CurrentCamera.CFrame
-                    )
-
-                    task.wait(0.1)
-
-                    VirtualUser:Button2Up(
-                        Vector2.new(0, 0),
-                        Workspace.CurrentCamera.CFrame
-                    )
-                end)
-            end)
-        else
-            for c in pairs(antiAFKCons) do
-                if c and c.Enable then
-                    pcall(function()
-                        c:Enable()
-                    end)
-                end
-            end
-
-            antiAFKCons = {}
-
-            if antiAFKConnection then
-                antiAFKConnection:Disconnect()
-                antiAFKConnection = nil
-            end
-        end
-    end
-})
-
 -- ==========================================
--- 1. STATE MANAGEMENT (Luật 4: Biến phẳng, không lồng sâu)
+-- KHỞI TẠO GIAO DIỆN UI (CHỈ CHỨA TOGGLE/CLICK)
 -- ==========================================
+TabHandles.Misc:Section({ Title = "hutaohub:Camera", Icon = "camera" })
+
+TabHandles.Misc:Toggle({
+    Title = "hutaohub:Full_Bright", Desc = "hutaohub:Full_Bright_Desc",
+    Flag = "FullBright", Value = M.Settings.FullBright, Callback = setFullBright
+})
+
+TabHandles.Misc:Toggle({
+    Title = "hutaohub:Remove_Fog", Desc = "hutaohub:Remove_Fog_Desc",
+    Flag = "RemoveFog", Value = M.Settings.Fog, Callback = setRemoveFog
+})
+
+TabHandles.Misc:Toggle({
+    Title = "hutaohub:Infinite_Zoom", Desc = "hutaohub:Infinite_Zoom_Desc",
+    Flag = "Infinite Zoom", Value = M.Settings.InfiniteZoom, Callback = setInfiniteZoom
+})
+
+TabHandles.Misc:Section({ Title = "hutaohub:Game_Play", Icon = "joystick" })
+
+TabHandles.Misc:Toggle({
+    Title = "hutaohub:Remove_Effects", Desc = "hutaohub:Remove_Effects_Desc",
+    Flag = "RemoveAllBadEffects", Value = M.Settings.RemoveEffects, Callback = setRemoveEffects
+})
+
+TabHandles.Misc:Toggle({
+    Title = "hutaohub:Remove_BlackScreen", Desc = "hutaohub:Remove_BlackScreen_Desc",
+    Flag = "RemoveStuckBlackScreen", Value = M.Settings.RemoveBlackScreen, Callback = setRemoveBlackScreen
+})
+
+TabHandles.Misc:Toggle({
+    Title = "hutaohub:Anti_Slow", Desc = "hutaohub:Anti_Slow_Desc",
+    Flag = "Anti Slow", Value = M.Settings.AntiSlow, Callback = setAntiSlow
+})
+
+TabHandles.Misc:Toggle({
+    Title = "hutaohub:Show_Chat", Desc = "hutaohub:Show_Chat_Desc",
+    Flag = "ShowChat", Value = M.Settings.ShowChat, Callback = setShowChat
+})
+
+TabHandles.Misc:Section({ Title = "hutaohub:Protect", Icon = "shield-alert" })
+
+TabHandles.Misc:Toggle({
+    Title = "hutaohub:Anti_Screen_Recording", Desc = "hutaohub:Anti_Screen_Recording",
+    Flag = "Anti Screen Recording", Value = true, Callback = setAntiScreenRec
+})
+
+TabHandles.Misc:Toggle({
+    Title = "hutaohub:Remove_Fake_Noli", Desc = "hutaohub:Remove_Fake_Noli_Desc",
+    Flag = "Remove Fake Noli", Value = M.Settings.RemoveNPCNoli, Callback = setRemoveFakeNoli
+})
+
+TabHandles.Misc:Toggle({
+    Title = "hutaohub:Anti_AFK_Roblox", Desc = "hutaohub:Anti_AFK_Roblox_Desc",
+    Flag = "Anti AFK", Value = M.Settings.AntiAFK, Callback = setAntiAFK
+})
+
+
 local ConfigManager = Window.ConfigManager
 local AUTOLOAD_FILE = "saveconfigv2.txt"
 local AUTOLOAD_CLONE = "saveconfigv2_clone.txt"
@@ -4694,12 +3972,8 @@ local ConfigState = {
     AutoSaveLoop = nil
 }
 
--- Biến toàn cục trong scope này để lưu trữ instance UI sau khi tạo
 local ConfigDropdownElement = nil
 
--- ==========================================
--- 2. UTILS & UI NOTIFY (Luật 1: Hàm nhỏ, đơn nhiệm)
--- ==========================================
 local function Notify(title, content, icon)
     WindUI:Notify({
         Title = title,
@@ -4713,7 +3987,6 @@ local function GetConfigs()
     return ConfigManager:AllConfigs()
 end
 
--- SỬA LỖI TẠI ĐÂY: Thay SetValue bằng Set (Hỗ trợ fallback an toàn)
 local function RefreshDropdown(dropdown)
     if not dropdown then return end
     
@@ -4740,9 +4013,6 @@ local function ConfigExists(name)
     return false
 end
 
--- ==========================================
--- 3. FILE LOGIC MODULE (Tách biệt logic xử lý file)
--- ==========================================
 local function SaveAutoLoad(configName, state)
     if not writefile then return end
     
@@ -4778,9 +4048,6 @@ local function LoadAutoLoad()
     return name or "", toggle == "1"
 end
 
--- ==========================================
--- 4. CONFIG CORE LOGIC (Tách biệt logic cấu hình)
--- ==========================================
 local function GetConfigObject(name)
     local success, cfg = pcall(function()
         return ConfigManager:CreateConfig(name)
@@ -4812,9 +4079,6 @@ local function LoadConfig(name)
     return success
 end
 
--- ==========================================
--- 5. LOOP MODULE (Luật 7: Vòng lặp mỏng, cô lập hành vi)
--- ==========================================
 local function StopLoops()
     if ConfigState.InitLoop then
         task.cancel(ConfigState.InitLoop)
@@ -4865,9 +4129,6 @@ local function StartAutoSave()
     end)
 end
 
--- ==========================================
--- 6. UI CALLBACK HANDLERS (Luật 2, 6: Hàm phẳng làm callback)
--- ==========================================
 local function OnConfigNameChanged(v)
     ConfigState.Name = tostring(v or "")
 end
@@ -4977,9 +4238,6 @@ local function OnAutoLoadToggled(state)
     StartAutoSave()
 end
 
--- ==========================================
--- 7. UI GENERATION (Luật 3, 8: Chỉ khởi tạo UI và gán hàm)
--- ==========================================
 TabHandles.Settings:Input({
     Title = "hutaohub:Config_Name",
     Desc = "hutaohub:Config_Name_Desc",
@@ -5030,9 +4288,6 @@ TabHandles.Settings:Toggle({
     Callback = OnAutoLoadToggled
 })
 
--- ==========================================
--- 8. INITIALIZATION DEFERRED RUN
--- ==========================================
 task.delay(1, function()
     local saved, enabled = LoadAutoLoad()
     if saved == "" or not ConfigExists(saved) then return end
