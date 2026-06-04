@@ -156,6 +156,10 @@ baseTranslations = {
     ["Instant_Invisible_Desc"] = "Instant invisibility when the function is activated.",
     ["Invisible_If_Cloned"] = "Invisible If Cloned",
     ["Invisible_If_Cloned_Desc"] = "Activate the stealth function every time you use a skill.",
+    ["Aim_Plasma_Beam"] = "Aim Plasma Beam",
+    ["Aim_Plasma_Beam_Desc"] = "Activate the aim function for the skill.",
+    ["Aim_Plasma_Beam_Mode"] = "Aim_Plasma_Beam_Mode",
+    ["Aim_Plasma_Beam_Mode_Desc"] = "Select the aim mode for the skill.",
     ["Auto_Attack_Range"] = "Auto Attack Range",
     ["Auto_Attack_Range_Desc"] = "Distance check to survivors",
     ["Auto_Attack_Survivors"] = "Auto Attack Survivors",
@@ -672,7 +676,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.3.8", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.4.0", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -682,15 +686,15 @@ function InitializeWindUI()
     }
 
     local TabHandles = {
-        Info = Tabs.About:Tab({ Title = "hutaohub:Information", Icon = "badge-info" }),
-        Farm = Tabs.Features:Tab({ Title = "hutaohub:Farm", Icon = "crown" }),
-        Survivors = Tabs.Features:Tab({ Title = "hutaohub:Survivors", Icon = "user-check" }),
-        Killers = Tabs.Features:Tab({ Title = "hutaohub:Killers", Icon = "skull" }),
-        Name = Tabs.Gameplay:Tab({ Title = "hutaohub:Name", Icon = "type" }),
-        Player = Tabs.Gameplay:Tab({ Title = "hutaohub:Player", Icon = "user" }),
-        Visual = Tabs.Gameplay:Tab({ Title = "hutaohub:Visual", Icon = "eye" }),
-        Misc = Tabs.System:Tab({ Title = "hutaohub:Misc", Icon = "menu" }),
-        Settings = Tabs.System:Tab({ Title = "hutaohub:Settings", Icon = "settings" }),
+        Info = Tabs.About:Tab({ Title = "hutaohub:Information", Icon = "badge-info", ShowTabTitle = true, }),
+        Farm = Tabs.Features:Tab({ Title = "hutaohub:Farm", Icon = "crown", ShowTabTitle = true, }),
+        Survivors = Tabs.Features:Tab({ Title = "hutaohub:Survivors", Icon = "user-check", ShowTabTitle = true, }),
+        Killers = Tabs.Features:Tab({ Title = "hutaohub:Killers", Icon = "skull", ShowTabTitle = true, }),
+        Name = Tabs.Gameplay:Tab({ Title = "hutaohub:Name", Icon = "type", ShowTabTitle = true, }),
+        Player = Tabs.Gameplay:Tab({ Title = "hutaohub:Player", Icon = "user", ShowTabTitle = true, }),
+        Visual = Tabs.Gameplay:Tab({ Title = "hutaohub:Visual", Icon = "eye", ShowTabTitle = true, }),
+        Misc = Tabs.System:Tab({ Title = "hutaohub:Misc", Icon = "menu", ShowTabTitle = true, }),
+        Settings = Tabs.System:Tab({ Title = "hutaohub:Settings", Icon = "settings", ShowTabTitle = true, }),
     }
     
     local baseUrl = "https://raw.githubusercontent.com/djopsiw9i2j39c8j2pw0jxnd91jwj8j0iwjdpxl/50ur3-c0d3/refs/heads/main/"
@@ -1601,10 +1605,7 @@ TabHandles.Farm:Toggle({
     end
 })
 
-local CloneSection = TabHandles.Survivors:Section({
-    Title = "007n7",
-    Opened = false,
-})
+TabHandles.Survivors:Section({ Title = "007n7", Icon = "ghost" })
 
 local INVIS_ANIM_ID = "rbxassetid://115509603980568"
 local CLONE_DURATION = 5
@@ -1763,7 +1764,7 @@ local function onCloneInvisToggled(value)
     updateAnimation()
 end
 
-CloneSection:Toggle({
+TabHandles.Survivors:Toggle({
     Title = "hutaohub:Instant_Invisible",
     Desc = "hutaohub:Instant_Invisible_Desc",
     Flag = "Instant Invisible",
@@ -1771,7 +1772,7 @@ CloneSection:Toggle({
     Callback = onInstantInvisToggled
 })
 
-CloneSection:Toggle({
+TabHandles.Survivors:Toggle({
     Title = "hutaohub:Invisible_If_Cloned",
     Desc = "hutaohub:Invisible_If_Cloned_Desc",
     Flag = "Invisible If Cloned",
@@ -1779,14 +1780,8 @@ CloneSection:Toggle({
     Callback = onCloneInvisToggled
 })
 
-local DusekkarSection = TabHandles.Survivors:Section({
-    Title = "Dusekkar",
-    Opened = false,
-})
+TabHandles.Survivors:Section({ Title = "Dusekkar", Icon = "bolt" })
 
--- ====================================================
--- [PHẦN 1: ĐỊNH NGHĨA BIẾN TOÀN CỤC]
--- ====================================================
 local dusekkarAimbotEnabled = false
 local dusekkarAimMode = "Survivor"
 local dusekkarAiming = false
@@ -1796,9 +1791,6 @@ local dusekkarAimDelay = 0.5
 local dusekkarAnimIds = {"77894750279891", "118933622288262"}
 local dusekkarHealthPenalty = 1000
 
--- ====================================================
--- [PHẦN 2: LOGIC XỬ LÝ (TÁCH HÀM RỜI)]
--- ====================================================
 local function getTargetFromFolder(folder, hrp, char)
     local bestTarget = nil
     local bestScore = math.huge
@@ -1868,9 +1860,6 @@ local function setupCharacter(char)
     end
 end
 
--- ====================================================
--- [PHẦN 3: LOOP CHÍNH (UPDATE MỎNG)]
--- ====================================================
 RunService.RenderStepped:Connect(function()
     if not dusekkarAimbotEnabled or not dusekkarAiming or not dusekkarHumanoid then return end
     local targetHRP = dusekkarGetNearestTarget()
@@ -1879,16 +1868,17 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-DusekkarSection:Dropdown({
-    Title = "Aim Plasma Beam Mode",
+TabHandles.Survivors:Dropdown({
+    Title = "hutaohub:Aim_Plasma_Beam_Mode",
+    Desc = "hutaohub:Aim_Plasma_Beam_Mode_Desc",
     Values = {"Survivor", "Killer", "Random"},
     Value = "Survivor",
     Callback = function(val) dusekkarAimMode = val end
 })
 
-DusekkarSection:Toggle({
-    Title = "Aim Plasma Beam",
-    Desc = "gay",
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Aim_Plasma_Beam",
+    Desc = "hutaohub:Aim_Plasma_Beam_Desc",
     Value = false,
     Callback = function(state)
         dusekkarAimbotEnabled = state
@@ -1901,7 +1891,6 @@ DusekkarSection:Toggle({
     end
 })
 
--- Event kết nối nhân vật
 localPlayer.CharacterAdded:Connect(function(char)
     task.delay(1, setupCharacter, char)
 end)
