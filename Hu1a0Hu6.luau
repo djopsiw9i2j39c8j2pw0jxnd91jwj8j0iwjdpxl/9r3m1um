@@ -28,7 +28,6 @@ localPlayer.CharacterAdded:Connect(function(character)
     playerCharacter = character
 end)
 
-
 if getgenv().loadalllanguage == nil then
     getgenv().loadalllanguage = true
 end
@@ -158,8 +157,54 @@ baseTranslations = {
     ["Invisible_If_Cloned_Desc"] = "Activate the stealth function every time you use a skill.",
     ["Aim_Plasma_Beam"] = "Aim Plasma Beam",
     ["Aim_Plasma_Beam_Desc"] = "Activate the aim function for the skill.",
-    ["Aim_Plasma_Beam_Mode"] = "Aim_Plasma_Beam_Mode",
+    ["Aim_Plasma_Beam_Mode"] = "Aim Plasma Beam Mode",
     ["Aim_Plasma_Beam_Mode_Desc"] = "Select the aim mode for the skill.",
+    ["Block_Mode"] = "Block Mode",
+    ["Block_Mode_Desc"] = "Choose the blocking mode you want to use.",
+    ["Pro_Block_Cooldown"] = "Pro Block Cooldown",
+    ["Pro_Block_Cooldown_Desc"] = "Blocking continuously when sound is present helps reduce lag.",
+    ["Pro_Sound_Threshold"] = "Pro Sound Threshold",
+    ["Pro_Sound_Threshold_Desc"] = "Prevents block activation when the skill has ended but the sound is still on.",
+    ["Wall_Check"] = "Wall Check",
+    ["Wall_Check_Desc"] = "Prevent killers from accidentally blocking attacks from behind walls.",
+    ["Show_Hit_Circle"] = "Show Hit Circle",
+    ["Show_Hit_Circle_Desc"] = "Shows the killers' true attack area.",
+    ["Auto_Block_Beta"] = "Auto Block [Beta]",
+    ["Auto_Block_Beta_Desc"] = "Auto activates skill block extremely quickly when the conditions are met.",
+    ["Range_Check"] = "Range Check",
+    ["Range_Check_Desc"] = "Adjust the inspection area for the Show Circle button.",
+    ["Elevation_Range_Check"] = "Elevation Range Check",
+    ["Elevation_Range_Check_Desc"] = "Adjust the height difference to avoid blocks.",
+    ["Range_Hit_Circle"] = "Range Hit Circle",
+    ["Range_Hit_Circle_Desc"] = "Adjust the killers' strike detection area.",
+    ["Show_Circle"] = "Show Circle",
+    ["Show_Circle_Desc"] = "Displays the area where block triggers may occur.",
+    ["Elevation_Check"] = "Elevation Check",
+    ["Elevation_Check_Desc"] = "Check for height differences to avoid blocking the wrong person.",
+    ["Punch_Aim_Mode"] = "Punch Aim Mode",
+    ["Punch_Aim_Mode_Desc"] = "Select aim mode when using the punch skill.",
+    ["Auto_Punch_Beta"] = "Auto Punch [Beta]",
+    ["Auto_Punch_Beta_Desc"] = "Auto uses the punch skill whenever a block is successful.",
+    ["Aimbot_Punch"] = "Aimbot Punch",
+    ["Aimbot_Punch_Desc"] = "Auto aim your attacks at the nearest killers using your chosen mode.",
+    ["Dash_Punch"] = "Dash Punch",
+    ["Dash_Punch_Desc"] = "When you activate the punch skill, it will push you closer to the killers.",
+    ["Distance_Check"] = "Distance Check",
+    ["Distance_Check_Desc"] = "Test distance killers to trigger punch",
+    ["Punch_Distance"] = "Punch Distance",
+    ["Punch_Distance_Desc"] = "Turn on the distance check function.",
+    ["Mode_Delay"] = "Mode Delay",
+    ["Mode_Delay_Desc"] = "Adjust the delay when you select character delay mode.",
+    ["Dash_Range"] = "Dash Range",
+    ["Dash_Range_Desc"] = "The distance will dash to killers when killers are detected nearby.",
+    ["Dash_Speed"] = "Dash Speed",
+    ["Dash_Speed_Desc"] = "Adjust the dash speed to get closer to the killers.",
+    ["Dash_Delay"] = "Dash Delay",
+    ["Dash_Delay_Desc"] = "The waiting time before the hitbox punch appears",
+    ["Aim_Duration"] = "Aim Duration",
+    ["Aim_Duration_Desc"] = "Set the continuous aim time when activating the punch skill.",
+    ["Camera_Aim_Speed"] = "Camera Aim Speed",
+    ["Camera_Aim_Speed_Desc"] = "Adjust the camera rotation speed each time you activate aim.",
     ["Auto_Attack_Range"] = "Auto Attack Range",
     ["Auto_Attack_Range_Desc"] = "Distance check to survivors",
     ["Auto_Attack_Survivors"] = "Auto Attack Survivors",
@@ -676,7 +721,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.4.0", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.4.2", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -1117,6 +1162,7 @@ getgenv().AutoKillerFarm = getgenv().AutoKillerFarm or false
 getgenv().AutoFarmGen = getgenv().AutoFarmGen or false
 getgenv().SafeModeGen = getgenv().SafeModeGen or false
 getgenv().SafeRangeGen = getgenv().SafeRangeGen or 45
+getgenv().AutoKillerTarget = nil -- lưu HRP của survivor đang bị nhắm
 
 local lastGenPosition = nil
 local currentGenerator = nil
@@ -1186,20 +1232,70 @@ local function FindNearestSurvivor(hrp, myCharacter)
     return nearest
 end
 
+local function FindNearestSurvivorExcept(hrp, myCharacter, excludeHRP)
+    local nearest, minDist = nil, math.huge
+    for _, survivor in ipairs(survivorsFolder:GetChildren()) do
+        if survivor:IsA("Model") and survivor ~= myCharacter and IsAlive(survivor) then
+            local sHrp = GetHRP(survivor)
+            if sHrp and sHrp ~= excludeHRP then
+                local dist = (sHrp.Position - hrp.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    nearest = sHrp
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+local function ChangeTarget()
+    local character = GetCharacter()
+    if not character then return end
+    local hrp = GetHRP(character)
+    if not hrp then return end
+
+    local oldTarget = getgenv().AutoKillerTarget
+    -- Ưu tiên survivor gần nhất khác oldTarget
+    local newTarget = FindNearestSurvivorExcept(hrp, character, oldTarget)
+    if not newTarget and oldTarget and oldTarget.Parent and IsAlive(oldTarget.Parent) then
+        -- Nếu không còn ai khác nhưng oldTarget vẫn sống thì giữ nguyên
+        return
+    end
+    if not newTarget then
+        -- Thử tìm bất kỳ survivor nào (kể cả oldTarget)
+        newTarget = FindNearestSurvivor(hrp, character)
+    end
+    getgenv().AutoKillerTarget = newTarget
+end
+
 local function ProcessAutoKiller()
     local character = GetCharacter()
-    if not (character and character:IsDescendantOf(killersFolder) and IsAlive(character)) then return end
+    if not (character and character:IsDescendantOf(killersFolder) and IsAlive(character)) then
+        getgenv().AutoKillerTarget = nil -- reset khi không phải killer
+        return
+    end
 
     local hrp = GetHRP(character)
     if not hrp then return end
 
-    local targetHrp = FindNearestSurvivor(hrp, character)
+    local targetHrp = getgenv().AutoKillerTarget
+    -- Kiểm tra target hiện tại còn hợp lệ không
+    if targetHrp and targetHrp.Parent and targetHrp.Parent:IsA("Model") and IsAlive(targetHrp.Parent) then
+        -- giữ nguyên target
+    else
+        -- Tự tìm target mới (lần đầu hoặc target cũ đã chết)
+        targetHrp = FindNearestSurvivor(hrp, character)
+        getgenv().AutoKillerTarget = targetHrp
+    end
+
     if targetHrp then
         hrp.CFrame = CFrame.lookAt((targetHrp.CFrame * CFrame.new(0, 0, 3)).Position, targetHrp.Position)
     end
 end
 
 local function FindSafeGenerator()
+    -- ... (giữ nguyên code cũ của bạn) ...
     local mapContainer = workspace:FindFirstChild("Map")
     local map = mapContainer and mapContainer:FindFirstChild("Ingame") and mapContainer.Ingame:FindFirstChild("Map")
     
@@ -1222,6 +1318,7 @@ local function FindSafeGenerator()
 end
 
 local function GetSafeGenPosition(genPart, character)
+    -- ... (giữ nguyên) ...
     local positions = {
         genPart.CFrame * CFrame.new(0,0,-6),
         genPart.CFrame * CFrame.new(6,0,0),
@@ -1229,7 +1326,6 @@ local function GetSafeGenPosition(genPart, character)
     }
     for _, posCF in ipairs(positions) do
         if not IsPositionOccupied(posCF.Position, character) and not IsKillerNear(posCF.Position) then
-
             return CFrame.lookAt(posCF.Position, genPart.Position)
         end
     end
@@ -1237,6 +1333,7 @@ local function GetSafeGenPosition(genPart, character)
 end
 
 local function HandleGeneratorPrompt(foundGen)
+    -- ... (giữ nguyên) ...
     local prompt = foundGen:FindFirstChild("Main") and foundGen.Main:FindFirstChild("Prompt")
     if prompt and prompt:IsA("ProximityPrompt") then
         if (tick() - mapLoadTime) >= 3 and not isHoldingPrompt then
@@ -1257,6 +1354,7 @@ local function HandleGeneratorPrompt(foundGen)
 end
 
 local function ProcessAutoGenerator()
+    -- ... (giữ nguyên) ...
     if isHoldingPrompt or getgenv().AutoKillerFarm then return end
 
     local character = GetCharacter()
@@ -1278,15 +1376,14 @@ local function ProcessAutoGenerator()
         if chosenPos then
             lastGenPosition = chosenPos
             currentGenerator = foundGen
-
             hrp.CFrame = chosenPos
-
         end
     end
 
     HandleGeneratorPrompt(foundGen)
 end
 
+-- ================= VÒNG LẶP =================
 task.spawn(function()
     while task.wait(0.08) do
         if getgenv().AutoKillerFarm then
@@ -1303,6 +1400,18 @@ task.spawn(function()
     end
 end)
 
+-- Nút đổi mục tiêu (chỉ hoạt động khi AutoKillerFarm đang bật)
+TabHandles.Farm:Button({
+    Title = "Change Target",
+    Desc = "Switch to the next nearest survivor",
+    Callback = function()
+        if getgenv().AutoKillerFarm then
+            ChangeTarget()
+        end
+    end
+})
+
+-- ================= UI =================
 TabHandles.Farm:Toggle({
     Title = "hutaohub:Auto_Kill_The_Survivors",
     Desc = "hutaohub:Auto_Kill_The_Survivors_Desc",
@@ -1310,6 +1419,9 @@ TabHandles.Farm:Toggle({
     Value = false,
     Callback = function(state)
         getgenv().AutoKillerFarm = state
+        if not state then
+            getgenv().AutoKillerTarget = nil -- xóa mục tiêu khi tắt
+        end
     end
 })
 
@@ -1894,6 +2006,285 @@ TabHandles.Survivors:Toggle({
 localPlayer.CharacterAdded:Connect(function(char)
     task.delay(1, setupCharacter, char)
 end)
+
+TabHandles.Survivors:Section({ Title = "Guest1337", Icon = "shield-check" })
+
+TabHandles.Survivors:Dropdown({
+    Title = "hutaohub:Block_Mode",
+    Desc = "hutaohub:Block_Mode_Desc",
+    Flag = "Block Mode",
+    Locked = false,
+    Values = {"Default", "Pro"},
+    Value = getgenv().BlockMode,
+    Callback = function(value)
+        getgenv().BlockMode = value
+        -- Reset Pro state
+        for player, data in pairs(activeAttackers) do
+            for _, conn in pairs(data.endedConns) do conn:Disconnect() end
+        end
+        activeAttackers = {}
+        lastProBlockTime = 0
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Auto_Block_Beta",
+    Desc = "hutaohub:Auto_Block_Beta_Desc",
+    Flag = "Auto Block",
+    Value = getgenv().AutoBlock,
+    Callback = function(v)
+        getgenv().AutoBlock = v
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Range_Check",
+    Desc = "hutaohub:Range_Check_Desc",
+    Flag = "Range Check",
+    Value = tostring(getgenv().RangeCheck),
+    Callback = function(v)
+        getgenv().RangeCheck = tonumber(v) or getgenv().RangeCheck
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Elevation_Range_Check",
+    Desc = "hutaohub:Elevation_Range_Check_Desc",
+    Flag = "Elevation Range Check",
+    Value = tostring(getgenv().StubCheck),
+    Callback = function(v)
+        getgenv().StubCheck = tonumber(v) or getgenv().StubCheck
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Range_Hit_Circle",
+    Desc = "hutaohub:Range_Hit_Circle_Desc",
+    Flag = "Range Hit Circle",
+    Value = tostring(getgenv().HitRange),
+    Callback = function(v)
+        getgenv().HitRange = tonumber(v) or getgenv().HitRange
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Pro_Block_Cooldown",
+    Desc = "hutaohub:Pro_Block_Cooldown_Desc",
+    Flag = "Pro Cooldown",
+    Value = tostring(getgenv().ProBlockCooldown),
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num >= 0 then
+            getgenv().ProBlockCooldown = num
+        end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Pro_Sound_Threshold",
+    Desc = "hutaohub:Pro_Sound_Threshold_Desc",
+    Flag = "Pro Sound Threshold",
+    Value = tostring(getgenv().ProSoundThreshold),
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num >= 0 and num <= 1 then
+            getgenv().ProSoundThreshold = num
+        end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Wall_Check",
+    Desc = "hutaohub:Wall_Check_Desc",
+    Flag = "Wall Check",
+    Value = getgenv().WallCheck,
+    Callback = function(v)
+        getgenv().WallCheck = v
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Show_Hit_Circle",
+    Desc = "hutaohub:Show_Hit_Circle_Desc",
+    Flag = "Hit Circle",
+    Value = getgenv().UseHitCircle,
+    Callback = function(v)
+        getgenv().UseHitCircle = v
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Show_Circle",
+    Desc = "hutaohub:Show_Circle_Desc",
+    Flag = "Show Circle",
+    Value = getgenv().ShowCircle,
+    Callback = function(v)
+        getgenv().ShowCircle = v
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Elevation_Check",
+    Desc = "hutaohub:Elevation_Check_Desc",
+    Flag = "Elevation Check",
+    Value = getgenv().StubCheckEnabled,
+    Callback = function(v)
+        getgenv().StubCheckEnabled = v
+    end
+})
+
+if not getgenv().AutoPunchSettings then
+    getgenv().AutoPunchSettings = {
+        AimMode = "Character",
+        AutoPunchEnabled = false,
+        AimbotPunchEnabled = true,
+        UseDistanceCheck = false,
+        PunchDistance = 30,
+        DelayTime = 1,
+        AimDuration = 1,
+        CameraAimSpeed = 10,
+        DashPunchEnabled = false,
+        DashRange = 30,
+        DashSpeed = 100,
+        DashDelay = 0.8,
+    }
+end
+
+local S = getgenv().AutoPunchSettings
+local API = getgenv().AutoPunchAPI or {}  -- Sẽ có nếu logic đã load
+
+TabHandles.Survivors:Dropdown({
+    Title = "hutaohub:Punch_Aim_Mode",
+    Desc = "hutaohub:Punch_Aim_Mode_Desc",
+    Flag = "PunchAimMode",
+    Values = {"Character", "Camera", "CharacterDelay"},
+    Value = S.AimMode,
+    Callback = function(v)
+        S.AimMode = v
+        if API.SetAimMode then API.SetAimMode(v) end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Auto_Punch_Beta",
+    Desc = "hutaohub:Auto_Punch_Beta_Desc",
+    Flag = "AutoPunch",
+    Value = S.AutoPunchEnabled,
+    Callback = function(val)
+        S.AutoPunchEnabled = val
+        if API.SetAutoPunch then API.SetAutoPunch(val) end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Aimbot_Punch",
+    Desc = "hutaohub:Aimbot_Punch_Desc",
+    Flag = "AimbotPunch",
+    Value = S.AimbotPunchEnabled,
+    Callback = function(val)
+        S.AimbotPunchEnabled = val
+        if API.SetAimbot then API.SetAimbot(val) end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Dash_Punch",
+    Desc = "hutaohub:Dash_Punch_Desc",
+    Flag = "DashPunch",
+    Value = S.DashPunchEnabled,
+    Callback = function(val)
+        S.DashPunchEnabled = val
+        if API.SetDashPunch then API.SetDashPunch(val) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Dash_Range",
+    Desc = "hutaohub:Dash_Range_Desc",
+    Flag = "DashRange",
+    Value = S.DashRange,
+    Callback = function(v)
+        S.DashRange = tonumber(v) or 30
+        if API.SetDashRange then API.SetDashRange(v) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Dash_Speed",
+    Desc = "hutaohub:Dash_Speed_Desc",
+    Flag = "DashSpeed",
+    Value = S.DashSpeed,
+    Callback = function(v)
+        S.DashSpeed = tonumber(v) or 50
+        if API.SetDashSpeed then API.SetDashSpeed(v) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Dash_Delay",
+    Desc = "hutaohub:Dash_Delay_Desc",
+    Flag = "DashDelay",
+    Value = S.DashDelay,
+    Callback = function(v)
+        S.DashDelay = tonumber(v) or 0.1
+        if API.SetDashDelay then API.SetDashDelay(v) end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Distance_Check",
+    Desc = "hutaohub:Distance_Check_Desc",
+    Flag = "UseDistanceCheck",
+    Value = S.UseDistanceCheck,
+    Callback = function(val)
+        S.UseDistanceCheck = val
+        if API.SetUseDistanceCheck then API.SetUseDistanceCheck(val) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Punch_Distance",
+    Desc = "hutaohub:Punch_Distance_Desc",
+    Flag = "PunchDistance",
+    Value = S.PunchDistance,
+    Callback = function(v)
+        S.PunchDistance = tonumber(v) or 10
+        if API.SetPunchDistance then API.SetPunchDistance(v) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Mode_Delay",
+    Desc = "hutaohub:Mode_Delay_Desc",
+    Flag = "DelayTime",
+    Value = S.DelayTime,
+    Callback = function(v)
+        S.DelayTime = tonumber(v) or 0.5
+        if API.SetDelayTime then API.SetDelayTime(v) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Aim_Duration",
+    Desc = "hutaohub:Aim_Duration_Desc",
+    Flag = "AimDuration",
+    Value = S.AimDuration,
+    Callback = function(v)
+        S.AimDuration = tonumber(v) or 1
+        if API.SetAimDuration then API.SetAimDuration(v) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Camera_Aim_Speed",
+    Desc = "hutaohub:Camera_Aim_Speed_Desc",
+    Flag = "CameraAimSpeed",
+    Value = S.CameraAimSpeed,
+    Callback = function(v)
+        S.CameraAimSpeed = tonumber(v) or 8
+        if API.SetCameraAimSpeed then API.SetCameraAimSpeed(v) end
+    end
+})
 
 getgenv().AutoAbilityEnabled = getgenv().AutoAbilityEnabled or false
 getgenv().AutoAbilityRange = getgenv().AutoAbilityRange or 25
