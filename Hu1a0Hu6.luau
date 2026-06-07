@@ -127,6 +127,8 @@ baseTranslations = {
     ["Copy_Link"] = "Copy Link",
     ["Dev_Script"] = ">>          Dev Script          <<",
     ["My_Link"] = ">>          My Link          <<",
+    ["Change_Target"] = "Change Target",
+    ["Change_Target_Desc"] = "Switch to the next nearest survivor",
     ["Auto_Kill_The_Survivors"] = "Auto Kill The Survivors",
     ["Auto_Kill_The_Survivors_Desc"] = "Teleport behind nearest survivor continuously",
     ["Generator"] = "Generator",
@@ -151,14 +153,52 @@ baseTranslations = {
     ["Auto_PickUp_Selected_Item_Desc"] = "Auto pick up the selected item in the dropdown menu.",
     ["Auto_PickUp_Nearest_Item"] = "Auto PickUp Nearest Item",
     ["Auto_PickUp_Nearest_Item_Desc"] = "Auto picks up the nearest item around you.",
+    ["Pizza_Aimbot"] = "Pizza Aimbot",
+    ["Pizza_Aimbot_Desc"] = "Auto aim at survivors with the lowest HP when throwing pizzas.",
+    ["Aim_Distance"] = "Aim Distance",
+    ["Aim_Distance_Eliot"] = "Distance to find and locate survivors with the least amount of health.",
+    ["Aim_Offset"] = "Aim Offset",
+    ["Aim_Offset_Desc"] = "Adjust the offset slightly so that when aiming, the pizza will always hit the survivors.",
+    ["Aim_Duration_Eliot"] = "Maximum time to aim each time you use the Pizza skill.",
+    ["Auto_Eat_Pizza"] = "Auto Eat Pizza",
+    ["Auto_Eat_Pizza_Desc"] = "Auto find pizza on the map and teleport there to eat pizza.",
+    ["HP_Threshold_Eliot"] = "Adjust the amount of blood required to activate automatic pizza eating.",
     ["Instant_Invisible"] = "Instant Invisible",
     ["Instant_Invisible_Desc"] = "Instant invisibility when the function is activated.",
     ["Invisible_If_Cloned"] = "Invisible If Cloned",
     ["Invisible_If_Cloned_Desc"] = "Activate the stealth function every time you use a skill.",
+    ["Auto_Slash"] = "Auto Slash",
+    ["Auto_Slash_Desc"] = "Auto use skills when killers are detected nearby.",
+    ["Slash_Radius"] = "Slash Radius",
+    ["Slash_Radius_Desc"] = "Killer detection range for using skills",
+    ["Set_Slash_Delay"] = "Set Slash Delay",
+    ["Set_Slash_Delay_Desc"] = "Check if the killers are still within range during the time you select.",
     ["Aim_Plasma_Beam"] = "Aim Plasma Beam",
     ["Aim_Plasma_Beam_Desc"] = "Activate the aim function for the skill.",
     ["Aim_Plasma_Beam_Mode"] = "Aim Plasma Beam Mode",
     ["Aim_Plasma_Beam_Mode_Desc"] = "Select the aim mode for the skill.",
+    ["Auto_Eat_Chicken"] = "Auto Eat Chicken",
+    ["Auto_Eat_Chicken_Desc"] = "Auto use skills to heal if you still have skills available.",
+    ["HP_Threshold"] = "HP Threshold",
+    ["HP_Threshold_Desc"] = "Adjusting the required HP will activate the chicken eating skill.",
+    ["Safe_Distance"] = "Safe Distance",
+    ["Safe_Distance_Desc"] = "Adjust your safe distance when using skills to avoid nearby killers.",
+    ["Sk8_Control"] = "Sk8 Control",
+    ["Sk8_Control_Desc"] = "It helps you glide on your skateboard extremely smoothly without slowing down.",
+    ["Auto_Trick_V4"] = "Auto Trick V4",
+    ["Auto_Trick_V4_Desc"] = "Auto activate the trick button to jump when there's a glowing border around you.",
+    ["Auto_Dagger"] = "Auto Dagger",
+    ["Auto_Dagger_Desc"] = "Automatically attack killers according to the selected mode.",
+    ["Aim_Dagger"] = "Aim Dagger",
+    ["Aim_Dagger_Desc"] = "Auto aim at killers according to the selected mode.",
+    ["Aim_Dagger_Mode"] = "Aim Dagger Mode",
+    ["Aim_Dagger_Mode_Desc"] = "Select the attack mode for the function.",
+    ["Dagger_Radius"] = "Dagger Radius",
+    ["Dagger_Radius_Desc"] = "Distance allows skill activation and aiming.",
+    ["Dash_After_Dagger"] = "Dash After Dagger",
+    ["Dash_After_Dagger_Desc"] = "Auto dash straight towards killers every time a skill is used.",
+    ["Dash_Speed"] = "Dash Speed",
+    ["Dash_Speed_Desc"] = "Set the best dash speed you want.",
     ["Block_Mode"] = "Block Mode",
     ["Block_Mode_Desc"] = "Choose the blocking mode you want to use.",
     ["Pro_Block_Cooldown"] = "Pro Block Cooldown",
@@ -205,6 +245,22 @@ baseTranslations = {
     ["Aim_Duration_Desc"] = "Set the continuous aim time when activating the punch skill.",
     ["Camera_Aim_Speed"] = "Camera Aim Speed",
     ["Camera_Aim_Speed_Desc"] = "Adjust the camera rotation speed each time you activate aim.",
+    ["Prediction_Mode"] = "Prediction Mode",
+    ["Prediction_Mode_Desc"] = "Choose the prediction style each time aim is activated.",
+    ["Aim_Mode"] = "Aim Mode",
+    ["Aim_Mode_Desc"] = "Choose the aiming mode you want to use.",
+    ["Auto_Aim_Shoot"] = "Auto Aim Shoot",
+    ["Auto_Aim_Shoot_Desc"] = "Auto find killers and aim flintlock at them when shooting.",
+    ["Enable_Offset"] = "Enable Offset",
+    ["Enable_Offset_Desc"] = "Add offset when starting to aim (only enable this if your network is really lag).",
+    ["Auto_Coin_Flip"] = "Auto Coin Flip",
+    ["Auto_Coin_Flip_Desc"] = "Automatically use the CoinFlip skill until the selected points are reached.",
+    ["Coinflip_Target"] = "Coinflip Target",
+    ["Coinflip_Target_Desc"] = "Choose the number of successful coin toss points you want.",
+    ["Safe_Coinflip"] = "Safe Coinflip",
+    ["Safe_Coinflip_Desc"] = "Auto stop using skills when killers are nearby.",
+    ["Safe_Coinflip_Distance"] = "Safe Coinflip Distance",
+    ["Safe_Coinflip_Distance_Desc"] = "Entering a safe distance into the input field helps detect nearby killers.",
     ["Auto_Attack_Range"] = "Auto Attack Range",
     ["Auto_Attack_Range_Desc"] = "Distance check to survivors",
     ["Auto_Attack_Survivors"] = "Auto Attack Survivors",
@@ -248,6 +304,13 @@ baseTranslations = {
     ["Anti_CC"] = "Anti-CC",
     ["Anti_Stun"] = "Anti-Stun",
     ["Anti_Stun_Desc"] = "Prevents you from being stunned.",
+    ["Camlock"] = "Camlock",
+    ["Camlock_Survivor"] = "Camlock Survivor",
+    ["Camlock_Survivor_Desc"] = "auto camlock nearest survivor isn't blocked by anti cheat",
+    ["Aim_Part"] = "Aim Part",
+    ["Aim_Part_Desc"] = "Select the target body part when beginning the target lock.",
+    ["Switch_Target"] = "Switch Target",
+    ["Switch_Target_Desc"] = "Change to a different target that's closer to you.",
     ["Stamina"] = "Stamina",
     ["Full_Stamina"] = "Full Stamina",
     ["Full_Stamina_Desc"] = "Get full 100% stamina.",
@@ -295,6 +358,9 @@ baseTranslations = {
     ["Teleport_Error"] = "Teleport Error",
     ["Rejoin_To_Fix_Lag"] = "Rejoin To Fix Lag",
     ["Rejoin_To_Fix_Lag_Desc"] = "Press to activate the server lag reduction function.",
+    ["Anti_Admin_Forsaken"] = "Anti Admin [Forsaken]",
+    ["Anti_Admin_Forsaken_Desc"] = "Auto switch servers as soon as an administrator is detected on the server.",
+    ["Anti_Admin_Forsaken_Content"] = "Warning! An admin on this server has been detected, preparing to switch servers!!",
     ["Clone_ESP"] = "Clone ESP",
     ["Clone_ESP_Desc"] = "Show all valid models in the map.",
     ["Model_ESP"] = "Model ESP",
@@ -709,7 +775,7 @@ function InitializeWindUI()
     end)
 
     Window:EditOpenButton({
-        Title = "Hutao Hub - Open Gui",
+        Title = "Open Script",
         Icon = "monitor",
         CornerRadius = UDim.new(0, 6),
         StrokeThickness = 2,
@@ -721,7 +787,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.4.2", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.6.1", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -1402,8 +1468,8 @@ end)
 
 -- Nút đổi mục tiêu (chỉ hoạt động khi AutoKillerFarm đang bật)
 TabHandles.Farm:Button({
-    Title = "Change Target",
-    Desc = "Switch to the next nearest survivor",
+    Title = "hutaohub:Change_Target",
+    Desc = "hutaohub:Change_Target_Desc",
     Callback = function()
         if getgenv().AutoKillerFarm then
             ChangeTarget()
@@ -1717,179 +1783,319 @@ TabHandles.Farm:Toggle({
     end
 })
 
-TabHandles.Survivors:Section({ Title = "007n7", Icon = "ghost" })
+if not getgenv().EliotSettings then
+    getgenv().EliotSettings = {
+        PizzaAimbotEnabled = false,
+        AimDistance = 100,
+        AimOffset = 2,
+        AutoEatPizzaEnabled = false,
+        EatPizzaHPThreshold = 30,
+        AimDuration = 0.8,
+    }
+end
 
-local INVIS_ANIM_ID = "rbxassetid://115509603980568"
-local CLONE_DURATION = 5
+local Cfg = getgenv().EliotSettings
+local API = getgenv().EliotAPI or {}
+
+TabHandles.Survivors:Section({ Title = "Elliot", Icon = "pizza" })
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Pizza_Aimbot",
+    Desc = "hutaohub:Pizza_Aimbot_Desc",
+    Flag = "PizzaAimbot",
+    Value = Cfg.PizzaAimbotEnabled,
+    Callback = function(v)
+        Cfg.PizzaAimbotEnabled = v
+        if API.SetPizzaAimbot then API.SetPizzaAimbot(v) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Aim_Distance",
+    Desc = "hutaohub:Aim_Distance_Eliot",
+    Flag = "PizzaAimDistance",
+    Value = Cfg.AimDistance,
+    Callback = function(v)
+        local num = tonumber(v)
+        if num then
+            Cfg.AimDistance = num
+            if API.SetAimDistance then API.SetAimDistance(num) end
+        end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Aim_Offset",
+    Desc = "hutaohub:Aim_Offset_Desc",
+    Flag = "PizzaAimOffset",
+    Value = Cfg.AimOffset,
+    Callback = function(v)
+        local num = tonumber(v)
+        if num then
+            Cfg.AimOffset = num
+            if API.SetAimOffset then API.SetAimOffset(num) end
+        end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Aim_Duration",
+    Desc = "hutaohub:Aim_Duration_Eliot",
+    Flag = "PizzaAimDuration",
+    Value = Cfg.AimDuration,
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            Cfg.AimDuration = num
+            if API.SetAimDuration then API.SetAimDuration(num) end
+        end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Auto_Eat_Pizza",
+    Desc = "hutaohub:Auto_Eat_Pizza_Desc",
+    Flag = "AutoEatPizza",
+    Value = Cfg.AutoEatPizzaEnabled,
+    Callback = function(v)
+        Cfg.AutoEatPizzaEnabled = v
+        if API.SetAutoEatPizza then API.SetAutoEatPizza(v) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:HP_Threshold",
+    Desc = "hutaohub:HP_Threshold_Eliot",
+    Flag = "EatPizzaHP",
+    Value = Cfg.EatPizzaHPThreshold,
+    Callback = function(v)
+        local num = tonumber(v)
+        if num then
+            Cfg.EatPizzaHPThreshold = num
+            if API.SetHPThreshold then API.SetHPThreshold(num) end
+        end
+    end
+})
+
+TabHandles.Survivors:Section({ Title = "007n7", Icon = "ghost" })
 
 if not getgenv().InvisSettings then
     getgenv().InvisSettings = {
         InstantEnabled = false,
-        CloneEnabled = false,
-        AnimTrack = nil,
-        IsPlaying = false,
-        CloneActive = false,
-        WasOnCooldown = false,
-        IsValidRole = false -- [MỚI] Biến theo dõi trạng thái S/K
+        CloneEnabled = false
     }
 end
 
-local Settings = getgenv().InvisSettings
-
-local function getAnimator()
-    if not playerCharacter then return nil end
-    local hum = playerCharacter:FindFirstChildOfClass("Humanoid")
-    if not hum then return nil end
-    return hum:FindFirstChildOfClass("Animator")
-end
-
-local function getCloneButton()
-    local playerGui = localPlayer:FindFirstChild("PlayerGui")
-    if not playerGui then return nil end
-    
-    local mainUI = playerGui:FindFirstChild("MainUI")
-    if not mainUI then return nil end
-    
-    local abilityContainer = mainUI:FindFirstChild("AbilityContainer")
-    if not abilityContainer then return nil end
-    
-    return abilityContainer:FindFirstChild("Clone")
-end
-
-local function getCooldownText()
-    local button = getCloneButton()
-    if not button then return nil end
-    
-    if button:IsA("TextButton") then return button.Text end
-    
-    local label = button:FindFirstChildWhichIsA("TextLabel", true)
-    if label then return label.Text end
-    
-    return nil
-end
-
-local function isCooldownActive()
-    local text = getCooldownText()
-    return text and text ~= "" and tonumber(text) ~= nil
-end
-
-local function stopAnimation()
-    if not Settings.AnimTrack then return end
-    Settings.AnimTrack:Stop(0.1)
-    Settings.AnimTrack = nil
-    Settings.IsPlaying = false
-end
-
-local function playAnimation()
-    if Settings.IsPlaying then return end
-
-    local animator = getAnimator()
-    if not animator then return end
-
-    local anim = Instance.new("Animation")
-    anim.AnimationId = INVIS_ANIM_ID
-
-    local track = animator:LoadAnimation(anim)
-    track.Priority = Enum.AnimationPriority.Action4
-    track:Play(0.1)
-    track:AdjustSpeed(0)
-
-    Settings.AnimTrack = track
-    Settings.IsPlaying = true
-end
-
-local function updateAnimation()
-    local shouldPlay = (Settings.InstantEnabled or Settings.CloneActive) and Settings.IsValidRole
-
-    if shouldPlay then
-        playAnimation()
-    else
-        stopAnimation()
-    end
-end
-
-local function deactivateClone()
-    Settings.CloneActive = false
-    updateAnimation()
-end
-
-local function activateClone()
-    if Settings.CloneActive then return end
-    Settings.CloneActive = true
-    updateAnimation()
-    task.delay(CLONE_DURATION, deactivateClone)
-end
-
-local function updateCloneDetection()
-    local onCooldown = isCooldownActive()
-    if onCooldown and not Settings.WasOnCooldown then
-        activateClone()
-    end
-    Settings.WasOnCooldown = onCooldown
-end
-
-local function checkValidRole()
-    if not playerCharacter or not playerCharacter.Parent then return false end
-    return playerCharacter:IsDescendantOf(survivorsFolder) or playerCharacter:IsDescendantOf(killersFolder)
-end
-
-local function handleRoleTransition(currentlyValid)
-    if currentlyValid and not Settings.IsValidRole then
-        Settings.IsValidRole = true
-        updateAnimation()
-    elseif not currentlyValid and Settings.IsValidRole then
-        Settings.IsValidRole = false
-        Settings.CloneActive = false
-        Settings.WasOnCooldown = false
-        stopAnimation() -- Bắt buộc dừng ngay lập tức
-    end
-end
-
-local function ProcessInvisLoop()
-    local currentlyValid = checkValidRole()
-    handleRoleTransition(currentlyValid)
-
-    if currentlyValid and Settings.CloneEnabled then
-        updateCloneDetection()
-    end
-end
-
-local InvisLastTick = tick()
-RunService.Heartbeat:Connect(function()
-    if tick() - InvisLastTick >= 0.2 then
-        InvisLastTick = tick()
-        ProcessInvisLoop()
-    end
-end)
-
-local function onInstantInvisToggled(value)
-    Settings.InstantEnabled = value
-    updateAnimation()
-end
-
-local function onCloneInvisToggled(value)
-    Settings.CloneEnabled = value
-    if not value then
-        Settings.CloneActive = false
-        Settings.WasOnCooldown = false
-    end
-    updateAnimation()
-end
+local Cfg = getgenv().InvisSettings
+local API = getgenv().InvisAPI or {}
 
 TabHandles.Survivors:Toggle({
     Title = "hutaohub:Instant_Invisible",
     Desc = "hutaohub:Instant_Invisible_Desc",
     Flag = "Instant Invisible",
-    Value = Settings.InstantEnabled,
-    Callback = onInstantInvisToggled
+    Value = Cfg.InstantEnabled,
+    Callback = function(val)
+        Cfg.InstantEnabled = val
+        if API.SetInstant then API.SetInstant(val) end
+    end
 })
 
 TabHandles.Survivors:Toggle({
     Title = "hutaohub:Invisible_If_Cloned",
     Desc = "hutaohub:Invisible_If_Cloned_Desc",
     Flag = "Invisible If Cloned",
-    Value = Settings.CloneEnabled,
-    Callback = onCloneInvisToggled
+    Value = Cfg.CloneEnabled,
+    Callback = function(val)
+        Cfg.CloneEnabled = val
+        if API.SetClone then API.SetClone(val) end
+    end
+})
+
+-- Đảm bảo getgenv().ShedletskySettings tồn tại
+if not getgenv().ShedletskySettings then
+    getgenv().ShedletskySettings = {
+        AutoSlashEnabled = false,
+        SlashRadius = 10,
+        SetSlashTime = 1,
+        AutoChickenEnabled = false,
+        ChickenHPThreshold = 40,
+        ChickenDistance = 100,
+    }
+end
+
+local Cfg = getgenv().ShedletskySettings
+local API = getgenv().ShedletskyAPI or {}
+
+-- ================= UI =================
+TabHandles.Survivors:Section({ Title = "Shedletsky", Icon = "sword" })
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Auto_Slash",
+    Desc = "hutaohub:Auto_Slash_Desc",
+    Flag = "AutoSlash",
+    Value = Cfg.AutoSlashEnabled,
+    Callback = function(state)
+        Cfg.AutoSlashEnabled = state
+        if API.SetAutoSlash then API.SetAutoSlash(state) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Slash_Radius",
+    Desc = "hutaohub:Slash_Radius_Desc",
+    Flag = "SlashRadius",
+    Value = Cfg.SlashRadius,
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            Cfg.SlashRadius = num
+            if API.SetSlashRadius then API.SetSlashRadius(num) end
+        end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Set_Slash_Delay",
+    Desc = "hutaohub:Set_Slash_Delay_Desc",
+    Flag = "SetSlashTime",
+    Value = Cfg.SetSlashTime,
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num >= 0 then
+            Cfg.SetSlashTime = num
+            if API.SetSlashTime then API.SetSlashTime(num) end
+        end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Auto_Eat_Chicken",
+    Desc = "hutaohub:Auto_Eat_Chicken_Desc",
+    Flag = "AutoEatChicken",
+    Value = Cfg.AutoChickenEnabled,
+    Callback = function(state)
+        Cfg.AutoChickenEnabled = state
+        if API.SetAutoChicken then API.SetAutoChicken(state) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:HP_Threshold",
+    Desc = "hutaohub:HP_Threshold_Desc",
+    Flag = "ChickenHPThreshold",
+    Value = Cfg.ChickenHPThreshold,
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            Cfg.ChickenHPThreshold = num
+            if API.SetChickenHP then API.SetChickenHP(num) end
+        end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Safe_Distance",
+    Desc = "hutaohub:Safe_Distance_Desc",
+    Flag = "ChickenDistance",
+    Value = Cfg.ChickenDistance,
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            Cfg.ChickenDistance = num
+            if API.SetChickenDistance then API.SetChickenDistance(num) end
+        end
+    end
+})
+
+-- Đảm bảo getgenv().TwoTimeDaggerSettings tồn tại
+if not getgenv().TwoTimeDaggerSettings then
+    getgenv().TwoTimeDaggerSettings = {
+        AutoDaggerEnabled = false,
+        AimDaggerEnabled = false,
+        AimDaggerMode = "LookVector",
+        DaggerRadius = 4,
+        DashEnabled = false,
+        DashSpeed = 50
+    }
+end
+
+local Cfg = getgenv().TwoTimeDaggerSettings
+local API = getgenv().TwoTimeDaggerAPI or {}
+
+-- ================= UI =================
+TabHandles.Survivors:Section({ Title = "Two Time", Icon = "shuffle" })
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Auto_Dagger",
+    Desc = "hutaohub:Auto_Dagger_Desc",
+    Flag = "AutoDagger",
+    Value = Cfg.AutoDaggerEnabled,
+    Callback = function(state)
+        Cfg.AutoDaggerEnabled = state
+        if API.SetAutoDagger then API.SetAutoDagger(state) end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Aim_Dagger",
+    Desc = "hutaohub:Aim_Dagger_Desc",
+    Flag = "AimDagger",
+    Value = Cfg.AimDaggerEnabled,
+    Callback = function(state)
+        Cfg.AimDaggerEnabled = state
+        if API.SetAimDagger then API.SetAimDagger(state) end
+    end
+})
+
+TabHandles.Survivors:Dropdown({
+    Title = "hutaohub:Aim_Dagger_Mode",
+    Desc = "hutaohub:Aim_Dagger_Mode_Desc",
+    Flag = "AimDaggerMode",
+    Values = {"LookVector", "TPBack"},
+    Value = Cfg.AimDaggerMode,
+    Callback = function(value)
+        Cfg.AimDaggerMode = value
+        if API.SetAimMode then API.SetAimMode(value) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Dagger_Radius",
+    Desc = "hutaohub:Dagger_Radius_Desc",
+    Flag = "DaggerRadius",
+    Value = Cfg.DaggerRadius,
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            Cfg.DaggerRadius = num
+            if API.SetRadius then API.SetRadius(num) end
+        end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Dash_After_Dagger",
+    Desc = "hutaohub:Dash_After_Dagger_Desc",
+    Flag = "DashDagger",
+    Value = Cfg.DashEnabled,
+    Callback = function(state)
+        Cfg.DashEnabled = state
+        if API.SetDash then API.SetDash(state) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Dash_Speed",
+    Desc = "hutaohub:Dash_Speed_Desc",
+    Flag = "DashDaggerSpeed",
+    Value = Cfg.DashSpeed,
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num > 0 then
+            Cfg.DashSpeed = num
+            if API.SetDashSpeed then API.SetDashSpeed(num) end
+        end
+    end
 })
 
 TabHandles.Survivors:Section({ Title = "Dusekkar", Icon = "bolt" })
@@ -2006,6 +2212,40 @@ TabHandles.Survivors:Toggle({
 localPlayer.CharacterAdded:Connect(function(char)
     task.delay(1, setupCharacter, char)
 end)
+
+TabHandles.Survivors:Section({ Title = "Veeronica", Icon = "wind" })
+
+if not getgenv().VeeronicaSettings then
+    getgenv().VeeronicaSettings = {
+        Sk8ControlEnabled = false,
+        AutoTrickEnabled = false,
+    }
+end
+
+local S = getgenv().VeeronicaSettings
+local API = getgenv().VeeronicaAPI or {}
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Sk8_Control",
+    Desc = "hutaohub:Sk8_Control_Desc",
+    Flag = "Sk8Control",
+    Value = S.Sk8ControlEnabled,
+    Callback = function(state)
+        S.Sk8ControlEnabled = state
+        if API.SetSk8Control then API.SetSk8Control(state) end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Auto_Trick_V4",
+    Desc = "hutaohub:Auto_Trick_V4_Desc",
+    Flag = "AutoTrickV3",
+    Value = S.AutoTrickEnabled,
+    Callback = function(state)
+        S.AutoTrickEnabled = state
+        if API.SetAutoTrick then API.SetAutoTrick(state) end
+    end
+})
 
 TabHandles.Survivors:Section({ Title = "Guest1337", Icon = "shield-check" })
 
@@ -2283,6 +2523,124 @@ TabHandles.Survivors:Input({
     Callback = function(v)
         S.CameraAimSpeed = tonumber(v) or 8
         if API.SetCameraAimSpeed then API.SetCameraAimSpeed(v) end
+    end
+})
+
+if not getgenv().ChanceSettings then
+    getgenv().ChanceSettings = {
+        AimbotActive = false,
+        AimUseOffset = false,
+        PredictionMode = "Speed",
+        AimMode = "Normal",
+        AimDuration = 1.7,
+        AimFasterDuration = 1.5,
+        AimSpinDuration = 0.5,
+        AutoCoinflip = false,
+        CoinflipTargetCharge = 3,
+        CoinflipBlockWhenClose = true,
+        CoinflipBlockDist = 50,
+    }
+end
+
+local Cfg = getgenv().ChanceSettings
+local API = getgenv().ChanceAPI or {}
+
+TabHandles.Survivors:Section({ Title = "Chance", Icon = "bitcoin" })
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Auto_Aim_Shoot",
+    Desc = "hutaohub:Auto_Aim_Shoot_Desc",
+    Flag = "AutoAimShoot",
+    Value = Cfg.AimbotActive,
+    Callback = function(v)
+        Cfg.AimbotActive = v
+        if API.SetAimbot then API.SetAimbot(v) end
+    end
+})
+
+TabHandles.Survivors:Dropdown({
+    Title = "hutaohub:Aim_Mode",
+    Desc = "hutaohub:Aim_Mode_Desc",
+    Flag = "AimModeChance",
+    Values = {"Normal", "Faster", "Reflex"},
+    Value = Cfg.AimMode,
+    Callback = function(v)
+        Cfg.AimMode = v
+        if API.SetAimMode then API.SetAimMode(v) end
+    end
+})
+
+TabHandles.Survivors:Dropdown({
+    Title = "hutaohub:Prediction_Mode",
+    Desc = "hutaohub:Prediction_Mode_Desc",
+    Flag = "PredictionMode",
+    Values = {"Speed", "Ping", "front", "No Lag"},
+    Value = Cfg.PredictionMode,
+    Callback = function(v)
+        Cfg.PredictionMode = v
+        if API.SetPrediction then API.SetPrediction(v) end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Enable_Offset",
+    Desc = "hutaohub:Enable_Offset_Desc",
+    Flag = "EnableOffset",
+    Value = Cfg.AimUseOffset,
+    Callback = function(v)
+        Cfg.AimUseOffset = v
+        if API.SetOffset then API.SetOffset(v) end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Auto_Coin_Flip",
+    Desc = "hutaohub:Auto_Coin_Flip_Desc",
+    Flag = "AutoCoinFlip",
+    Value = Cfg.AutoCoinflip,
+    Callback = function(v)
+        Cfg.AutoCoinflip = v
+        if API.SetCoinflip then API.SetCoinflip(v) end
+    end
+})
+
+TabHandles.Survivors:Dropdown({
+    Title = "hutaohub:Coinflip_Target",
+    Desc = "hutaohub:Coinflip_Target_Desc",
+    Flag = "CoinflipTarget",
+    Values = {"1 Point", "2 Point", "3 Point"},
+    Value = tostring(Cfg.CoinflipTargetCharge).." Point",
+    Callback = function(v)
+        local num = tonumber(v:match("%d+"))
+        if num then
+            Cfg.CoinflipTargetCharge = num
+            if API.SetTargetCharge then API.SetTargetCharge(num) end
+        end
+    end
+})
+
+TabHandles.Survivors:Toggle({
+    Title = "hutaohub:Safe_Coinflip",
+    Desc = "hutaohub:Safe_Coinflip_Desc",
+    Flag = "AntiKillersCoinflip",
+    Value = Cfg.CoinflipBlockWhenClose,
+    Callback = function(v)
+        Cfg.CoinflipBlockWhenClose = v
+        if API.SetBlockWhenClose then API.SetBlockWhenClose(v) end
+    end
+})
+
+TabHandles.Survivors:Input({
+    Title = "hutaohub:Safe_Coinflip_Distance",
+    Desc = "hutaohub:Safe_Coinflip_Distance_Desc",
+    Flag = "SafeCoinflip",
+    Value = Cfg.CoinflipBlockDist,
+    Callback = function(v)
+        local num = tonumber(v)
+        if num then
+            Cfg.CoinflipBlockDist = num
+            if API.SetBlockDist then API.SetBlockDist(num) end
+        end
     end
 })
 
@@ -2850,7 +3208,6 @@ TabHandles.Killers:Toggle({
     Callback = function(s) VoidRushController.WallCheck = s end 
 })
 
-
 local WALK_SPEED = 100
 local AIM_RANGE = 120
 local AIM_SPEED = 0.99
@@ -3307,6 +3664,51 @@ TabHandles.Player:Toggle({
 localPlayer.CharacterAdded:Connect(function(character)
     playerCharacter = character
 end)
+
+if not getgenv().KillerCamlockSettings then
+    getgenv().KillerCamlockSettings = {
+        Enabled = false,
+        Target = nil,
+        ZoomDistance = 10,
+        AimPart = "Head"
+    }
+end
+
+local Cfg = getgenv().KillerCamlockSettings
+local API = getgenv().KillerCamlockAPI or {}
+
+TabHandles.Player:Section({ Title = "hutaohub:Camlock", Icon = "crosshair" })
+
+TabHandles.Player:Toggle({
+    Title = "hutaohub:Camlock_Survivor",
+    Desc = "hutaohub:Camlock_Survivor_Desc",
+    Flag = "KillerCamlock",
+    Value = Cfg.Enabled,
+    Callback = function(state)
+        Cfg.Enabled = state
+        if API.Toggle then API.Toggle(state) end
+    end
+})
+
+TabHandles.Player:Dropdown({
+    Title = "hutaohub:Aim_Part",
+    Desc = "hutaohub:Aim_Part_Desc",
+    Flag = "KillerAimPart",
+    Values = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"},
+    Value = Cfg.AimPart or "Head",
+    Callback = function(value)
+        Cfg.AimPart = value
+        if API.SetAimPart then API.SetAimPart(value) end
+    end
+})
+
+TabHandles.Player:Button({
+    Title = "hutaohub:Switch_Target",
+    Desc = "hutaohub:Switch_Target_Desc",
+    Callback = function()
+        if API.SwitchTarget then API.SwitchTarget() end
+    end
+})
 
 TabHandles.Player:Section({
     Title = "hutaohub:Stamina",
@@ -3787,9 +4189,6 @@ TabHandles.Misc:Button({
     end
 })
 
--- ==========================================
--- GOM TOÀN BỘ BIẾN LOCAL VÀO 1 TABLE DUY NHẤT ĐỂ FIX LỖI 200 REGISTERS
--- ==========================================
 if not getgenv().MiscModule then
     getgenv().MiscModule = {
         Settings = {
@@ -3801,7 +4200,8 @@ if not getgenv().MiscModule then
             RemoveNPCNoli = false,
             AntiAFK = true,
             RemoveEffects = false,
-            RemoveBlackScreen = true
+            RemoveBlackScreen = true,
+            AntiAdmin = true
         },
         Constants = {
             DefaultCamera = { Max = 128, Min = 0.5 },
@@ -3822,6 +4222,11 @@ if not getgenv().MiscModule then
                 {"BloxyColaItem", "Medkit"},
                 {"Emoting"},
                 {"DispenserConstruction", "SentryConstruction"}
+            },
+            AdminNames = {
+                "Enoderen", "SoyS3BASTIAN", "aateeer", "sayso_1230",
+                "fractalintersection", "KeyAfterKey", "Exedious",
+                "Agrovient", "isaac3523", "Proffessor738", "Roblox"
             }
         },
         Cache = {
@@ -3829,16 +4234,14 @@ if not getgenv().MiscModule then
             BlackScreenCons = {},
             AntiAFKCons = {},
             AntiAFKConn = nil,
-            ChatWindow = game:GetService("TextChatService"):FindFirstChild("ChatWindowConfiguration")
+            ChatWindow = game:GetService("TextChatService"):FindFirstChild("ChatWindowConfiguration"),
+            AntiAdminLoop = nil
         }
     }
 end
 
 local M = getgenv().MiscModule
 
--- ==========================================
--- CÁC HÀM XỬ LÝ LOGIC PHẲNG
--- ==========================================
 local function ApplyVisuals()
     if M.Settings.FullBright then
         Lighting.Ambient = Color3.fromRGB(200, 200, 200)
@@ -3918,6 +4321,33 @@ local function processRemoveNoli()
     end
 end
 
+local function processAntiAdmin()
+    if not M.Settings.AntiAdmin then return end
+
+    local myName = Players.LocalPlayer.Name
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Name ~= myName and table.find(M.Constants.AdminNames, player.Name) then
+            -- Thông báo qua WindUI
+            pcall(function()
+                WindUI:Notify({
+                    Title = "hutaohub:Anti_Admin_Forsaken",
+                    Content = "hutaohub:Anti_Admin_Forsaken_Content",
+                    Duration = 3,
+                    Icon = "shield"
+                })
+            end)
+            warn("[AntiAdmin] Phát hiện admin: " .. player.Name .. " - Server hop sau 1 giây.")
+
+            -- Chờ 1 giây rồi chuyển server
+            task.wait(1)
+            pcall(function()
+                TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
+            end)
+            return
+        end
+    end
+end
+
 local function TryRemoveEffect(obj)
     if not M.Settings.RemoveEffects or not obj or not obj.Parent then return end
 
@@ -3959,9 +4389,6 @@ local function cleanAllBlackScreens()
     end
 end
 
--- ==========================================
--- LOOP SIÊU MỎNG (THIN LOOP)
--- ==========================================
 task.spawn(function()
     while true do
         if M.Settings.FullBright or M.Settings.Fog or M.Settings.InfiniteZoom then
@@ -3974,9 +4401,15 @@ task.spawn(function()
     end
 end)
 
--- ==========================================
--- HÀM ĐIỀU HƯỚNG TỪ UI CALLBACK
--- ==========================================
+task.spawn(function()
+    while true do
+        if M.Settings.AntiAdmin then
+            processAntiAdmin()
+        end
+        task.wait(1)
+    end
+end)
+
 local function setFullBright(state)
     M.Settings.FullBright = state
     if state then ApplyVisuals() else ResetFullBright() end
@@ -4042,6 +4475,10 @@ local function setRemoveFakeNoli(state)
     M.Settings.RemoveNPCNoli = state
 end
 
+local function setAntiAdmin(state)
+    M.Settings.AntiAdmin = state
+end
+
 local function performAntiAFKAction()
     pcall(function()
         VirtualUser:CaptureController()
@@ -4083,9 +4520,6 @@ if M.Cache.ChatWindow then
     end)
 end
 
--- ==========================================
--- KHỞI TẠO GIAO DIỆN UI (CHỈ CHỨA TOGGLE/CLICK)
--- ==========================================
 TabHandles.Misc:Section({ Title = "hutaohub:Camera", Icon = "camera" })
 
 TabHandles.Misc:Toggle({
@@ -4133,6 +4567,14 @@ TabHandles.Misc:Toggle({
 })
 
 TabHandles.Misc:Toggle({
+    Title = "hutaohub:Anti_Admin_Forsaken",
+    Desc = "hutaohub:Anti_Admin_Forsaken_Desc",
+    Flag = "AntiAdmin",
+    Value = M.Settings.AntiAdmin,
+    Callback = setAntiAdmin
+})
+
+TabHandles.Misc:Toggle({
     Title = "hutaohub:Remove_Fake_Noli", Desc = "hutaohub:Remove_Fake_Noli_Desc",
     Flag = "Remove Fake Noli", Value = M.Settings.RemoveNPCNoli, Callback = setRemoveFakeNoli
 })
@@ -4141,7 +4583,6 @@ TabHandles.Misc:Toggle({
     Title = "hutaohub:Anti_AFK_Roblox", Desc = "hutaohub:Anti_AFK_Roblox_Desc",
     Flag = "Anti AFK", Value = M.Settings.AntiAFK, Callback = setAntiAFK
 })
-
 
 local ConfigManager = Window.ConfigManager
 local AUTOLOAD_FILE = "saveconfigv2.txt"
