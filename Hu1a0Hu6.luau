@@ -430,19 +430,6 @@ function getLangCodeFromName(name)
     return "en"
 end
 
-function translateText(text, targetLang)
-    if targetLang == "en" then return text end
-    local url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=" .. targetLang .. "&dt=t&q=" .. HttpService:UrlEncode(text)
-    local success, response = pcall(function() return game:HttpGet(url) end)
-    if success and response then
-        local decoded = HttpService:JSONDecode(response)
-        if decoded and decoded[1] and decoded[1][1] and decoded[1][1][1] then
-            return decoded[1][1][1]
-        end
-    end
-    return text
-end
-
 function loadCachedLanguages(fileName)
     if isfile and isfile(fileName) then
         local success, content = pcall(readfile, fileName)
@@ -460,6 +447,7 @@ function saveCachedLanguages(fileName, data)
     end
 end
 
+-- ================= LOADER ANIMATION UI =================
 function createAmbientParticle(MainFrame)
     if not MainFrame or not MainFrame.Parent then return end
     local particle = Instance.new("Frame")
@@ -624,58 +612,128 @@ function BuildLoaderUI()
     return LoaderScreen, OuterBorder, MainFrame, InnerStroke, BlurEffect, StatusLabel, BarFill
 end
 
+-- ================= CORE TRANSLATION ENGINE (OPTIMIZED) =================
 function RunTranslationProcess(StatusLabel, BarFill)
     local fileName = "HutaoHub_Data_Files.json"
     local cache = loadCachedLanguages(fileName)
-    local baseKeys = {}
     
-    for k in pairs(baseTranslations) do 
-        table.insert(baseKeys, k) 
-    end
-    
-    local totalWords = #baseKeys
     local totalLanguages = 0
-    for _ in pairs(langMapping) do 
-        totalLanguages = totalLanguages + 1 
-    end
+    for _ in pairs(langMapping) do totalLanguages = totalLanguages + 1 end
 
-    updateProgress(StatusLabel, BarFill, 0, "STARTING ENGINE...")
-    task.wait(0.5)
+    updateProgress(StatusLabel, BarFill, 0, "STARTING TRANSLATION ENGINE...")
+    task.wait(0.3)
 
     local currentLangIdx = 0
+    local globalCacheModified = false
 
     for targetLangCode, langDisplayName in pairs(langMapping) do
         currentLangIdx = currentLangIdx + 1
+        local progressPercent = math.floor((currentLangIdx / totalLanguages) * 100)
+        updateProgress(StatusLabel, BarFill, progressPercent, "PROCESSING: " .. langDisplayName)
+
         if not cache[targetLangCode] then cache[targetLangCode] = {} end
-        
-        local processedWords = 0
-        local isModified = false
-        
-        for _, key in ipairs(baseKeys) do
-            processedWords = processedWords + 1
-            local percentPerWord = math.floor((processedWords / totalWords) * 100)
-            
-            updateProgress(StatusLabel, BarFill, percentPerWord, "LOADING: " .. langDisplayName .. " (" .. currentLangIdx .. "/" .. totalLanguages .. ")")
-            
-            if not cache[targetLangCode][key] then
-                if targetLangCode == "en" then
-                    cache[targetLangCode][key] = baseTranslations[key]
-                else
-                    cache[targetLangCode][key] = translateText(baseTranslations[key], targetLangCode)
-                end
-                isModified = true
-                task.wait(0.02)
+        local langCache = cache[targetLangCode]
+
+        -- Dọn dẹp cache thừa: Xóa các key không còn tồn tại trong baseTranslations
+        for cachedKey in pairs(langCache) do
+            if not baseTranslations[cachedKey] then
+                langCache[cachedKey] = nil
+                globalCacheModified = true
             end
-            
-            finalTranslations[targetLangCode][key] = cache[targetLangCode][key]
         end
-        
-        if isModified then
-            saveCachedLanguages(fileName, cache)
+
+        local keysToTranslate = {}
+        local textsToTranslate = {}
+
+        -- KIỂM TRA SỰ THAY ĐỔI CỦA TEXT GỐC (FIX LỖI CŨ CỦA BRO)
+        for key, srcText in pairs(baseTranslations) do
+            if targetLangCode == "en" then
+                -- Tiếng Anh thì giữ nguyên luôn, không cần dịch
+                langCache[key] = { src = srcText, tr = srcText }
+                finalTranslations[targetLangCode][key] = srcText
+            else
+                local cachedData = langCache[key]
+                local needsTranslate = false
+
+                if not cachedData then
+                    needsTranslate = true
+                elseif type(cachedData) ~= "table" then
+                    -- Hỗ trợ tương thích ngược nếu file cache cũ lưu dạng String thường
+                    needsTranslate = true
+                elseif cachedData.src ~= srcText then
+                    -- PHÁT HIỆN THAY ĐỔI TEXT GỐC: Ví dụ từ "Kill" đổi sang "Killers"
+                    needsTranslate = true
+                end
+
+                if needsTranslate then
+                    table.insert(keysToTranslate, key)
+                    table.insert(textsToTranslate, srcText)
+                else
+                    -- Cache trùng khớp hoàn toàn, sử dụng luôn bản dịch cũ
+                    finalTranslations[targetLangCode][key] = cachedData.tr
+                end
+            end
+        end
+
+        -- GỬI FULL TEXT DỊCH BATCH THEO TỪNG NGÔN NGỮ (TĂNG TỐC ĐỘ)
+        if #keysToTranslate > 0 and targetLangCode ~= "en" then
+            -- Ghép toàn bộ cụm từ cần dịch lại bằng dấu xuống dòng \n
+            local combinedText = table.concat(textsToTranslate, "\n")
+            local url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=" .. targetLangCode .. "&dt=t&q=" .. HttpService:UrlEncode(combinedText)
+            
+            local success, response = pcall(function() return game:HttpGet(url) end)
+            
+            if success and response then
+                local decoded = HttpService:JSONDecode(response)
+                if decoded and decoded[1] then
+                    -- Gom các chunk dữ liệu trả về từ Google thành một chuỗi lớn thống nhất
+                    local translatedChunks = {}
+                    for _, chunk in ipairs(decoded[1]) do
+                        if chunk and chunk[1] then
+                            table.insert(translatedChunks, chunk[1])
+                        end
+                    end
+                    
+                    local fullTranslatedText = table.concat(translatedChunks, "")
+                    -- Tách ngược lại thành từng dòng kết quả tương ứng
+                    local translatedLines = string.split(fullTranslatedText, "\n")
+
+                    for idx, key in ipairs(keysToTranslate) do
+                        local translatedValue = translatedLines[idx]
+                        if translatedValue then
+                            -- Xóa khoảng trắng thừa ở 2 đầu chuỗi
+                            translatedValue = string.gsub(translatedValue, "^%s*(.-)%s*$", "%1")
+                        else
+                            -- Fallback phòng hờ lỗi mạng ngoài ý muốn
+                            translatedValue = baseTranslations[key] 
+                        end
+
+                        -- Cập nhật cấu trúc cache mới chống xung đột dữ liệu cũ/mới
+                        langCache[key] = {
+                            src = baseTranslations[key],
+                            tr = translatedValue
+                        }
+                        finalTranslations[targetLangCode][key] = translatedValue
+                    end
+                    globalCacheModified = true
+                end
+            else
+                -- Fallback an toàn nếu API bị sập hoàn toàn
+                for _, key in ipairs(keysToTranslate) do
+                    langCache[key] = { src = baseTranslations[key], tr = baseTranslations[key] }
+                    finalTranslations[targetLangCode][key] = baseTranslations[key]
+                end
+            end
+            task.wait(0.05) -- Delay siêu nhỏ giữa các ngôn ngữ để tránh spam API
         end
     end
 
-    updateProgress(StatusLabel, BarFill, 100, "READY TO EXECUTE")
+    -- Lưu lại file cache nếu có sự thay đổi
+    if globalCacheModified then
+        saveCachedLanguages(fileName, cache)
+    end
+
+    updateProgress(StatusLabel, BarFill, 100, "ALL LANGUAGES LOADED SUCCESSFULLY!")
     task.wait(0.4)
 end
 
@@ -787,7 +845,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.6.3", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.6.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
