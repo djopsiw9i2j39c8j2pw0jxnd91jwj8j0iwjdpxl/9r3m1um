@@ -787,7 +787,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.6.1", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.6.3", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -808,91 +808,7 @@ function InitializeWindUI()
         Settings = Tabs.System:Tab({ Title = "hutaohub:Settings", Icon = "settings", ShowTabTitle = true, }),
     }
     
-    local baseUrl = "https://raw.githubusercontent.com/djopsiw9i2j39c8j2pw0jxnd91jwj8j0iwjdpxl/50ur3-c0d3/refs/heads/main/"
-    local Visual = loadstring(game:HttpGet(baseUrl .. "Visual.luau"))()
-    
-    TabHandles.Settings:Dropdown({
-        Title = "hutaohub:Language",
-        Desc = "hutaohub:Language_Desc",
-        Locked = true,
-        Values = DropdownLanguages,
-        Value = defaultLanguageName,
-        Callback = function(selectedName)
-            local code = getLangCodeFromName(selectedName)
-            if WindUI.SetLanguage then
-                WindUI:SetLanguage(code)
-            elseif WindUI.ChangeLanguage then
-                WindUI:ChangeLanguage(code)
-            end
-            
-            WindUI:Notify({
-                Title = "hutaohub:Language_Changed",
-                Content = selectedName,
-                Duration = 3,
-                Icon = "languages"
-            })
-        end,
-    })
-
-    return Window, TabHandles
-end
-
-Window, TabHandles = InitializeWindUI() 
-
-    local baseUrl = "https://raw.githubusercontent.com/djopsiw9i2j39c8j2pw0jxnd91jwj8j0iwjdpxl/50ur3-c0d3/refs/heads/main/"
-    local Visual = loadstring(game:HttpGet(baseUrl .. "Visual.luau"))()
-
-local OwnerList = {
-    ["rbown_VIP"] = true,
-    ["2x17d10"] = true,
-    ["n1lk_v033STPE"] = true,
-    ["SLK_GAMINGSSR"] = true,
-    ["SLK_GAMlNGSSR"] = true,
-    ["HutaoCute_YTB"] = true,
-}
-
-local notifiedLocalOwner = false
-local notifiedOwnerCount = 0
-
-local function checkOwner()
-    local isLocalOwner = OwnerList[localPlayer.Name] or false
-    local currentOwnerCount = 0
-
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if OwnerList[plr.Name] then
-            currentOwnerCount = currentOwnerCount + 1
-        end
-    end
-
-    if isLocalOwner and not notifiedLocalOwner then
-        WindUI:Notify({
-            Title = "Hutao Hub",
-            Content = "hutaohub:Welcome_Owner",
-            Duration = 3,
-            Icon = "crown"
-        })
-        notifiedLocalOwner = true
-    end
-
-    if not isLocalOwner and currentOwnerCount > notifiedOwnerCount then
-        WindUI:Notify({
-            Title = "Hutao Hub",
-            Content = "hutaohub:Owner_In_Game",
-            Duration = 3,
-            Icon = "crown"
-        })
-        notifiedOwnerCount = currentOwnerCount
-    end
-end
-
-checkOwner()
-
-Players.PlayerAdded:Connect(function()
-    task.wait(1)
-    checkOwner()
-end)
-
-local isDragging = false
+    local isDragging = false
 local isDragMove = false
 local dragInput = nil
 local dragStartPos = nil
@@ -992,7 +908,87 @@ ImageButton.MouseLeave:Connect(function()
     ImageButton.BackgroundColor3 = Color3.fromRGB(30, 41, 59)
     UIStroke.Color = Color3.fromRGB(59, 130, 246)
 end)
+    
+    local baseUrl = "https://raw.githubusercontent.com/djopsiw9i2j39c8j2pw0jxnd91jwj8j0iwjdpxl/50ur3-c0d3/refs/heads/main/"
+    local Visual = loadstring(game:HttpGet(baseUrl .. "Visual.luau"))()
+    
+    TabHandles.Settings:Dropdown({
+        Title = "hutaohub:Language",
+        Desc = "hutaohub:Language_Desc",
+        Locked = true,
+        Values = DropdownLanguages,
+        Value = defaultLanguageName,
+        Callback = function(selectedName)
+            local code = getLangCodeFromName(selectedName)
+            if WindUI.SetLanguage then
+                WindUI:SetLanguage(code)
+            elseif WindUI.ChangeLanguage then
+                WindUI:ChangeLanguage(code)
+            end
+            
+            WindUI:Notify({
+                Title = "hutaohub:Language_Changed",
+                Content = selectedName,
+                Duration = 3,
+                Icon = "languages"
+            })
+        end,
+    })
 
+    return Window, TabHandles
+end
+
+Window, TabHandles = InitializeWindUI() 
+
+local OwnerList = {
+    ["rbown_VIP"] = true,
+    ["2x17d10"] = true,
+    ["n1lk_v033STPE"] = true,
+    ["SLK_GAMINGSSR"] = true,
+    ["SLK_GAMlNGSSR"] = true,
+    ["HutaoCute_YTB"] = true,
+}
+
+local notifiedLocalOwner = false
+local notifiedOwnerCount = 0
+
+local function checkOwner()
+    local isLocalOwner = OwnerList[localPlayer.Name] or false
+    local currentOwnerCount = 0
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if OwnerList[plr.Name] then
+            currentOwnerCount = currentOwnerCount + 1
+        end
+    end
+
+    if isLocalOwner and not notifiedLocalOwner then
+        WindUI:Notify({
+            Title = "Hutao Hub",
+            Content = "hutaohub:Welcome_Owner",
+            Duration = 3,
+            Icon = "crown"
+        })
+        notifiedLocalOwner = true
+    end
+
+    if not isLocalOwner and currentOwnerCount > notifiedOwnerCount then
+        WindUI:Notify({
+            Title = "Hutao Hub",
+            Content = "hutaohub:Owner_In_Game",
+            Duration = 3,
+            Icon = "crown"
+        })
+        notifiedOwnerCount = currentOwnerCount
+    end
+end
+
+checkOwner()
+
+Players.PlayerAdded:Connect(function()
+    task.wait(1)
+    checkOwner()
+end)
 
 Window:SelectTab(1)
 local Info = TabHandles["Info"]
@@ -1228,7 +1224,7 @@ getgenv().AutoKillerFarm = getgenv().AutoKillerFarm or false
 getgenv().AutoFarmGen = getgenv().AutoFarmGen or false
 getgenv().SafeModeGen = getgenv().SafeModeGen or false
 getgenv().SafeRangeGen = getgenv().SafeRangeGen or 45
-getgenv().AutoKillerTarget = nil -- lưu HRP của survivor đang bị nhắm
+getgenv().AutoKillerTarget = nil 
 
 local lastGenPosition = nil
 local currentGenerator = nil
@@ -1236,9 +1232,9 @@ local currentMap = nil
 local mapLoadTime = 0
 local isHoldingPrompt = false
 
+-- FIX 1: Bỏ :Wait() để tránh bị kẹt thread (treo vòng lặp) khi chuyển round
 local function GetCharacter()
-    playerCharacter = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-    return playerCharacter
+    return localPlayer.Character
 end
 
 local function GetHRP(character)
@@ -1322,14 +1318,11 @@ local function ChangeTarget()
     if not hrp then return end
 
     local oldTarget = getgenv().AutoKillerTarget
-    -- Ưu tiên survivor gần nhất khác oldTarget
     local newTarget = FindNearestSurvivorExcept(hrp, character, oldTarget)
     if not newTarget and oldTarget and oldTarget.Parent and IsAlive(oldTarget.Parent) then
-        -- Nếu không còn ai khác nhưng oldTarget vẫn sống thì giữ nguyên
         return
     end
     if not newTarget then
-        -- Thử tìm bất kỳ survivor nào (kể cả oldTarget)
         newTarget = FindNearestSurvivor(hrp, character)
     end
     getgenv().AutoKillerTarget = newTarget
@@ -1337,8 +1330,9 @@ end
 
 local function ProcessAutoKiller()
     local character = GetCharacter()
+    -- Nó sẽ tự kiểm tra xem bro có đang nằm trong killersFolder hay không
     if not (character and character:IsDescendantOf(killersFolder) and IsAlive(character)) then
-        getgenv().AutoKillerTarget = nil -- reset khi không phải killer
+        getgenv().AutoKillerTarget = nil 
         return
     end
 
@@ -1346,11 +1340,9 @@ local function ProcessAutoKiller()
     if not hrp then return end
 
     local targetHrp = getgenv().AutoKillerTarget
-    -- Kiểm tra target hiện tại còn hợp lệ không
     if targetHrp and targetHrp.Parent and targetHrp.Parent:IsA("Model") and IsAlive(targetHrp.Parent) then
         -- giữ nguyên target
     else
-        -- Tự tìm target mới (lần đầu hoặc target cũ đã chết)
         targetHrp = FindNearestSurvivor(hrp, character)
         getgenv().AutoKillerTarget = targetHrp
     end
@@ -1361,7 +1353,6 @@ local function ProcessAutoKiller()
 end
 
 local function FindSafeGenerator()
-    -- ... (giữ nguyên code cũ của bạn) ...
     local mapContainer = workspace:FindFirstChild("Map")
     local map = mapContainer and mapContainer:FindFirstChild("Ingame") and mapContainer.Ingame:FindFirstChild("Map")
     
@@ -1384,7 +1375,6 @@ local function FindSafeGenerator()
 end
 
 local function GetSafeGenPosition(genPart, character)
-    -- ... (giữ nguyên) ...
     local positions = {
         genPart.CFrame * CFrame.new(0,0,-6),
         genPart.CFrame * CFrame.new(6,0,0),
@@ -1399,7 +1389,6 @@ local function GetSafeGenPosition(genPart, character)
 end
 
 local function HandleGeneratorPrompt(foundGen)
-    -- ... (giữ nguyên) ...
     local prompt = foundGen:FindFirstChild("Main") and foundGen.Main:FindFirstChild("Prompt")
     if prompt and prompt:IsA("ProximityPrompt") then
         if (tick() - mapLoadTime) >= 3 and not isHoldingPrompt then
@@ -1420,11 +1409,17 @@ local function HandleGeneratorPrompt(foundGen)
 end
 
 local function ProcessAutoGenerator()
-    -- ... (giữ nguyên) ...
-    if isHoldingPrompt or getgenv().AutoKillerFarm then return end
+    -- FIX 2: Bỏ 'or getgenv().AutoKillerFarm' ở đây để không bị xung đột khi bật cả 2 nút
+    if isHoldingPrompt then return end
 
     local character = GetCharacter()
-    if not (character and character:IsDescendantOf(survivorsFolder) and IsAlive(character)) then return end
+    
+    -- Nếu không phải Survivor, tự động reset data gen và return (không làm farm gen)
+    if not (character and character:IsDescendantOf(survivorsFolder) and IsAlive(character)) then 
+        lastGenPosition = nil
+        currentGenerator = nil
+        return 
+    end
 
     local hrp = GetHRP(character)
     if not hrp then return end
@@ -1486,7 +1481,7 @@ TabHandles.Farm:Toggle({
     Callback = function(state)
         getgenv().AutoKillerFarm = state
         if not state then
-            getgenv().AutoKillerTarget = nil -- xóa mục tiêu khi tắt
+            getgenv().AutoKillerTarget = nil 
         end
     end
 })
@@ -4096,6 +4091,287 @@ TabHandles.Player:Toggle({
         end
     end
 })
+
+do
+repeat task.wait() until game:IsLoaded()
+
+getgenv().ForsakenAttackAnimations = getgenv().ForsakenAttackAnimations or {
+    "rbxassetid://131430497821198",
+    "rbxassetid://83829782357897",
+    "rbxassetid://126830014841198",
+    "rbxassetid://126355327951215",
+    "rbxassetid://121086746534252",
+    "rbxassetid://105458270463374",
+    "rbxassetid://18885919947",
+    "rbxassetid://18885909645",
+    "rbxassetid://87259391926321",
+    "rbxassetid://106014898528300",
+    "rbxassetid://87259391926321",
+    "rbxassetid://86545133269813",
+    "rbxassetid://89448354637442",
+    "rbxassetid://90499469533503",
+    "rbxassetid://116618003477002",
+    "rbxassetid://106086955212611",
+    "rbxassetid://107640065977686",
+    "rbxassetid://77124578197357",
+    "rbxassetid://101771617803133",
+    "rbxassetid://134958187822107",
+    "rbxassetid://111313169447787",
+    "rbxassetid://71685573690338",
+    "rbxassetid://129843313690921",
+    "rbxassetid://97623143664485",
+    "rbxassetid://129843313690921",
+    "rbxassetid://136007065400978",
+    "rbxassetid://136007065400978",
+    "rbxassetid://86096387000557",
+    "rbxassetid://108807732150251",
+    "rbxassetid://138040001965654",
+    "rbxassetid://73502073176819",
+    "rbxassetid://129843313690921",
+    "rbxassetid://97623143664485",
+    "rbxassetid://129843313690921",
+    "rbxassetid://97623143664485",
+    "rbxassetid://86709774283672",
+    "rbxassetid://106014898528300",
+    "rbxassetid://87259391926321",
+    "rbxassetid://140703210927645",
+    "rbxassetid://96173857867228",
+    "rbxassetid://121255898612475",
+    "rbxassetid://98031287364865",
+    "rbxassetid://119462383658044",
+    "rbxassetid://77448521277146",
+    "rbxassetid://77448521277146",
+    "rbxassetid://103741352379819",
+    "rbxassetid://119462383658044",
+    "rbxassetid://131696603025265",
+    "rbxassetid://122503338277352",
+    "rbxassetid://97648548303678",
+    "rbxassetid://94162446513587",
+    "rbxassetid://93069721274110",
+    "rbxassetid://97433060861952",
+    "rbxassetid://100592913030351",
+    "rbxassetid://121293883585738",
+    "rbxassetid://100592913030351",
+    "rbxassetid://121293883585738",
+    "rbxassetid://100592913030351",
+    "rbxassetid://121293883585738",
+    "rbxassetid://70447634862911",
+    "rbxassetid://92173139187970",
+    "rbxassetid://106847695270773",
+    "rbxassetid://125403313786645",
+    "rbxassetid://81639435858902",
+    "rbxassetid://137314737492715",
+    "rbxassetid://120112897026015",
+    "rbxassetid://82113744478546",
+    "rbxassetid://118298475669935",
+    "rbxassetid://82113744478546",
+    "rbxassetid://118298475669935",
+    "rbxassetid://126681776859538",
+    "rbxassetid://129976080405072",
+    "rbxassetid://109667959938617",
+    "rbxassetid://74707328554358",
+    "rbxassetid://133336594357903",
+    "rbxassetid://86204001129974",
+    "rbxassetid://82113744478546",
+    "rbxassetid://118298475669935",
+    "rbxassetid://124243639579224",
+    "rbxassetid://70371667919898",
+    "rbxassetid://131543461321709",
+    "rbxassetid://136323728355613",
+    "rbxassetid://109230267448394",
+    "rbxassetid://139835501033932",
+    "rbxassetid://106538427162796",
+    "rbxassetid://109667959938617",
+    "rbxassetid://126681776859538",
+    "rbxassetid://129976080405072",
+    "rbxassetid://110400453990786",
+    "rbxassetid://83685305553364",
+    "rbxassetid://126171487400618",
+    "rbxassetid://122709416391891",
+    "rbxassetid://87989533095285",
+    "rbxassetid://119326397274934",
+    "rbxassetid://140365014326125",
+    "rbxassetid://139309647473555",
+    "rbxassetid://133363345661032",
+    "rbxassetid://128414736976503",
+    "rbxassetid://121808371053483",
+    "rbxassetid://77375846492436",
+    "rbxassetid://100358581940485",
+    "rbxassetid://91758760621955",
+    "rbxassetid://94634594529334",
+    "rbxassetid://101101433684051",
+    "rbxassetid://90620531468240",
+    "rbxassetid://94958041603347",
+    "rbxassetid://131642454238375",
+    "rbxassetid://110702884830060",
+    "rbxassetid://76312020299624",
+    "rbxassetid://126654961540956",
+    "rbxassetid://139613699193400",
+    "rbxassetid://91509234639766",
+    "rbxassetid://105458270463374",
+    "rbxassetid://109777684604906",
+    "rbxassetid://84069821282466",
+    "rbxassetid://135283134632311",
+    "rbxassetid://127846074966393",
+}
+
+getgenv().ForsakenReachEnabled = getgenv().ForsakenReachEnabled or false
+getgenv().NearestDist = getgenv().NearestDist or 120
+getgenv().ForsakenRNG = getgenv().ForsakenRNG or Random.new()
+
+local RNG = getgenv().ForsakenRNG
+
+-- UI
+TabHandles.Player:Toggle({
+    Title = "Hitbox Devil",
+    Locked = false,
+    Value = getgenv().ForsakenReachEnabled,
+    Callback = function(val)
+        getgenv().ForsakenReachEnabled = val
+    end
+})
+
+TabHandles.Player:Slider({
+    Title = "Distance",
+    Value = {
+        Min = 10,
+        Max = 300,
+        Default = getgenv().NearestDist
+    },
+    Callback = function(value)
+        getgenv().NearestDist = value
+    end
+})
+
+-- Hàm lấy ping an toàn
+local function getSafePing()
+    local ok, ping = pcall(Players.LocalPlayer.GetNetworkPing, Players.LocalPlayer)
+    if ok and typeof(ping) == "number" and ping > 0 then
+        return math.clamp(ping, 0.03, 0.12)
+    end
+    return 0.05
+end
+
+-- Hàm quét folder tìm mục tiêu gần nhất
+local function scanFolder(folder, bestDist)
+    if not folder or not playerCharacter then return nil, bestDist end
+    local myRoot = playerCharacter:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil, bestDist end
+
+    local target
+    for _, model in ipairs(folder:GetChildren()) do
+        if model:IsA("Model") and model ~= playerCharacter then
+            local hrp2 = model:FindFirstChild("HumanoidRootPart")
+            local hum2 = model:FindFirstChild("Humanoid")
+            if hrp2 and hum2 and hum2.Health > 0 then
+                local dist = (hrp2.Position - myRoot.Position).Magnitude
+                if dist < bestDist then
+                    bestDist = dist
+                    target = model
+                end
+            end
+        end
+    end
+    return target, bestDist
+end
+
+local lastBlink = 0
+local BLINK_COOLDOWN = 0.05
+
+local function ForsakenReachLogic()
+    if not getgenv().ForsakenReachEnabled then return end
+    
+    local char = playerCharacter
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp then return end
+    
+    if tick() - lastBlink < BLINK_COOLDOWN then return end
+
+    -- Kiểm tra animation tấn công
+    local attacking = false
+    for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+        local anim = track.Animation
+        if anim and table.find(getgenv().ForsakenAttackAnimations, anim.AnimationId) and track.Length > 0 and (track.TimePosition / track.Length < 0.75) then
+            attacking = true
+            break
+        end
+    end
+    if not attacking then return end
+
+    -- Xác định folder đối thủ
+    local oppositeFolder
+    if char:IsDescendantOf(killersFolder) then
+        oppositeFolder = survivorsFolder
+    elseif char:IsDescendantOf(survivorsFolder) then
+        oppositeFolder = killersFolder
+    end
+
+    local target, bestDist = nil, getgenv().NearestDist
+    if oppositeFolder then
+        target, bestDist = scanFolder(oppositeFolder, bestDist)
+    end
+    -- Fallback: quét workspace.Players (nếu cần)
+    if not target then
+        local playersFolder = workspace:FindFirstChild("Players")
+        if playersFolder then
+            target, bestDist = scanFolder(playersFolder, bestDist)
+        end
+    end
+    if not target then return end
+
+    local targetHRP = target:FindFirstChild("HumanoidRootPart")
+    if not targetHRP then return end
+
+    lastBlink = tick()
+
+    local oldCF = hrp.CFrame
+    local oldVel = hrp.Velocity
+    local cam = workspace.CurrentCamera
+    local camCF = cam and cam.CFrame
+    local oldCamType = cam and cam.CameraType
+
+    local ping = getSafePing()
+    local targetPos = targetHRP.Position + (targetHRP.Velocity * ping)
+    local blinkPos = Vector3.new(
+        targetPos.X + RNG:NextNumber(-1.1, 1.1),
+        oldCF.Position.Y,
+        targetPos.Z + RNG:NextNumber(-1.1, 1.1)
+    )
+
+    -- Giữ camera cố định trong lúc teleport
+    if cam then
+        cam.CameraType = Enum.CameraType.Scriptable
+        cam.CFrame = camCF
+    end
+
+    -- Teleport đến vị trí mục tiêu
+    hrp.Velocity = Vector3.zero
+    hrp.CFrame = CFrame.new(blinkPos, blinkPos + oldCF.LookVector)
+
+    -- Đợi 1 frame để server nhận vị trí mới
+    RunService.RenderStepped:Wait()
+
+    -- Teleport về vị trí cũ
+    hrp.CFrame = oldCF
+    hrp.Velocity = oldVel
+
+    -- Khôi phục camera
+    if cam then
+        cam.CFrame = camCF
+        cam.CameraType = oldCamType
+    end
+end
+
+-- Vòng lặp chính (thay cho AddLoop)
+task.spawn(function()
+    while true do
+        task.wait()
+        pcall(ForsakenReachLogic)
+    end
+end)
+end
 
 local Sys = getgenv().HutaoESPSystem
 
