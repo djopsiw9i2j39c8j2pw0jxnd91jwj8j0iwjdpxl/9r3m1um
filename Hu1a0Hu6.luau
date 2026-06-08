@@ -849,7 +849,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.6.8", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.6.9", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -1381,7 +1381,9 @@ local function ChangeTarget()
 
     local oldTarget = getgenv().AutoKillerTarget
     local newTarget = FindNearestSurvivorExcept(hrp, character, oldTarget)
-    if not newTarget and oldTarget and oldTarget.Parent and IsAlive(oldTarget.Parent) then
+    
+    -- ĐÃ FIX: Kiểm tra mục tiêu cũ phải còn trong survivorsFolder
+    if not newTarget and oldTarget and oldTarget.Parent and oldTarget:IsDescendantOf(survivorsFolder) and IsAlive(oldTarget.Parent) then
         return
     end
     if not newTarget then
@@ -1402,7 +1404,10 @@ local function ProcessAutoKiller()
     if not hrp then return end
 
     local targetHrp = getgenv().AutoKillerTarget
-    if targetHrp and targetHrp.Parent and targetHrp.Parent:IsA("Model") and IsAlive(targetHrp.Parent) then
+    
+    -- ĐÃ FIX: Thêm điều kiện targetHrp:IsDescendantOf(survivorsFolder)
+    -- Nếu mục tiêu teleport lỗi/thoát game làm mất nhân vật khỏi folder, script tự động nhảy target ngay lập tức
+    if targetHrp and targetHrp.Parent and targetHrp.Parent:IsA("Model") and targetHrp:IsDescendantOf(survivorsFolder) and IsAlive(targetHrp.Parent) then
         -- giữ nguyên target
     else
         targetHrp = FindNearestSurvivor(hrp, character)
