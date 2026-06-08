@@ -328,6 +328,10 @@ baseTranslations = {
     ["Drain_Value_Desc"] = "Enter drain speed.",
     ["Apply_Drain"] = "Apply Drain",
     ["Apply_Drain_Desc"] = "Enable custom drain.",
+    ["Hitbox_Angel"] = "Hitbox Angel",
+    ["Hitbox_Angel_Desc"] = "Activating the super hitbox attack prevents character from flying away.",
+    ["Hitbox_Range"] = "Hitbox Range",
+    ["Hitbox_Range_Desc"] = "Adjust the hitbox distance to the maximum teleportation range. (1-300)",
     ["Game_Play"] = "Game Play",
     ["Remove_Effects"] = "Remove Effects",
     ["Remove_Effects_Desc"] = "Detele all bad effects for you.",
@@ -845,7 +849,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.6.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.6.7", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -4150,286 +4154,42 @@ TabHandles.Player:Toggle({
     end
 })
 
-do
-repeat task.wait() until game:IsLoaded()
+TabHandles.Player:Section({ Title = "Hitbox", Icon = "flame" })
 
-getgenv().ForsakenAttackAnimations = getgenv().ForsakenAttackAnimations or {
-    "rbxassetid://131430497821198",
-    "rbxassetid://83829782357897",
-    "rbxassetid://126830014841198",
-    "rbxassetid://126355327951215",
-    "rbxassetid://121086746534252",
-    "rbxassetid://105458270463374",
-    "rbxassetid://18885919947",
-    "rbxassetid://18885909645",
-    "rbxassetid://87259391926321",
-    "rbxassetid://106014898528300",
-    "rbxassetid://87259391926321",
-    "rbxassetid://86545133269813",
-    "rbxassetid://89448354637442",
-    "rbxassetid://90499469533503",
-    "rbxassetid://116618003477002",
-    "rbxassetid://106086955212611",
-    "rbxassetid://107640065977686",
-    "rbxassetid://77124578197357",
-    "rbxassetid://101771617803133",
-    "rbxassetid://134958187822107",
-    "rbxassetid://111313169447787",
-    "rbxassetid://71685573690338",
-    "rbxassetid://129843313690921",
-    "rbxassetid://97623143664485",
-    "rbxassetid://129843313690921",
-    "rbxassetid://136007065400978",
-    "rbxassetid://136007065400978",
-    "rbxassetid://86096387000557",
-    "rbxassetid://108807732150251",
-    "rbxassetid://138040001965654",
-    "rbxassetid://73502073176819",
-    "rbxassetid://129843313690921",
-    "rbxassetid://97623143664485",
-    "rbxassetid://129843313690921",
-    "rbxassetid://97623143664485",
-    "rbxassetid://86709774283672",
-    "rbxassetid://106014898528300",
-    "rbxassetid://87259391926321",
-    "rbxassetid://140703210927645",
-    "rbxassetid://96173857867228",
-    "rbxassetid://121255898612475",
-    "rbxassetid://98031287364865",
-    "rbxassetid://119462383658044",
-    "rbxassetid://77448521277146",
-    "rbxassetid://77448521277146",
-    "rbxassetid://103741352379819",
-    "rbxassetid://119462383658044",
-    "rbxassetid://131696603025265",
-    "rbxassetid://122503338277352",
-    "rbxassetid://97648548303678",
-    "rbxassetid://94162446513587",
-    "rbxassetid://93069721274110",
-    "rbxassetid://97433060861952",
-    "rbxassetid://100592913030351",
-    "rbxassetid://121293883585738",
-    "rbxassetid://100592913030351",
-    "rbxassetid://121293883585738",
-    "rbxassetid://100592913030351",
-    "rbxassetid://121293883585738",
-    "rbxassetid://70447634862911",
-    "rbxassetid://92173139187970",
-    "rbxassetid://106847695270773",
-    "rbxassetid://125403313786645",
-    "rbxassetid://81639435858902",
-    "rbxassetid://137314737492715",
-    "rbxassetid://120112897026015",
-    "rbxassetid://82113744478546",
-    "rbxassetid://118298475669935",
-    "rbxassetid://82113744478546",
-    "rbxassetid://118298475669935",
-    "rbxassetid://126681776859538",
-    "rbxassetid://129976080405072",
-    "rbxassetid://109667959938617",
-    "rbxassetid://74707328554358",
-    "rbxassetid://133336594357903",
-    "rbxassetid://86204001129974",
-    "rbxassetid://82113744478546",
-    "rbxassetid://118298475669935",
-    "rbxassetid://124243639579224",
-    "rbxassetid://70371667919898",
-    "rbxassetid://131543461321709",
-    "rbxassetid://136323728355613",
-    "rbxassetid://109230267448394",
-    "rbxassetid://139835501033932",
-    "rbxassetid://106538427162796",
-    "rbxassetid://109667959938617",
-    "rbxassetid://126681776859538",
-    "rbxassetid://129976080405072",
-    "rbxassetid://110400453990786",
-    "rbxassetid://83685305553364",
-    "rbxassetid://126171487400618",
-    "rbxassetid://122709416391891",
-    "rbxassetid://87989533095285",
-    "rbxassetid://119326397274934",
-    "rbxassetid://140365014326125",
-    "rbxassetid://139309647473555",
-    "rbxassetid://133363345661032",
-    "rbxassetid://128414736976503",
-    "rbxassetid://121808371053483",
-    "rbxassetid://77375846492436",
-    "rbxassetid://100358581940485",
-    "rbxassetid://91758760621955",
-    "rbxassetid://94634594529334",
-    "rbxassetid://101101433684051",
-    "rbxassetid://90620531468240",
-    "rbxassetid://94958041603347",
-    "rbxassetid://131642454238375",
-    "rbxassetid://110702884830060",
-    "rbxassetid://76312020299624",
-    "rbxassetid://126654961540956",
-    "rbxassetid://139613699193400",
-    "rbxassetid://91509234639766",
-    "rbxassetid://105458270463374",
-    "rbxassetid://109777684604906",
-    "rbxassetid://84069821282466",
-    "rbxassetid://135283134632311",
-    "rbxassetid://127846074966393",
-}
+if not getgenv().HitboxDevilSettings then
+    getgenv().HitboxDevilSettings = {
+        Enabled = false,
+        Distance = 120
+    }
+end
 
-getgenv().ForsakenReachEnabled = getgenv().ForsakenReachEnabled or false
-getgenv().NearestDist = getgenv().NearestDist or 120
-getgenv().ForsakenRNG = getgenv().ForsakenRNG or Random.new()
+local Cfg = getgenv().HitboxDevilSettings
+local API = getgenv().HitboxDevilAPI or {}
 
-local RNG = getgenv().ForsakenRNG
-
--- UI
 TabHandles.Player:Toggle({
-    Title = "Hitbox Devil",
+    Title = "hutaohub:Hitbox_Angel",
+    Desc = "hutaohub:Hitbox_Angel_Desc",
     Locked = false,
-    Value = getgenv().ForsakenReachEnabled,
+    Value = Cfg.Enabled,
     Callback = function(val)
-        getgenv().ForsakenReachEnabled = val
+        Cfg.Enabled = val
+        if API.SetEnabled then API.SetEnabled(val) end
     end
 })
 
-TabHandles.Player:Slider({
-    Title = "Distance",
-    Value = {
-        Min = 10,
-        Max = 300,
-        Default = getgenv().NearestDist
-    },
-    Callback = function(value)
-        getgenv().NearestDist = value
+TabHandles.Player:Input({
+    Title = "hutaohub:Hitbox_Range",
+    Desc = "hutaohub:Hitbox_Range_Desc
+    Value = tostring(Cfg.Distance),
+    Placeholder = "120",
+    Callback = function(v)
+        local num = tonumber(v)
+        if num and num >= 10 and num <= 300 then
+            Cfg.Distance = num
+            if API.SetDistance then API.SetDistance(num) end
+        end
     end
 })
-
--- Hàm lấy ping an toàn
-local function getSafePing()
-    local ok, ping = pcall(Players.LocalPlayer.GetNetworkPing, Players.LocalPlayer)
-    if ok and typeof(ping) == "number" and ping > 0 then
-        return math.clamp(ping, 0.03, 0.12)
-    end
-    return 0.05
-end
-
--- Hàm quét folder tìm mục tiêu gần nhất
-local function scanFolder(folder, bestDist)
-    if not folder or not playerCharacter then return nil, bestDist end
-    local myRoot = playerCharacter:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil, bestDist end
-
-    local target
-    for _, model in ipairs(folder:GetChildren()) do
-        if model:IsA("Model") and model ~= playerCharacter then
-            local hrp2 = model:FindFirstChild("HumanoidRootPart")
-            local hum2 = model:FindFirstChild("Humanoid")
-            if hrp2 and hum2 and hum2.Health > 0 then
-                local dist = (hrp2.Position - myRoot.Position).Magnitude
-                if dist < bestDist then
-                    bestDist = dist
-                    target = model
-                end
-            end
-        end
-    end
-    return target, bestDist
-end
-
-local lastBlink = 0
-local BLINK_COOLDOWN = 0.05
-
-local function ForsakenReachLogic()
-    if not getgenv().ForsakenReachEnabled then return end
-    
-    local char = playerCharacter
-    if not char then return end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hum or not hrp then return end
-    
-    if tick() - lastBlink < BLINK_COOLDOWN then return end
-
-    -- Kiểm tra animation tấn công
-    local attacking = false
-    for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
-        local anim = track.Animation
-        if anim and table.find(getgenv().ForsakenAttackAnimations, anim.AnimationId) and track.Length > 0 and (track.TimePosition / track.Length < 0.75) then
-            attacking = true
-            break
-        end
-    end
-    if not attacking then return end
-
-    -- Xác định folder đối thủ
-    local oppositeFolder
-    if char:IsDescendantOf(killersFolder) then
-        oppositeFolder = survivorsFolder
-    elseif char:IsDescendantOf(survivorsFolder) then
-        oppositeFolder = killersFolder
-    end
-
-    local target, bestDist = nil, getgenv().NearestDist
-    if oppositeFolder then
-        target, bestDist = scanFolder(oppositeFolder, bestDist)
-    end
-    -- Fallback: quét workspace.Players (nếu cần)
-    if not target then
-        local playersFolder = workspace:FindFirstChild("Players")
-        if playersFolder then
-            target, bestDist = scanFolder(playersFolder, bestDist)
-        end
-    end
-    if not target then return end
-
-    local targetHRP = target:FindFirstChild("HumanoidRootPart")
-    if not targetHRP then return end
-
-    lastBlink = tick()
-
-    local oldCF = hrp.CFrame
-    local oldVel = hrp.Velocity
-    local cam = workspace.CurrentCamera
-    local camCF = cam and cam.CFrame
-    local oldCamType = cam and cam.CameraType
-
-    local ping = getSafePing()
-    local targetPos = targetHRP.Position + (targetHRP.Velocity * ping)
-    local blinkPos = Vector3.new(
-        targetPos.X + RNG:NextNumber(-1.1, 1.1),
-        oldCF.Position.Y,
-        targetPos.Z + RNG:NextNumber(-1.1, 1.1)
-    )
-
-    -- Giữ camera cố định trong lúc teleport
-    if cam then
-        cam.CameraType = Enum.CameraType.Scriptable
-        cam.CFrame = camCF
-    end
-
-    -- Teleport đến vị trí mục tiêu
-    hrp.Velocity = Vector3.zero
-    hrp.CFrame = CFrame.new(blinkPos, blinkPos + oldCF.LookVector)
-
-    -- Đợi 1 frame để server nhận vị trí mới
-    RunService.RenderStepped:Wait()
-
-    -- Teleport về vị trí cũ
-    hrp.CFrame = oldCF
-    hrp.Velocity = oldVel
-
-    -- Khôi phục camera
-    if cam then
-        cam.CFrame = camCF
-        cam.CameraType = oldCamType
-    end
-end
-
--- Vòng lặp chính (thay cho AddLoop)
-task.spawn(function()
-    while true do
-        task.wait()
-        pcall(ForsakenReachLogic)
-    end
-end)
-end
 
 local Sys = getgenv().HutaoESPSystem
 
