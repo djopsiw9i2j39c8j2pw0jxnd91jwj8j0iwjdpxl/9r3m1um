@@ -849,7 +849,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.6.7", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.6.8", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -4179,7 +4179,7 @@ TabHandles.Player:Toggle({
 
 TabHandles.Player:Input({
     Title = "hutaohub:Hitbox_Range",
-    Desc = "hutaohub:Hitbox_Range_Desc
+    Desc = "hutaohub:Hitbox_Range_Desc",
     Value = tostring(Cfg.Distance),
     Placeholder = "120",
     Callback = function(v)
