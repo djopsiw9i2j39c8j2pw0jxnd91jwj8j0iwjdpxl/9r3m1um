@@ -17,6 +17,7 @@ PhysicsService = game:GetService("PhysicsService")
 PathfindingService = game:GetService("PathfindingService")
 LocalizationService = game:GetService("LocalizationService")
 Debris = game:GetService("Debris")
+ServerScriptService = game:GetService("ServerScriptService")
 
 killersFolder = Workspace:WaitForChild("Players"):WaitForChild("Killers")
 survivorsFolder = Workspace:WaitForChild("Players"):WaitForChild("Survivors")
@@ -849,7 +850,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.7.0", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.7.2", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -4174,6 +4175,7 @@ local API = getgenv().HitboxDevilAPI or {}
 TabHandles.Player:Toggle({
     Title = "hutaohub:Hitbox_Angel",
     Desc = "hutaohub:Hitbox_Angel_Desc",
+    Flag = "HitboxAngel",
     Locked = false,
     Value = Cfg.Enabled,
     Callback = function(val)
@@ -4185,6 +4187,7 @@ TabHandles.Player:Toggle({
 TabHandles.Player:Input({
     Title = "hutaohub:Hitbox_Range",
     Desc = "hutaohub:Hitbox_Range_Desc",
+    Flag = "HitboxRange",
     Value = tostring(Cfg.Distance),
     Placeholder = "120",
     Callback = function(v)
@@ -4334,7 +4337,8 @@ if not getgenv().MiscModule then
             AntiAFKCons = {},
             AntiAFKConn = nil,
             ChatWindow = game:GetService("TextChatService"):FindFirstChild("ChatWindowConfiguration"),
-            AntiAdminLoop = nil
+            AntiAdminLoop = nil,
+            NoliTracked = {} -- ĐÃ THÊM: Sổ theo dõi thời gian sống của Noli
         }
     }
 end
@@ -4410,11 +4414,36 @@ local function processAntiSlow()
 end
 
 local function processRemoveNoli()
-    if not M.Settings.RemoveNPCNoli then return end
+    if not M.Settings.RemoveNPCNoli then 
+        table.clear(M.Cache.NoliTracked) -- Dọn sổ theo dõi nếu tắt chức năng
+        return 
+    end
+    
+    -- Dọn dẹp những model Noli đã tự biến mất khỏi map để chống rác bộ nhớ
+    for model, _ in pairs(M.Cache.NoliTracked) do
+        if not model or not model.Parent then
+            M.Cache.NoliTracked[model] = nil
+        end
+    end
+
     for _, v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("Model") and v.Name == "Noli" and not Players:GetPlayerFromCharacter(v) then
-            if v:FindFirstChildOfClass("Humanoid") then
-                pcall(v.Destroy, v)
+        if v:IsA("Model") and v.Name == "Noli" then
+            if Players:GetPlayerFromCharacter(v) then
+                -- Nếu nó đã hóa thành Player thật -> Xóa khỏi sổ theo dõi, tha mạng
+                M.Cache.NoliTracked[v] = nil
+            else
+                if v:FindFirstChildOfClass("Humanoid") then
+                    if not M.Cache.NoliTracked[v] then
+                        -- Lần đầu nhìn thấy, ghi lại thời gian (tick)
+                        M.Cache.NoliTracked[v] = tick()
+                    else
+                        -- Nếu đã trôi qua 5 giây mà vẫn không phải Player -> Tiêu diệt
+                        if tick() - M.Cache.NoliTracked[v] >= 5 then
+                            pcall(v.Destroy, v)
+                            M.Cache.NoliTracked[v] = nil
+                        end
+                    end
+                end
             end
         end
     end
