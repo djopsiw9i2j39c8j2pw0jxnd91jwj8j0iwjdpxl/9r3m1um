@@ -358,7 +358,7 @@ baseTranslations = {
     ["Rejoin_Starting"] = "Rejoin Starting",
     ["Rejoin_Starting_Content1"] = "Started on the server with the lag fixed.",
     ["Rejoin_Settings"] = "Rejoin Settings",
-    ["Rejoin_Settings_Content"] = "Reducing Lag on Servers...",
+    ["Rejoin_Settings_Content2"] = "Reducing Lag on Servers...",
     ["Teleport_Error"] = "Teleport Error",
     ["Rejoin_To_Fix_Lag"] = "Rejoin To Fix Lag",
     ["Rejoin_To_Fix_Lag_Desc"] = "Press to activate the server lag reduction function.",
@@ -849,7 +849,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.6.9", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.7.0", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
