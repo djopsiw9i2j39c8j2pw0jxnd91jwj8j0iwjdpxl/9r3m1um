@@ -96,6 +96,35 @@ baseTranslations = {
     ["Visual"] = "Visual",
     ["Misc"] = "Misc",
     ["Settings"] = "Settings",
+    ["Auto_Kill_Sections"] = "All functions to help auto kill all survivors.",
+    ["Generator_Sections"] = "All functions that allow you to automatically fix the generator.",
+    ["Items_Sections"] = "All functions that make picking up and finding items easier.",
+    ["Eliot_Sections"] = "Features that will help you become a pro when using Eliot.",
+    ["007n7_Sections"] = "Contains functions that allow you to become invisible.",
+    ["Shedletsky_Sections"] = "This will help you use Sethtsky more easily.",
+    ["TwoTime_Sections"] = "You will become a pro player every time you use a skill.",
+    ["Dusekkar_Sections"] = "It will adjust your energy beam each time you use a skill.",
+    ["Veeronica_Sections"] = "These are the functions and skills of the character Veronica.",
+    ["Guest1337_Sections"] = "This is the feature that will help you become a pro using guest1337.",
+    ["Chance_Sections"] = "All these functions will help you each time you use a skill.",
+    ["AutoSkill_Sections"] = "This will help you utilize all of your ultimate skills.",
+    ["AutoAttack_Sections"] = "This will help you use M1 skills.",
+    ["is1x1x1x1_Sections"] = "This section contains the functions of 1x1x1x1.",
+    ["Nosferatu_Sections"] = "This section contains the functions of the Nosferatu killers.",
+    ["Noli_Sections"] = "This is of the functions related to killers Noli.",
+    ["c00lkidd_Sections"] = "This is of the functions related to killers c00lkidd",
+    ["YouName_Sections"] = "This section allows you to change your name when entering the game.",
+    ["AntiCC_Sections"] = "This part provides immunity to stun.",
+    ["Camlock_Sections"] = "Camlock bypass functions are here.",
+    ["Stamina_Sections"] = "Settings for your stamina metrics.",
+    ["Esp_Sections"] = "Enhance visibility with ESP features.",
+    ["Hitbox_Sections"] = "These functions will interfere with the hitbox.",
+    ["FixLag_Sections"] = "Reduce lag, improve FPS, and optimize game performance.",
+    ["Camera_Sections"] = "Improve visibility with brightness, fog, and zoom settings.",
+    ["GamePlay_Sections"] = "Enhance movement and gameplay experience.",
+    ["Protect_Sections"] = "Various protection features for a safer gameplay experience.",
+    ["Language_Sections"] = "Customize the script language and localization settings.",
+    ["Config_Sections"] = "Create, save, load, and organize configurations.",
     ["Transparency"] = "Transparency",
     ["Transparency_disabled"] = "Transparency disabled",
     ["Transparency_enabled"] = "Transparency enabled",
@@ -128,6 +157,7 @@ baseTranslations = {
     ["Copy_Link"] = "Copy Link",
     ["Dev_Script"] = ">>          Dev Script          <<",
     ["My_Link"] = ">>          My Link          <<",
+    ["Auto_Kill"] = "Auto Kill",
     ["Change_Target"] = "Change Target",
     ["Change_Target_Desc"] = "Switch to the next nearest survivor",
     ["Auto_Kill_The_Survivors"] = "Auto Kill The Survivors",
@@ -300,6 +330,7 @@ baseTranslations = {
     ["Radar_360_Wall_Check_Desc"] = "This helps you dodge walls to avoid crashing into them.",
     ["Custom_Name"] = "Custom Name",
     ["Custom_Name_Desc"] = "Enter the name you want to fake.",
+    ["You_Name"] = "You Name",
     ["Fake_Name"] = "Fake Name",
     ["Fake_Name_Desc"] = "Enter the name you want to fake.",
     ["Anti_CC"] = "Anti-CC",
@@ -850,7 +881,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.7.2", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.7.8", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -871,7 +902,12 @@ function InitializeWindUI()
         Settings = Tabs.System:Tab({ Title = "hutaohub:Settings", Icon = "settings", ShowTabTitle = true, }),
     }
     
-    local isDragging = false
+    return Window, TabHandles
+end
+
+Window, TabHandles = InitializeWindUI()
+    
+local isDragging = false
 local isDragMove = false
 local dragInput = nil
 local dragStartPos = nil
@@ -975,7 +1011,40 @@ end)
     local baseUrl = "https://raw.githubusercontent.com/djopsiw9i2j39c8j2pw0jxnd91jwj8j0iwjdpxl/50ur3-c0d3/refs/heads/main/"
     local Visual = loadstring(game:HttpGet(baseUrl .. "Visual.luau"))()
     
-    TabHandles.Settings:Dropdown({
+    
+local Sections = {
+    AutoKill = TabHandles.Farm:Section({ Title = "hutaohub:Auto_Kill", Desc = "hutaohub:Auto_Kill_Sections", Icon = "skull", Opened = false, Box = true, BoxBorder = true }),
+    Generator = TabHandles.Farm:Section({ Title = "hutaohub:Generator", Desc = "hutaohub:Generator_Sections", Icon = "battery-charging", Opened = false, Box = true, BoxBorder = true }),
+    Items = TabHandles.Farm:Section({ Title = "hutaohub:Items_Settings", Desc = "hutaohub:Items_Sections", Icon = "backpack", Opened = false, Box = true, BoxBorder = true }),
+    Eliot = TabHandles.Survivors:Section({ Title = "Eliot", Desc = "hutaohub:Eliot_Sections", Icon = "pizza", Opened = false, Box = true, BoxBorder = true }),
+    Clone007n7 = TabHandles.Survivors:Section({ Title = "007n7", Desc = "hutaohub:007n7_Sections", Icon = "ghost", Opened = false, Box = true, BoxBorder = true }),
+    Shedletsky = TabHandles.Survivors:Section({ Title = "Shedletskey", Desc = "hutaohub:Shedletsky_Sections", Icon = "sword", Opened = false, Box = true, BoxBorder = true }),
+    TwoTime = TabHandles.Survivors:Section({ Title = "Two Time", Desc = "hutaohub:TwoTime_Sections", Icon = "shuffle", Opened = false, Box = true, BoxBorder = true }),
+    Dusekkar = TabHandles.Survivors:Section({ Title = "Dusekkar", Desc = "hutaohub:Dusekkar_Sections", Icon = "bolt", Opened = false, Box = true, BoxBorder = true }),
+    Veeronica = TabHandles.Survivors:Section({ Title = "Veeronica", Desc = "hutaohub:Veeronica_Sections", Icon = "wind", Opened = false, Box = true, BoxBorder = true }),
+    Guest1337 = TabHandles.Survivors:Section({ Title = "Guest1337", Desc = "hutaohub:Guest1337_Sections", Icon = "shield-check", Opened = false, Box = true, BoxBorder = true }),
+    Chance = TabHandles.Survivors:Section({ Title = "Chance", Desc = "hutaohub:Chance_Sections", Icon = "bitcoin", Opened = false, Box = true, BoxBorder = true }),
+    AutoAttack = TabHandles.Killers:Section({ Title = "Auto Attack", Desc = "hutaohub:AutoAttack_Sections", Icon = "sword", Opened = false, Box = true, BoxBorder = true }),
+    AutoSkill = TabHandles.Killers:Section({ Title = "Auto Skill", Desc = "hutaohub:AutoSkill_Sections", Icon = "repeat", Opened = false, Box = true, BoxBorder = true }),
+    Nosferatu = TabHandles.Killers:Section({ Title = "Nosferatu", Desc = "hutaohub:Nosferatu_Sections", Icon = "moon-star", Opened = false, Box = true, BoxBorder = true }),
+    is1x1x1x1 = TabHandles.Killers:Section({ Title = "1x1x1x1", Desc = "hutaohub:is1x1x1x1_Sections", Icon = "bug", Opened = false, Box = true, BoxBorder = true }),
+    Noli = TabHandles.Killers:Section({ Title = "Noli", Desc = "hutaohub:Noli_Sections", Icon = "sparkles", Opened = false, Box = true, BoxBorder = true }),
+    c00lkidd = TabHandles.Killers:Section({ Title = "c00lkidd", Desc = "hutaohub:c00lkidd_Sections", Icon = "flame", Opened = false, Box = true, BoxBorder = true }),
+    YouName = TabHandles.Name:Section({ Title = "hutaohub:You_Name", Desc = "hutaohub:YouName_Sections", Icon = "user-check", Opened = false, Box = true, BoxBorder = true }),
+    AntiCC = TabHandles.Player:Section({ Title = "hutaohub:Anti_CC", Desc = "hutaohub:AntiCC_Sections", Icon = "shield-alert", Opened = false, Box = true, BoxBorder = true }),
+    Camlock = TabHandles.Player:Section({ Title = "hutaohub:Camlock", Desc = "hutaohub:Camlock_Sections", Icon = "crosshair", Opened = false, Box = true, BoxBorder = true }),
+    Stamina = TabHandles.Player:Section({ Title = "hutaohub:Stamina", Desc = "hutaohub:Stamina_Sections", Icon = "wind", Opened = false, Box = true, BoxBorder = true }),
+    Hitbox = TabHandles.Player:Section({ Title = "Hitbox", Desc = "hutaohub:Hitbox_Sections", Icon = "box", Opened = false, Box = true, BoxBorder = true }),
+    Esp = TabHandles.Visual:Section({ Title = "Visual ESP", Desc = "hutaohub:Esp_Sections", Icon = "radar", Opened = false, Box = true, BoxBorder = true }),
+    FixLag = TabHandles.Misc:Section({ Title = "Fix Lag", Desc = "hutaohub:FixLag_Sections", Icon = "cpu", Opened = false, Box = true, BoxBorder = true }),
+    Camera = TabHandles.Misc:Section({ Title = "hutaohub:Camera", Desc = "hutaohub:Camera_Sections", Icon = "camera", Opened = false, Box = true, BoxBorder = true }),
+    GamePlay = TabHandles.Misc:Section({ Title = "hutaohub:Game_Play", Desc = "hutaohub:GamePlay_Sections", Icon = "joystick", Opened = false, Box = true, BoxBorder = true }),
+    Protect = TabHandles.Misc:Section({ Title = "hutaohub:Protect", Desc = "hutaohub:Protect_Sections", Icon = "shield-alert", Opened = false, Box = true, BoxBorder = true }),
+    Language = TabHandles.Settings:Section({ Title = "Language Settings", Desc = "hutaohub:Language_Sections", Icon = "languages", Opened = false, Box = true, BoxBorder = true }),
+    Config = TabHandles.Settings:Section({ Title = "Config Settings", Desc = "hutaohub:Config_Sections", Icon = "folder", Opened = false, Box = true, BoxBorder = true }),
+}
+    
+    Sections.Language:Dropdown({
         Title = "hutaohub:Language",
         Desc = "hutaohub:Language_Desc",
         Locked = true,
@@ -997,11 +1066,6 @@ end)
             })
         end,
     })
-
-    return Window, TabHandles
-end
-
-Window, TabHandles = InitializeWindUI() 
 
 local OwnerList = {
     ["rbown_VIP"] = true,
@@ -1529,8 +1593,7 @@ task.spawn(function()
     end
 end)
 
--- Nút đổi mục tiêu (chỉ hoạt động khi AutoKillerFarm đang bật)
-TabHandles.Farm:Button({
+Sections.AutoKill:Button({
     Title = "hutaohub:Change_Target",
     Desc = "hutaohub:Change_Target_Desc",
     Callback = function()
@@ -1541,7 +1604,7 @@ TabHandles.Farm:Button({
 })
 
 -- ================= UI =================
-TabHandles.Farm:Toggle({
+Sections.AutoKill:Toggle({
     Title = "hutaohub:Auto_Kill_The_Survivors",
     Desc = "hutaohub:Auto_Kill_The_Survivors_Desc",
     Flag = "Auto Killers Farm",
@@ -1554,9 +1617,7 @@ TabHandles.Farm:Toggle({
     end
 })
 
-TabHandles.Farm:Section({ Title = "hutaohub:Generator", Icon = "battery-charging" })
-
-TabHandles.Farm:Toggle({
+Sections.Generator:Toggle({
     Title = "hutaohub:Auto_Farm_Generator",
     Desc = "hutaohub:Auto_Farm_Generator_Desc",
     Flag = "Auto Farm Generator",
@@ -1566,7 +1627,7 @@ TabHandles.Farm:Toggle({
     end
 })
 
-TabHandles.Farm:Toggle({
+Sections.Generator:Toggle({
     Title = "hutaohub:Safe_Mode_Enable",
     Desc = "hutaohub:Safe_Mode_Enable_Desc",
     Flag = "Safe Mode Generator",
@@ -1576,7 +1637,7 @@ TabHandles.Farm:Toggle({
     end
 })
 
-TabHandles.Farm:Input({
+Sections.Generator:Input({
     Title = "hutaohub:Set_Safe_Range",
     Desc = "hutaohub:Set_Safe_Range_Desc",
     Flag = "Safe Range Generator",
@@ -1610,7 +1671,7 @@ local function onDelayInputChange(value)
     end
 end
 
-TabHandles.Farm:Toggle({
+Sections.Generator:Toggle({
     Title = "hutaohub:Auto_Finish_Generator",
     Desc = "hutaohub:Auto_Finish_Generator_Desc",
     Flag = "Auto Finish Generator",
@@ -1619,7 +1680,7 @@ TabHandles.Farm:Toggle({
     Callback = onToggleFarmState
 })
 
-TabHandles.Farm:Input({
+Sections.Generator:Input({
     Title = "hutaohub:Generator_Delay",
     Desc = "hutaohub:Generator_Delay_Desc",
     Flag = "Generator Delay",
@@ -1628,8 +1689,6 @@ TabHandles.Farm:Input({
     Numeric = true,
     Callback = onDelayInputChange
 })
-
-TabHandles.Farm:Section({ Title = "hutaohub:Items_Settings", Icon = "backpack" })
 
 getgenv().AutoPickupSelected = getgenv().AutoPickupSelected or false
 getgenv().AutoPickupNearest = getgenv().AutoPickupNearest or false
@@ -1795,7 +1854,7 @@ task.spawn(function()
     end
 end)
 
-ItemDropdown = TabHandles.Farm:Dropdown({
+ItemDropdown = Sections.Items:Dropdown({
     Title = "hutaohub:Select_Item",
     Desc = "hutaohub:Select_Item_Desc",
     Flag = "Select Pickup Item",
@@ -1806,7 +1865,7 @@ ItemDropdown = TabHandles.Farm:Dropdown({
     end
 })
 
-TabHandles.Farm:Button({
+Sections.Items:Button({
     Title = "hutaohub:Pick_Up_Selected_Item",
     Desc = "hutaohub:Pick_Up_Selected_Item_Desc",
     Callback = function()
@@ -1816,7 +1875,7 @@ TabHandles.Farm:Button({
     end
 })
 
-TabHandles.Farm:Button({
+Sections.Items:Button({
     Title = "hutaohub:Pick_Up_Random_Item",
     Desc = "hutaohub:Pick_Up_Random_Item_Desc",
     Callback = function()
@@ -1826,7 +1885,7 @@ TabHandles.Farm:Button({
     end
 })
 
-TabHandles.Farm:Toggle({
+Sections.Items:Toggle({
     Title = "hutaohub:Auto_PickUp_Selected_Item",
     Desc = "hutaohub:Auto_PickUp_Selected_Item_Desc",
     Flag = "Auto PickUp Selected",
@@ -1836,7 +1895,7 @@ TabHandles.Farm:Toggle({
     end
 })
 
-TabHandles.Farm:Toggle({
+Sections.Items:Toggle({
     Title = "hutaohub:Auto_PickUp_Nearest_Item",
     Desc = "hutaohub:Auto_PickUp_Nearest_Item_Desc",
     Flag = "Auto PickUp Nearest",
@@ -1860,9 +1919,7 @@ end
 local Cfg = getgenv().EliotSettings
 local API = getgenv().EliotAPI or {}
 
-TabHandles.Survivors:Section({ Title = "Elliot", Icon = "pizza" })
-
-TabHandles.Survivors:Toggle({
+Sections.Eliot:Toggle({
     Title = "hutaohub:Pizza_Aimbot",
     Desc = "hutaohub:Pizza_Aimbot_Desc",
     Flag = "PizzaAimbot",
@@ -1873,7 +1930,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Eliot:Input({
     Title = "hutaohub:Aim_Distance",
     Desc = "hutaohub:Aim_Distance_Eliot",
     Flag = "PizzaAimDistance",
@@ -1887,7 +1944,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Eliot:Input({
     Title = "hutaohub:Aim_Offset",
     Desc = "hutaohub:Aim_Offset_Desc",
     Flag = "PizzaAimOffset",
@@ -1901,7 +1958,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Eliot:Input({
     Title = "hutaohub:Aim_Duration",
     Desc = "hutaohub:Aim_Duration_Eliot",
     Flag = "PizzaAimDuration",
@@ -1915,7 +1972,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Eliot:Toggle({
     Title = "hutaohub:Auto_Eat_Pizza",
     Desc = "hutaohub:Auto_Eat_Pizza_Desc",
     Flag = "AutoEatPizza",
@@ -1926,7 +1983,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Eliot:Input({
     Title = "hutaohub:HP_Threshold",
     Desc = "hutaohub:HP_Threshold_Eliot",
     Flag = "EatPizzaHP",
@@ -1940,8 +1997,6 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Section({ Title = "007n7", Icon = "ghost" })
-
 if not getgenv().InvisSettings then
     getgenv().InvisSettings = {
         InstantEnabled = false,
@@ -1952,7 +2007,7 @@ end
 local Cfg = getgenv().InvisSettings
 local API = getgenv().InvisAPI or {}
 
-TabHandles.Survivors:Toggle({
+Sections.Clone007n7:Toggle({
     Title = "hutaohub:Instant_Invisible",
     Desc = "hutaohub:Instant_Invisible_Desc",
     Flag = "Instant Invisible",
@@ -1963,7 +2018,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Clone007n7:Toggle({
     Title = "hutaohub:Invisible_If_Cloned",
     Desc = "hutaohub:Invisible_If_Cloned_Desc",
     Flag = "Invisible If Cloned",
@@ -1989,10 +2044,7 @@ end
 local Cfg = getgenv().ShedletskySettings
 local API = getgenv().ShedletskyAPI or {}
 
--- ================= UI =================
-TabHandles.Survivors:Section({ Title = "Shedletsky", Icon = "sword" })
-
-TabHandles.Survivors:Toggle({
+Sections.Shedletsky:Toggle({
     Title = "hutaohub:Auto_Slash",
     Desc = "hutaohub:Auto_Slash_Desc",
     Flag = "AutoSlash",
@@ -2003,7 +2055,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Shedletsky:Input({
     Title = "hutaohub:Slash_Radius",
     Desc = "hutaohub:Slash_Radius_Desc",
     Flag = "SlashRadius",
@@ -2017,7 +2069,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Shedletsky:Input({
     Title = "hutaohub:Set_Slash_Delay",
     Desc = "hutaohub:Set_Slash_Delay_Desc",
     Flag = "SetSlashTime",
@@ -2031,7 +2083,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Shedletsky:Toggle({
     Title = "hutaohub:Auto_Eat_Chicken",
     Desc = "hutaohub:Auto_Eat_Chicken_Desc",
     Flag = "AutoEatChicken",
@@ -2042,7 +2094,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Shedletsky:Input({
     Title = "hutaohub:HP_Threshold",
     Desc = "hutaohub:HP_Threshold_Desc",
     Flag = "ChickenHPThreshold",
@@ -2056,7 +2108,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Shedletsky:Input({
     Title = "hutaohub:Safe_Distance",
     Desc = "hutaohub:Safe_Distance_Desc",
     Flag = "ChickenDistance",
@@ -2085,10 +2137,7 @@ end
 local Cfg = getgenv().TwoTimeDaggerSettings
 local API = getgenv().TwoTimeDaggerAPI or {}
 
--- ================= UI =================
-TabHandles.Survivors:Section({ Title = "Two Time", Icon = "shuffle" })
-
-TabHandles.Survivors:Toggle({
+Sections.TwoTime:Toggle({
     Title = "hutaohub:Auto_Dagger",
     Desc = "hutaohub:Auto_Dagger_Desc",
     Flag = "AutoDagger",
@@ -2099,7 +2148,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.TwoTime:Toggle({
     Title = "hutaohub:Aim_Dagger",
     Desc = "hutaohub:Aim_Dagger_Desc",
     Flag = "AimDagger",
@@ -2110,7 +2159,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Dropdown({
+Sections.TwoTime:Dropdown({
     Title = "hutaohub:Aim_Dagger_Mode",
     Desc = "hutaohub:Aim_Dagger_Mode_Desc",
     Flag = "AimDaggerMode",
@@ -2122,7 +2171,7 @@ TabHandles.Survivors:Dropdown({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.TwoTime:Input({
     Title = "hutaohub:Dagger_Radius",
     Desc = "hutaohub:Dagger_Radius_Desc",
     Flag = "DaggerRadius",
@@ -2136,7 +2185,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.TwoTime:Toggle({
     Title = "hutaohub:Dash_After_Dagger",
     Desc = "hutaohub:Dash_After_Dagger_Desc",
     Flag = "DashDagger",
@@ -2147,7 +2196,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.TwoTime:Input({
     Title = "hutaohub:Dash_Speed",
     Desc = "hutaohub:Dash_Speed_Desc",
     Flag = "DashDaggerSpeed",
@@ -2160,8 +2209,6 @@ TabHandles.Survivors:Input({
         end
     end
 })
-
-TabHandles.Survivors:Section({ Title = "Dusekkar", Icon = "bolt" })
 
 local dusekkarAimbotEnabled = false
 local dusekkarAimMode = "Survivor"
@@ -2249,7 +2296,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-TabHandles.Survivors:Dropdown({
+Sections.Dusekkar:Dropdown({
     Title = "hutaohub:Aim_Plasma_Beam_Mode",
     Desc = "hutaohub:Aim_Plasma_Beam_Mode_Desc",
     Values = {"Survivor", "Killer", "Random"},
@@ -2257,7 +2304,7 @@ TabHandles.Survivors:Dropdown({
     Callback = function(val) dusekkarAimMode = val end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Dusekkar:Toggle({
     Title = "hutaohub:Aim_Plasma_Beam",
     Desc = "hutaohub:Aim_Plasma_Beam_Desc",
     Value = false,
@@ -2276,8 +2323,6 @@ localPlayer.CharacterAdded:Connect(function(char)
     task.delay(1, setupCharacter, char)
 end)
 
-TabHandles.Survivors:Section({ Title = "Veeronica", Icon = "wind" })
-
 if not getgenv().VeeronicaSettings then
     getgenv().VeeronicaSettings = {
         Sk8ControlEnabled = false,
@@ -2288,7 +2333,7 @@ end
 local S = getgenv().VeeronicaSettings
 local API = getgenv().VeeronicaAPI or {}
 
-TabHandles.Survivors:Toggle({
+Sections.Veeronica:Toggle({
     Title = "hutaohub:Sk8_Control",
     Desc = "hutaohub:Sk8_Control_Desc",
     Flag = "Sk8Control",
@@ -2299,7 +2344,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Veeronica:Toggle({
     Title = "hutaohub:Auto_Trick_V4",
     Desc = "hutaohub:Auto_Trick_V4_Desc",
     Flag = "AutoTrickV3",
@@ -2310,9 +2355,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Section({ Title = "Guest1337", Icon = "shield-check" })
-
-TabHandles.Survivors:Dropdown({
+Sections.Guest1337:Dropdown({
     Title = "hutaohub:Block_Mode",
     Desc = "hutaohub:Block_Mode_Desc",
     Flag = "Block Mode",
@@ -2330,7 +2373,7 @@ TabHandles.Survivors:Dropdown({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Guest1337:Toggle({
     Title = "hutaohub:Auto_Block_Beta",
     Desc = "hutaohub:Auto_Block_Beta_Desc",
     Flag = "Auto Block",
@@ -2340,7 +2383,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Guest1337:Input({
     Title = "hutaohub:Range_Check",
     Desc = "hutaohub:Range_Check_Desc",
     Flag = "Range Check",
@@ -2350,7 +2393,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Guest1337:Input({
     Title = "hutaohub:Elevation_Range_Check",
     Desc = "hutaohub:Elevation_Range_Check_Desc",
     Flag = "Elevation Range Check",
@@ -2360,7 +2403,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Guest1337:Input({
     Title = "hutaohub:Range_Hit_Circle",
     Desc = "hutaohub:Range_Hit_Circle_Desc",
     Flag = "Range Hit Circle",
@@ -2370,7 +2413,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Guest1337:Input({
     Title = "hutaohub:Pro_Block_Cooldown",
     Desc = "hutaohub:Pro_Block_Cooldown_Desc",
     Flag = "Pro Cooldown",
@@ -2383,7 +2426,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Guest1337:Input({
     Title = "hutaohub:Pro_Sound_Threshold",
     Desc = "hutaohub:Pro_Sound_Threshold_Desc",
     Flag = "Pro Sound Threshold",
@@ -2396,7 +2439,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Guest1337:Toggle({
     Title = "hutaohub:Wall_Check",
     Desc = "hutaohub:Wall_Check_Desc",
     Flag = "Wall Check",
@@ -2406,7 +2449,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Guest1337:Toggle({
     Title = "hutaohub:Show_Hit_Circle",
     Desc = "hutaohub:Show_Hit_Circle_Desc",
     Flag = "Hit Circle",
@@ -2416,7 +2459,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Guest1337:Toggle({
     Title = "hutaohub:Show_Circle",
     Desc = "hutaohub:Show_Circle_Desc",
     Flag = "Show Circle",
@@ -2426,7 +2469,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Guest1337:Toggle({
     Title = "hutaohub:Elevation_Check",
     Desc = "hutaohub:Elevation_Check_Desc",
     Flag = "Elevation Check",
@@ -2456,7 +2499,7 @@ end
 local S = getgenv().AutoPunchSettings
 local API = getgenv().AutoPunchAPI or {}  -- Sẽ có nếu logic đã load
 
-TabHandles.Survivors:Dropdown({
+Sections.Guest1337:Dropdown({
     Title = "hutaohub:Punch_Aim_Mode",
     Desc = "hutaohub:Punch_Aim_Mode_Desc",
     Flag = "PunchAimMode",
@@ -2468,7 +2511,7 @@ TabHandles.Survivors:Dropdown({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Guest1337:Toggle({
     Title = "hutaohub:Auto_Punch_Beta",
     Desc = "hutaohub:Auto_Punch_Beta_Desc",
     Flag = "AutoPunch",
@@ -2479,7 +2522,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Guest1337:Toggle({
     Title = "hutaohub:Aimbot_Punch",
     Desc = "hutaohub:Aimbot_Punch_Desc",
     Flag = "AimbotPunch",
@@ -2490,7 +2533,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Guest1337:Toggle({
     Title = "hutaohub:Dash_Punch",
     Desc = "hutaohub:Dash_Punch_Desc",
     Flag = "DashPunch",
@@ -2501,7 +2544,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Guest1337:Input({
     Title = "hutaohub:Dash_Range",
     Desc = "hutaohub:Dash_Range_Desc",
     Flag = "DashRange",
@@ -2512,7 +2555,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Guest1337:Input({
     Title = "hutaohub:Dash_Speed",
     Desc = "hutaohub:Dash_Speed_Desc",
     Flag = "DashSpeed",
@@ -2523,7 +2566,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Guest1337:Input({
     Title = "hutaohub:Dash_Delay",
     Desc = "hutaohub:Dash_Delay_Desc",
     Flag = "DashDelay",
@@ -2534,7 +2577,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Guest1337:Toggle({
     Title = "hutaohub:Distance_Check",
     Desc = "hutaohub:Distance_Check_Desc",
     Flag = "UseDistanceCheck",
@@ -2545,7 +2588,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Guest1337:Input({
     Title = "hutaohub:Punch_Distance",
     Desc = "hutaohub:Punch_Distance_Desc",
     Flag = "PunchDistance",
@@ -2556,7 +2599,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Guest1337:Input({
     Title = "hutaohub:Mode_Delay",
     Desc = "hutaohub:Mode_Delay_Desc",
     Flag = "DelayTime",
@@ -2567,7 +2610,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Guest1337:Input({
     Title = "hutaohub:Aim_Duration",
     Desc = "hutaohub:Aim_Duration_Desc",
     Flag = "AimDuration",
@@ -2578,7 +2621,7 @@ TabHandles.Survivors:Input({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Guest1337:Input({
     Title = "hutaohub:Camera_Aim_Speed",
     Desc = "hutaohub:Camera_Aim_Speed_Desc",
     Flag = "CameraAimSpeed",
@@ -2608,9 +2651,7 @@ end
 local Cfg = getgenv().ChanceSettings
 local API = getgenv().ChanceAPI or {}
 
-TabHandles.Survivors:Section({ Title = "Chance", Icon = "bitcoin" })
-
-TabHandles.Survivors:Toggle({
+Sections.Chance:Toggle({
     Title = "hutaohub:Auto_Aim_Shoot",
     Desc = "hutaohub:Auto_Aim_Shoot_Desc",
     Flag = "AutoAimShoot",
@@ -2621,7 +2662,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Dropdown({
+Sections.Chance:Dropdown({
     Title = "hutaohub:Aim_Mode",
     Desc = "hutaohub:Aim_Mode_Desc",
     Flag = "AimModeChance",
@@ -2633,7 +2674,7 @@ TabHandles.Survivors:Dropdown({
     end
 })
 
-TabHandles.Survivors:Dropdown({
+Sections.Chance:Dropdown({
     Title = "hutaohub:Prediction_Mode",
     Desc = "hutaohub:Prediction_Mode_Desc",
     Flag = "PredictionMode",
@@ -2645,7 +2686,7 @@ TabHandles.Survivors:Dropdown({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Chance:Toggle({
     Title = "hutaohub:Enable_Offset",
     Desc = "hutaohub:Enable_Offset_Desc",
     Flag = "EnableOffset",
@@ -2656,7 +2697,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Chance:Toggle({
     Title = "hutaohub:Auto_Coin_Flip",
     Desc = "hutaohub:Auto_Coin_Flip_Desc",
     Flag = "AutoCoinFlip",
@@ -2667,7 +2708,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Dropdown({
+Sections.Chance:Dropdown({
     Title = "hutaohub:Coinflip_Target",
     Desc = "hutaohub:Coinflip_Target_Desc",
     Flag = "CoinflipTarget",
@@ -2682,7 +2723,7 @@ TabHandles.Survivors:Dropdown({
     end
 })
 
-TabHandles.Survivors:Toggle({
+Sections.Chance:Toggle({
     Title = "hutaohub:Safe_Coinflip",
     Desc = "hutaohub:Safe_Coinflip_Desc",
     Flag = "AntiKillersCoinflip",
@@ -2693,7 +2734,7 @@ TabHandles.Survivors:Toggle({
     end
 })
 
-TabHandles.Survivors:Input({
+Sections.Chance:Input({
     Title = "hutaohub:Safe_Coinflip_Distance",
     Desc = "hutaohub:Safe_Coinflip_Distance_Desc",
     Flag = "SafeCoinflip",
@@ -2826,7 +2867,7 @@ task.spawn(function()
     end
 end)
 
-TabHandles.Killers:Input({
+Sections.AutoAttack:Input({
     Title = "hutaohub:Auto_Attack_Range",
     Desc = "hutaohub:Auto_Attack_Range_Desc",
     Flag = "AutoAbilityRange",
@@ -2838,7 +2879,7 @@ TabHandles.Killers:Input({
     end
 })
 
-TabHandles.Killers:Toggle({
+Sections.AutoAttack:Toggle({
     Title = "hutaohub:Auto_Attack_Survivors",
     Desc = "hutaohub:Auto_Attack_Survivors_Desc",
     Flag = "AutoAbilityToggle",
@@ -2848,12 +2889,7 @@ TabHandles.Killers:Toggle({
     end
 })
 
-TabHandles.Killers:Section({
-    Title = "hutaohub:Auto_Skill",
-    Icon = "repeat"
-})
-
-TabHandles.Killers:Toggle({
+Sections.AutoSkill:Toggle({
     Title = "hutaohub:Auto_Use_All_Skills",
     Desc = "hutaohub:Auto_Use_All_Skills_Desc",
     Flag = "AutoUseAllSkills",
@@ -2863,7 +2899,7 @@ TabHandles.Killers:Toggle({
     end
 })
 
-TabHandles.Killers:Toggle({
+Sections.AutoSkill:Toggle({
     Title = "hutaohub:Auto_RagingPace",
     Desc = "hutaohub:Auto_RagingPace_Desc",
     Flag = "AutoRagingPace",
@@ -2873,7 +2909,7 @@ TabHandles.Killers:Toggle({
     end
 })
 
-TabHandles.Killers:Toggle({
+Sections.AutoSkill:Toggle({
     Title = "hutaohub:Auto_PizzaDelivery",
     Desc = "hutaohub:Auto_PizzaDelivery_Desc",
     Flag = "AutoPizzaDelivery",
@@ -2883,7 +2919,7 @@ TabHandles.Killers:Toggle({
     end
 })
 
-TabHandles.Killers:Toggle({
+Sections.AutoSkill:Toggle({
     Title = "hutaohub:Auto_404Error",
     Desc = "hutaohub:Auto_404Error_Desc",
     Flag = "Auto404Error",
@@ -2893,7 +2929,7 @@ TabHandles.Killers:Toggle({
     end
 })
 
-TabHandles.Killers:Toggle({
+Sections.AutoSkill:Toggle({
     Title = "hutaohub:Auto_UnstableEye",
     Desc = "hutaohub:Auto_UnstableEye_Desc",
     Flag = "AutoUnstableEye",
@@ -2903,7 +2939,7 @@ TabHandles.Killers:Toggle({
     end
 })
 
-TabHandles.Killers:Toggle({
+Sections.AutoSkill:Toggle({
     Title = "hutaohub:Auto_BloodHunt",
     Desc = "hutaohub:Auto_BloodHunt_Desc",
     Flag = "AutoBloodHunt",
@@ -2913,9 +2949,7 @@ TabHandles.Killers:Toggle({
     end
 })
 
-TabHandles.Killers:Section({ Title = "Nosferatu", Icon = "moon-star" })
-
-TabHandles.Killers:Toggle({
+Sections.Nosferatu:Toggle({
     Title = "hutaohub:Auto_Complete_Mini_Game",
     Desc = "hutaohub:Auto_Complete_Mini_Game_Desc",
     Flag = "AutoActiveButtonQTE",
@@ -3067,7 +3101,7 @@ task.spawn(function()
     end
 end)
 
-TabHandles.Killers:Toggle({
+Sections.Nosferatu:Toggle({
     Title = "hutaohub:Bloodhook_Aimbot", 
     Desc = "hutaohub:Bloodhook_Aimbot_Desc",
     Flag = "Bloodhook Aimbot",
@@ -3077,9 +3111,7 @@ TabHandles.Killers:Toggle({
     end
 })
 
-TabHandles.Killers:Section({ Title = "1x1x1x1", Icon = "swords" })
-
-TabHandles.Killers:Toggle({
+Sections.is1x1x1x1:Toggle({
     Title = "hutaohub:MassInfection_Aimbot",
     Desc = "hutaohub:Massinfection_Entanglement_Desc",
     Flag = "MassInfection Aimbot",
@@ -3089,7 +3121,7 @@ TabHandles.Killers:Toggle({
     end
 })
 
-TabHandles.Killers:Toggle({
+Sections.is1x1x1x1:Toggle({
     Title = "hutaohub:Entanglement_Aimbot",
     Desc = "hutaohub:Massinfection_Entanglement_Desc",
     Flag = "Entanglement",
@@ -3238,9 +3270,7 @@ function VoidRushController:FullCleanup()
     if self.AimbotConnection then self.AimbotConnection:Disconnect() self.AimbotConnection = nil end
 end
 
-TabHandles.Killers:Section({ Title = "Noli", Icon = "sparkles" })
-
-TabHandles.Killers:Toggle({ 
+Sections.Noli:Toggle({ 
     Title = "hutaohub:Void_Rush_Controller",
     Desc = "hutaohub:Void_Rush_Controller_Desc",
     Flag = "Void Rush Controller",
@@ -3255,7 +3285,7 @@ TabHandles.Killers:Toggle({
     end 
 })
 
-TabHandles.Killers:Toggle({ 
+Sections.Noli:Toggle({ 
     Title = "hutaohub:Void_Rush_Aimbot",
     Desc = "hutaohub:Void_Rush_Aimbot_Desc",
     Flag = "Void Rush Aimbot",
@@ -3263,7 +3293,7 @@ TabHandles.Killers:Toggle({
     Callback = function(s) VoidRushController.Aimbot = s end 
 })
 
-TabHandles.Killers:Toggle({ 
+Sections.Noli:Toggle({ 
     Title = "hutaohub:Void_Rush_Wall_Check",
     Desc = "hutaohub:Void_Rush_Wall_Check_Desc",
     Flag = "Void Rush Wall Check",
@@ -3343,9 +3373,7 @@ RunService.Heartbeat:Connect(function()
     rootPart.AssemblyLinearVelocity = Vector3.new(dir.X * WALK_SPEED, rootPart.AssemblyLinearVelocity.Y, dir.Z * WALK_SPEED)
 end)
 
-TabHandles.Killers:Section({ Title = "c00lkidd", Icon = "flame" })
-
-TabHandles.Killers:Toggle({ 
+Sections.c00lkidd:Toggle({ 
     Title = "hutaohub:Walkspeed_Override_Controller",
     Desc = "hutaohub:Walkspeed_Override_Controller_Desc",
     Flag = "Walkspeed Override Controller",
@@ -3353,7 +3381,7 @@ TabHandles.Killers:Toggle({
     Callback = function(s) enabled = s end 
 })
 
-TabHandles.Killers:Toggle({ 
+Sections.c00lkidd:Toggle({ 
     Title = "hutaohub:Walkspeed_Override_Aimbot",
     Desc = "hutaohub:Walkspeed_Override_Aimbot_Desc",
     Flag = "Walk Speed Override Aimbot",
@@ -3361,17 +3389,12 @@ TabHandles.Killers:Toggle({
     Callback = function(s) aimEnabled = s end 
 })
 
-TabHandles.Killers:Toggle({ 
+Sections.c00lkidd:Toggle({ 
     Title = "hutaohub:Radar_360_Wall_Check",
     Desc = "hutaohub:Radar_360_Wall_Check_Desc",
     Flag = "Redar wall check",
     Value = false,
     Callback = function(s) wallCheck = s end 
-})
-
-TabHandles.Name:Section({
-    Title = "You Name",
-    Icon = "user-check"
 })
 
 local fakeName = ""
@@ -3492,7 +3515,7 @@ local function stopFakeNameLoop()
     end
 end
 
-TabHandles.Name:Input({
+Sections.YouName:Input({
     Title = "hutaohub:Custom_Name",
     Desc = "hutaohub:Custom_Name_Desc",
     Flag = "Custom Name",
@@ -3507,7 +3530,7 @@ TabHandles.Name:Input({
     end
 })
 
-TabHandles.Name:Toggle({
+Sections.YouName:Toggle({
     Title = "hutaohub:Fake_Name",
     Desc = "hutaohub:Fake_Name_Desc",
     Flag = "Fake Name",
@@ -3709,12 +3732,7 @@ local function ToggleAntiStun(enabled)
     end
 end
 
-TabHandles.Player:Section({
-    Title = "hutaohub:Anti_CC",
-    Icon = "shield-alert"
-})
-
-TabHandles.Player:Toggle({
+Sections.AntiCC:Toggle({
     Title = "hutaohub:Anti_Stun",
     Desc = "hutaohub:Anti_Stun_Desc",
     Flag = "Anti-Stun",
@@ -3740,9 +3758,7 @@ end
 local Cfg = getgenv().KillerCamlockSettings
 local API = getgenv().KillerCamlockAPI or {}
 
-TabHandles.Player:Section({ Title = "hutaohub:Camlock", Icon = "crosshair" })
-
-TabHandles.Player:Toggle({
+Sections.Camlock:Toggle({
     Title = "hutaohub:Camlock_Survivor",
     Desc = "hutaohub:Camlock_Survivor_Desc",
     Flag = "KillerCamlock",
@@ -3753,7 +3769,7 @@ TabHandles.Player:Toggle({
     end
 })
 
-TabHandles.Player:Dropdown({
+Sections.Camlock:Dropdown({
     Title = "hutaohub:Aim_Part",
     Desc = "hutaohub:Aim_Part_Desc",
     Flag = "KillerAimPart",
@@ -3765,17 +3781,12 @@ TabHandles.Player:Dropdown({
     end
 })
 
-TabHandles.Player:Button({
+Sections.Camlock:Button({
     Title = "hutaohub:Switch_Target",
     Desc = "hutaohub:Switch_Target_Desc",
     Callback = function()
         if API.SwitchTarget then API.SwitchTarget() end
     end
-})
-
-TabHandles.Player:Section({
-    Title = "hutaohub:Stamina",
-    Icon = "wind"
 })
 
 local StaminaModulePath = ReplicatedStorage
@@ -3985,7 +3996,7 @@ end)
 
 -- UI
 
-TabHandles.Player:Button({
+Sections.Stamina:Button({
     Title = "hutaohub:Full_Stamina",
     Desc = "hutaohub:Full_Stamina_Desc",
 
@@ -4000,7 +4011,7 @@ TabHandles.Player:Button({
     end
 })
 
-TabHandles.Player:Toggle({
+Sections.Stamina:Toggle({
     Title = "hutaohub:Infinite_Stamina",
     Desc = "hutaohub:Infinite_Stamina_Desc",
     Flag = "Inf Stamina",
@@ -4020,7 +4031,7 @@ TabHandles.Player:Toggle({
 
 -- Max Stamina
 
-TabHandles.Player:Input({
+Sections.Stamina:Input({
     Title = "hutaohub:Max_Stamina_Value",
     Desc = "hutaohub:Max_Stamina_Value_Desc",
     Flag = "Max Stamina Value",
@@ -4045,7 +4056,7 @@ TabHandles.Player:Input({
     end
 })
 
-TabHandles.Player:Toggle({
+Sections.Stamina:Toggle({
     Title = "hutaohub:Apply_Max_Stamina",
     Desc = "hutaohub:Apply_Max_Stamina_Desc",
     Flag = "Apply Max Stamina",
@@ -4074,7 +4085,7 @@ TabHandles.Player:Toggle({
 
 -- Regen
 
-TabHandles.Player:Input({
+Sections.Stamina:Input({
     Title = "hutaohub:Regen_Value",
     Desc = "hutaohub:Regen_Value_Desc",
     Flag = "Regen Value",
@@ -4097,7 +4108,7 @@ TabHandles.Player:Input({
     end
 })
 
-TabHandles.Player:Toggle({
+Sections.Stamina:Toggle({
     Title = "hutaohub:Apply_Regen",
     Desc = "hutaohub:Apply_Regen_Desc",
     Flag = "Apply Regen",
@@ -4118,7 +4129,7 @@ TabHandles.Player:Toggle({
 
 -- Drain
 
-TabHandles.Player:Input({
+Sections.Stamina:Input({
     Title = "hutaohub:Drain_Value",
     Desc = "hutaohub:Drain_Value_Desc",
     Flag = "Drain Value",
@@ -4141,7 +4152,7 @@ TabHandles.Player:Input({
     end
 })
 
-TabHandles.Player:Toggle({
+Sections.Stamina:Toggle({
     Title = "hutaohub:Apply_Drain",
     Desc = "hutaohub:Apply_Drain_Desc",
     Flag = "Apply Drain",
@@ -4160,8 +4171,6 @@ TabHandles.Player:Toggle({
     end
 })
 
-TabHandles.Player:Section({ Title = "Hitbox", Icon = "flame" })
-
 if not getgenv().HitboxDevilSettings then
     getgenv().HitboxDevilSettings = {
         Enabled = false,
@@ -4172,7 +4181,7 @@ end
 local Cfg = getgenv().HitboxDevilSettings
 local API = getgenv().HitboxDevilAPI or {}
 
-TabHandles.Player:Toggle({
+Sections.Hitbox:Toggle({
     Title = "hutaohub:Hitbox_Angel",
     Desc = "hutaohub:Hitbox_Angel_Desc",
     Flag = "HitboxAngel",
@@ -4184,7 +4193,7 @@ TabHandles.Player:Toggle({
     end
 })
 
-TabHandles.Player:Input({
+Sections.Hitbox:Input({
     Title = "hutaohub:Hitbox_Range",
     Desc = "hutaohub:Hitbox_Range_Desc",
     Flag = "HitboxRange",
@@ -4221,32 +4230,18 @@ Sys.Internal.RegisterRuntimeConfig("Trap", { Id = "Trap", Color = Color3.fromRGB
 Sys.Internal.RegisterRuntimeConfig("Subspace", { Id = "Subspace", Color = Color3.fromRGB(160,32,240), Validator = Sys.Validators.Subspace })
 Sys.Internal.RegisterRuntimeConfig("JohnDoeTrap", { Id = "JohnDoeTrap", Color = Color3.fromRGB(255,0,0), FillTransparency = 0.2, Validator = Sys.Validators.JohnDoeTrap })
 
--- 4. Tạo cây thư mục giao diện UI bằng các Callback Router siêu phẳng
-TabHandles.Visual:Section({ Title = "Clone", Icon = "copy" })
-TabHandles.Visual:Toggle({ Title = "hutaohub:Clone_ESP", Desc = "hutaohub:Clone_ESP_Desc", Flag = "ESP_Clone", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Clone", state) end })
-
-TabHandles.Visual:Section({ Title = "Model", Icon = "box" })
-TabHandles.Visual:Toggle({ Title = "hutaohub:Model_ESP", Desc = "hutaohub:Model_ESP_Desc", Flag = "ESP_Model", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Model", state) end })
-
-TabHandles.Visual:Section({ Title = "Player", Icon = "user" })
-TabHandles.Visual:Toggle({ Title = "hutaohub:Survivors_ESP", Desc = "hutaohub:Survivors_ESP_Desc", Flag = "ESP_Survivor", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Survivor", state) end })
-TabHandles.Visual:Toggle({ Title = "hutaohub:Killers_ESP", Desc = "hutaohub:Killers_ESP_Desc", Flag = "ESP_Killer", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Killer", state) end })
-
-TabHandles.Visual:Section({ Title = "Other", Icon = "layers" })
-TabHandles.Visual:Toggle({ Title = "hutaohub:Generator_ESP", Desc = "hutaohub:Generator_ESP_Desc", Flag = "ESP_Generator", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Generator", state) end })
-TabHandles.Visual:Toggle({ Title = "hutaohub:FakeGenerator_ESP", Desc = "hutaohub:FakeGenerator_ESP_Desc", Flag = "ESP_FakeGenerator", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("FakeGenerator", state) end })
-TabHandles.Visual:Toggle({ Title = "hutaohub:Items_ESP", Desc = "hutaohub:Items_ESP_Desc", Flag = "ESP_Item", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Item", state) end })
-
-TabHandles.Visual:Section({ Title = "Builderman", Icon = "pen-tool" })
-TabHandles.Visual:Toggle({ Title = "hutaohub:Dispenser_ESP", Desc = "hutaohub:Dispenser_ESP_Desc", Flag = "ESP_Dispenser", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Dispenser", state) end })
-TabHandles.Visual:Toggle({ Title = "hutaohub:Sentry_ESP", Desc = "hutaohub:Sentry_ESP_Desc", Flag = "ESP_Sentry", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Sentry", state) end })
-
-TabHandles.Visual:Section({ Title = "Trap / Tapt", Icon = "triangle-alert" })
-TabHandles.Visual:Toggle({ Title = "hutaohub:Tripwire_ESP", Desc = "hutaohub:Tripwire_ESP_Desc", Flag = "ESP_Trap", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Trap", state) end })
-TabHandles.Visual:Toggle({ Title = "hutaohub:Subspace_ESP", Desc = "hutaohub:Subspace_ESP_Desc", Flag = "ESP_Subspace", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Subspace", state) end })
-
-TabHandles.Visual:Section({ Title = "John Doe", Icon = "donut" })
-TabHandles.Visual:Toggle({ Title = "hutaohub:Digital_Trap_ESP", Desc = "hutaohub:Digital_Trap_ESP_Desc", Flag = "ESP_JohnDoeTrap", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("JohnDoeTrap", state) end })
+Sections.Esp:Toggle({ Title = "hutaohub:Clone_ESP", Desc = "hutaohub:Clone_ESP_Desc", Flag = "ESP_Clone", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Clone", state) end })
+Sections.Esp:Toggle({ Title = "hutaohub:Model_ESP", Desc = "hutaohub:Model_ESP_Desc", Flag = "ESP_Model", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Model", state) end })
+Sections.Esp:Toggle({ Title = "hutaohub:Survivors_ESP", Desc = "hutaohub:Survivors_ESP_Desc", Flag = "ESP_Survivor", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Survivor", state) end })
+Sections.Esp:Toggle({ Title = "hutaohub:Killers_ESP", Desc = "hutaohub:Killers_ESP_Desc", Flag = "ESP_Killer", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Killer", state) end })
+Sections.Esp:Toggle({ Title = "hutaohub:Generator_ESP", Desc = "hutaohub:Generator_ESP_Desc", Flag = "ESP_Generator", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Generator", state) end })
+Sections.Esp:Toggle({ Title = "hutaohub:FakeGenerator_ESP", Desc = "hutaohub:FakeGenerator_ESP_Desc", Flag = "ESP_FakeGenerator", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("FakeGenerator", state) end })
+Sections.Esp:Toggle({ Title = "hutaohub:Items_ESP", Desc = "hutaohub:Items_ESP_Desc", Flag = "ESP_Item", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Item", state) end })
+Sections.Esp:Toggle({ Title = "hutaohub:Dispenser_ESP", Desc = "hutaohub:Dispenser_ESP_Desc", Flag = "ESP_Dispenser", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Dispenser", state) end })
+Sections.Esp:Toggle({ Title = "hutaohub:Sentry_ESP", Desc = "hutaohub:Sentry_ESP_Desc", Flag = "ESP_Sentry", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Sentry", state) end })
+Sections.Esp:Toggle({ Title = "hutaohub:Tripwire_ESP", Desc = "hutaohub:Tripwire_ESP_Desc", Flag = "ESP_Trap", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Trap", state) end })
+Sections.Esp:Toggle({ Title = "hutaohub:Subspace_ESP", Desc = "hutaohub:Subspace_ESP_Desc", Flag = "ESP_Subspace", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("Subspace", state) end })
+Sections.Esp:Toggle({ Title = "hutaohub:Digital_Trap_ESP", Desc = "hutaohub:Digital_Trap_ESP_Desc", Flag = "ESP_JohnDoeTrap", Value = false, Callback = function(state) Sys.Internal.TriggerToggle("JohnDoeTrap", state) end })
 
 
 local function ServerHop()
@@ -4275,7 +4270,7 @@ local function ServerHop()
     end
 end
 
-TabHandles.Misc:Button({
+Sections.FixLag:Button({
     Title = "hutaohub:Rejoin_To_Fix_Lag",
     Desc = "hutaohub:Rejoin_To_Fix_Lag_Desc",
     Callback = function()
@@ -4648,53 +4643,47 @@ if M.Cache.ChatWindow then
     end)
 end
 
-TabHandles.Misc:Section({ Title = "hutaohub:Camera", Icon = "camera" })
-
-TabHandles.Misc:Toggle({
+Sections.Camera:Toggle({
     Title = "hutaohub:Full_Bright", Desc = "hutaohub:Full_Bright_Desc",
     Flag = "FullBright", Value = M.Settings.FullBright, Callback = setFullBright
 })
 
-TabHandles.Misc:Toggle({
+Sections.Camera:Toggle({
     Title = "hutaohub:Remove_Fog", Desc = "hutaohub:Remove_Fog_Desc",
     Flag = "RemoveFog", Value = M.Settings.Fog, Callback = setRemoveFog
 })
 
-TabHandles.Misc:Toggle({
+Sections.Camera:Toggle({
     Title = "hutaohub:Infinite_Zoom", Desc = "hutaohub:Infinite_Zoom_Desc",
     Flag = "Infinite Zoom", Value = M.Settings.InfiniteZoom, Callback = setInfiniteZoom
 })
 
-TabHandles.Misc:Section({ Title = "hutaohub:Game_Play", Icon = "joystick" })
-
-TabHandles.Misc:Toggle({
+Sections.GamePlay:Toggle({
     Title = "hutaohub:Remove_Effects", Desc = "hutaohub:Remove_Effects_Desc",
     Flag = "RemoveAllBadEffects", Value = M.Settings.RemoveEffects, Callback = setRemoveEffects
 })
 
-TabHandles.Misc:Toggle({
+Sections.GamePlay:Toggle({
     Title = "hutaohub:Remove_BlackScreen", Desc = "hutaohub:Remove_BlackScreen_Desc",
     Flag = "RemoveStuckBlackScreen", Value = M.Settings.RemoveBlackScreen, Callback = setRemoveBlackScreen
 })
 
-TabHandles.Misc:Toggle({
+Sections.GamePlay:Toggle({
     Title = "hutaohub:Anti_Slow", Desc = "hutaohub:Anti_Slow_Desc",
     Flag = "Anti Slow", Value = M.Settings.AntiSlow, Callback = setAntiSlow
 })
 
-TabHandles.Misc:Toggle({
+Sections.GamePlay:Toggle({
     Title = "hutaohub:Show_Chat", Desc = "hutaohub:Show_Chat_Desc",
     Flag = "ShowChat", Value = M.Settings.ShowChat, Callback = setShowChat
 })
 
-TabHandles.Misc:Section({ Title = "hutaohub:Protect", Icon = "shield-alert" })
-
-TabHandles.Misc:Toggle({
+Sections.Protect:Toggle({
     Title = "hutaohub:Anti_Screen_Recording", Desc = "hutaohub:Anti_Screen_Recording",
     Flag = "Anti Screen Recording", Value = true, Callback = setAntiScreenRec
 })
 
-TabHandles.Misc:Toggle({
+Sections.Protect:Toggle({
     Title = "hutaohub:Anti_Admin_Forsaken",
     Desc = "hutaohub:Anti_Admin_Forsaken_Desc",
     Flag = "AntiAdmin",
@@ -4702,12 +4691,12 @@ TabHandles.Misc:Toggle({
     Callback = setAntiAdmin
 })
 
-TabHandles.Misc:Toggle({
+Sections.Protect:Toggle({
     Title = "hutaohub:Remove_Fake_Noli", Desc = "hutaohub:Remove_Fake_Noli_Desc",
     Flag = "Remove Fake Noli", Value = M.Settings.RemoveNPCNoli, Callback = setRemoveFakeNoli
 })
 
-TabHandles.Misc:Toggle({
+Sections.Protect:Toggle({
     Title = "hutaohub:Anti_AFK_Roblox", Desc = "hutaohub:Anti_AFK_Roblox_Desc",
     Flag = "Anti AFK", Value = M.Settings.AntiAFK, Callback = setAntiAFK
 })
@@ -4991,7 +4980,7 @@ local function OnAutoLoadToggled(state)
     StartAutoSave()
 end
 
-TabHandles.Settings:Input({
+Sections.Config:Input({
     Title = "hutaohub:Config_Name",
     Desc = "hutaohub:Config_Name_Desc",
     Flag = "Config Name",
@@ -5000,7 +4989,7 @@ TabHandles.Settings:Input({
     Callback = OnConfigNameChanged
 })
 
-ConfigDropdownElement = TabHandles.Settings:Dropdown({
+ConfigDropdownElement = Sections.Config:Dropdown({
     Title = "hutaohub:Config_List",
     Desc = "hutaohub:Config_List_Desc",
     Flag = "Config List",
@@ -5009,31 +4998,31 @@ ConfigDropdownElement = TabHandles.Settings:Dropdown({
     Callback = OnConfigSelected
 })
 
-TabHandles.Settings:Button({
+Sections.Config:Button({
     Title = "hutaohub:Make_Config",
     Desc = "hutaohub:Make_Config_Desc",
     Callback = OnMakeConfigPressed
 })
 
-TabHandles.Settings:Button({
+Sections.Config:Button({
     Title = "hutaohub:Update_Config",
     Desc = "hutaohub:Update_Config_Content",
     Callback = OnUpdateConfigPressed
 })
 
-TabHandles.Settings:Button({
+Sections.Config:Button({
     Title = "hutaohub:Load_Config",
     Desc = "hutaohub:Load_Config_Desc",
     Callback = OnLoadConfigPressed
 })
 
-TabHandles.Settings:Button({
+Sections.Config:Button({
     Title = "hutaohub:Delete_Config",
     Desc = "hutaohub:Delete_Config_Desc",
     Callback = OnDeleteConfigPressed
 })
 
-TabHandles.Settings:Toggle({
+Sections.Config:Toggle({
     Title = "hutaohub:Auto_Load_Config",
     Desc = "hutaohub:Auto_Load_Config_Desc",
     Flag = "Auto Load Config v2",
