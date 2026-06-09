@@ -29,6 +29,8 @@ localPlayer.CharacterAdded:Connect(function(character)
     playerCharacter = character
 end)
 
+local Camera = Workspace.CurrentCamera
+
 if getgenv().loadalllanguage == nil then
     getgenv().loadalllanguage = true
 end
@@ -125,6 +127,12 @@ baseTranslations = {
     ["Protect_Sections"] = "Various protection features for a safer gameplay experience.",
     ["Language_Sections"] = "Customize the script language and localization settings.",
     ["Config_Sections"] = "Create, save, load, and organize configurations.",
+    ["Silent_Aim"] = "Silent Aim",
+    ["SilentAim_Sections"] = "Improve target acquisition and aiming accuracy.",
+    ["Dusekkar_Aim"] = "Dusekkar Aim",
+    ["Dusekkar_Aim_Desc"] = "Immediately redirect the Plasma Beam skill.",
+    ["Normal_Aim_Style"] = "Normal Aim Style",
+    ["Normal_Aim_Style_Desc"] = "Choose a custom mobile or PC aim recovery type.",
     ["Transparency"] = "Transparency",
     ["Transparency_disabled"] = "Transparency disabled",
     ["Transparency_enabled"] = "Transparency enabled",
@@ -1016,6 +1024,7 @@ local Sections = {
     AutoKill = TabHandles.Farm:Section({ Title = "hutaohub:Auto_Kill", Desc = "hutaohub:Auto_Kill_Sections", Icon = "skull", Opened = false, Box = true, BoxBorder = true }),
     Generator = TabHandles.Farm:Section({ Title = "hutaohub:Generator", Desc = "hutaohub:Generator_Sections", Icon = "battery-charging", Opened = false, Box = true, BoxBorder = true }),
     Items = TabHandles.Farm:Section({ Title = "hutaohub:Items_Settings", Desc = "hutaohub:Items_Sections", Icon = "backpack", Opened = false, Box = true, BoxBorder = true }),
+    SilentAim = TabHandles.Survivors:Section({ Title = "hutaohub:Silent_Aim", Desc = "hutaohub:SilentAim_Sections", Icon = "target", Opened = false, Box = true, BoxBorder = true }),
     Eliot = TabHandles.Survivors:Section({ Title = "Eliot", Desc = "hutaohub:Eliot_Sections", Icon = "pizza", Opened = false, Box = true, BoxBorder = true }),
     Clone007n7 = TabHandles.Survivors:Section({ Title = "007n7", Desc = "hutaohub:007n7_Sections", Icon = "ghost", Opened = false, Box = true, BoxBorder = true }),
     Shedletsky = TabHandles.Survivors:Section({ Title = "Shedletskey", Desc = "hutaohub:Shedletsky_Sections", Icon = "sword", Opened = false, Box = true, BoxBorder = true }),
@@ -1030,6 +1039,7 @@ local Sections = {
     is1x1x1x1 = TabHandles.Killers:Section({ Title = "1x1x1x1", Desc = "hutaohub:is1x1x1x1_Sections", Icon = "bug", Opened = false, Box = true, BoxBorder = true }),
     Noli = TabHandles.Killers:Section({ Title = "Noli", Desc = "hutaohub:Noli_Sections", Icon = "sparkles", Opened = false, Box = true, BoxBorder = true }),
     c00lkidd = TabHandles.Killers:Section({ Title = "c00lkidd", Desc = "hutaohub:c00lkidd_Sections", Icon = "flame", Opened = false, Box = true, BoxBorder = true }),
+    JohnDoe = TabHandles.Killers:Section({ Title = "John Doe", Desc = "hutaohub:JohnDoe_Sections", Icon = "asterisk", Opened = false, Box = true, BoxBorder = true }),
     YouName = TabHandles.Name:Section({ Title = "hutaohub:You_Name", Desc = "hutaohub:YouName_Sections", Icon = "user-check", Opened = false, Box = true, BoxBorder = true }),
     AntiCC = TabHandles.Player:Section({ Title = "hutaohub:Anti_CC", Desc = "hutaohub:AntiCC_Sections", Icon = "shield-alert", Opened = false, Box = true, BoxBorder = true }),
     Camlock = TabHandles.Player:Section({ Title = "hutaohub:Camlock", Desc = "hutaohub:Camlock_Sections", Icon = "crosshair", Opened = false, Box = true, BoxBorder = true }),
@@ -1904,6 +1914,143 @@ Sections.Items:Toggle({
         getgenv().AutoPickupNearest = state
     end
 })
+
+_G.SilentAimEnabled = false
+_G.SilentAimOffMode = "Mouse"   -- Mặc định: "Mouse" hoặc "Center"
+
+-- Dropdown chọn chế độ khi tắt Silent Aim
+local offModes = {"Mouse", "Center"}
+Sections.SilentAim:Dropdown({
+    Title = "hutaohub:Normal_Aim_Style",
+    Desc = "hutaohub:Normal_Aim_Style_Desc",
+    Flag = "NormalAimStyle",
+    Values = offModes,
+    Value = "Mouse",
+    Callback = function(selected)
+        _G.SilentAimOffMode = selected
+    end
+})
+
+Sections.SilentAim:Toggle({
+    Title = "hutaohub:Dusekkar_Aim",
+    Desc = "hutaohub:Dusekkar_Aim_Desc",
+    Flag = "DusekkarAimDesc",
+    Default = false,
+    Callback = function(State)
+        _G.SilentAimEnabled = State
+    end
+})
+
+-- Hàm bắn từ giữa màn hình (dùng Camera)
+local function getCenterScreenPosition()
+    local cam = workspace.CurrentCamera
+    if cam and cam.CFrame then
+        return cam.CFrame.Position + cam.CFrame.LookVector * 100
+    end
+    -- Fallback
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        return char.HumanoidRootPart.Position + char.HumanoidRootPart.CFrame.LookVector * 10
+    end
+    return Vector3.new(0, 10, 0)
+end
+
+-- Lấy vị trí chuột thật (dùng Mouse.Hit)
+local function getRealMousePosition()
+    local mouse = game.Players.LocalPlayer:GetMouse()
+    if mouse and mouse.Hit then
+        return mouse.Hit.Position
+    end
+    -- Fallback an toàn
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local root = char.HumanoidRootPart
+        return root.Position + root.CFrame.LookVector * 10
+    end
+    return Vector3.new(0, 10, 0)
+end
+
+-- Hàm tìm đầu enemy (chỉ player, có thể mở rộng thêm NPC nếu cần)
+local function getClosestEnemyHead()
+    local cam = workspace.CurrentCamera
+    if not cam then return nil end
+    local viewport = cam.ViewportSize
+    if viewport.X <= 0 or viewport.Y <= 0 then return nil end
+    
+    local center = Vector2.new(viewport.X/2, viewport.Y/2)
+    local bestPos = nil
+    local bestDistance = math.huge
+    
+    for _, plr in ipairs(game.Players:GetPlayers()) do
+        if plr ~= game.Players.LocalPlayer then
+            local char = plr.Character
+            if char then
+                local head = char:FindFirstChild("Head")
+                local hum = char:FindFirstChild("Humanoid")
+                if head and hum and hum.Health > 0 then
+                    local screenPos, onScreen = cam:WorldToViewportPoint(head.Position)
+                    if onScreen then
+                        local distToCenter = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                        if distToCenter < bestDistance and distToCenter < viewport.X * 0.5 then
+                            bestDistance = distToCenter
+                            bestPos = head.Position
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    return bestPos
+end
+
+-- Patch module
+local function patchModule()
+    local path = ReplicatedStorage:FindFirstChild("Systems")
+        and ReplicatedStorage.Systems:FindFirstChild("Player")
+        and ReplicatedStorage.Systems.Player:FindFirstChild("Miscellaneous")
+        and ReplicatedStorage.Systems.Player.Miscellaneous:FindFirstChild("GetPlayerMousePosition")
+    if not path then return end
+    
+    local success, mod = pcall(require, path)
+    if not success or not mod then return end
+    if mod._alreadyPatched then return end
+    mod._alreadyPatched = true
+    
+    local original = mod.GetMousePos
+    mod.GetMousePos = function(...)
+        if _G.SilentAimEnabled then
+            local target = getClosestEnemyHead()
+            if target then
+                return target
+            end
+        end
+        
+        -- Khi tắt Silent Aim: dùng chế độ đã chọn
+        if not _G.SilentAimEnabled then
+            if _G.SilentAimOffMode == "Center" then
+                return getCenterScreenPosition()
+            else -- "Mouse"
+                local result = original(...)
+                if type(result) ~= "Vector3" then
+                    result = getRealMousePosition()
+                end
+                return result
+            end
+        end
+        
+        -- Trường hợp còn lại (bật nhưng không có target) - vẫn gọi original
+        local result = original(...)
+        if type(result) ~= "Vector3" then
+            result = getRealMousePosition()
+        end
+        return result
+    end
+end
+
+patchModule()
+game.Players.LocalPlayer.CharacterAdded:Connect(function() task.wait(0.5) patchModule() end)
+task.spawn(function() while task.wait(5) do patchModule() end end)
 
 if not getgenv().EliotSettings then
     getgenv().EliotSettings = {
@@ -3396,6 +3543,88 @@ Sections.c00lkidd:Toggle({
     Value = false,
     Callback = function(s) wallCheck = s end 
 })
+
+-- =============================================================================
+-- SECTION: JOHN DOE PROTECTION (MAX FPS OPTIMIZED)
+-- =============================================================================
+
+local spikesConnection = nil
+local trailConnection = nil
+
+-- 1. TOGGLE XÓA GAI (Tối ưu hóa, không lạm dụng GetDescendants)
+Sections.JohnDoe:Toggle({
+    Title = "Auto Delete John Doe Spikes",
+    Desc = "Automatically removes spikes spawned by John Doe to clear the path",
+    Flag = "Auto Delete John Doe Spikes",
+    Value = false,
+    Callback = function(state)
+        if state then
+            -- Chỉ quét 1 lần duy nhất khi BẬT để dọn gai cũ
+            task.spawn(function()
+                pcall(function()
+                    for _, obj in pairs(Workspace:GetDescendants()) do
+                        if obj.Name == "Spike" then
+                            obj:Destroy()
+                        end
+                    end
+                end)
+            end)
+
+            -- Sử dụng lắng nghe sự kiện nhẹ nhàng, không tốn FPS
+            if not spikesConnection then
+                spikesConnection = Workspace.DescendantAdded:Connect(function(obj)
+                    if obj.Name == "Spike" then
+                        obj:Destroy()
+                    end
+                end)
+            end
+        else
+            -- TẮT: Hủy kết nối và ép giải phóng bộ nhớ
+            if spikesConnection then
+                spikesConnection:Disconnect()
+                spikesConnection = nil
+            end
+        end
+    end
+})
+
+-- 2. TOGGLE XÓA BƯỚC CHÂN / VỆT ĐUÔI (Siêu nhẹ máy)
+Sections.JohnDoe:Toggle({
+    Title = "Delete John Doe Trail",
+    Desc = "Removes John Doe's footprint trail to reduce clutter or tracking",
+    Flag = "Delete John Doe Trail",
+    Value = false,
+    Callback = function(state)
+        if state then
+            -- Dọn vết cũ 1 lần duy nhất
+            task.spawn(function()
+                pcall(function()
+                    for _, obj in pairs(Workspace:GetDescendants()) do
+                        if obj.Name == "Trail" then
+                            obj:Destroy()
+                        end
+                    end
+                end)
+            end)
+
+            -- Bắt sự kiện tạo dấu chân mới
+            if not trailConnection then
+                trailConnection = Workspace.DescendantAdded:Connect(function(obj)
+                    if obj.Name == "Trail" then
+                        obj:Destroy()
+                    end
+                end)
+            end
+        else
+            -- TẮT: Hủy kết nối hoàn toàn
+            if trailConnection then
+                trailConnection:Disconnect()
+                trailConnection = nil
+            end
+        end
+    end
+})
+
 
 local fakeName = ""
 local enabled = false
