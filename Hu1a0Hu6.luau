@@ -115,6 +115,7 @@ baseTranslations = {
     ["Nosferatu_Sections"] = "This section contains the functions of the Nosferatu killers.",
     ["Noli_Sections"] = "This is of the functions related to killers Noli.",
     ["c00lkidd_Sections"] = "This is of the functions related to killers c00lkidd",
+    ["JohnDoe_Sections"] = "Binary codes and digital anomalies.",
     ["YouName_Sections"] = "This section allows you to change your name when entering the game.",
     ["AntiCC_Sections"] = "This part provides immunity to stun.",
     ["Camlock_Sections"] = "Camlock bypass functions are here.",
@@ -336,6 +337,10 @@ baseTranslations = {
     ["Walkspeed_Override_Aimbot_Desc"] = "Automatically search for survivors near you and aimbot.",
     ["Radar_360_Wall_Check"] = "Radar 360° Wall Check",
     ["Radar_360_Wall_Check_Desc"] = "This helps you dodge walls to avoid crashing into them.",
+    ["Delete_John_Doe_Spikes"] = "Delete John Doe Spikes",
+    ["Delete_John_Doe_Spikes_Desc"] = "Automatically removes spikes spawned by John Doe to clear the path",
+    ["Delete_John_Doe_Trail"] = "Delete John Doe Trail",
+    ["Delete_John_Doe_Trail_Desc"] = "Removes John Doe's footprint trail to reduce clutter or tracking",
     ["Custom_Name"] = "Custom Name",
     ["Custom_Name_Desc"] = "Enter the name you want to fake.",
     ["You_Name"] = "You Name",
@@ -889,7 +894,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.7.8", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.8.1", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -1039,7 +1044,7 @@ local Sections = {
     is1x1x1x1 = TabHandles.Killers:Section({ Title = "1x1x1x1", Desc = "hutaohub:is1x1x1x1_Sections", Icon = "bug", Opened = false, Box = true, BoxBorder = true }),
     Noli = TabHandles.Killers:Section({ Title = "Noli", Desc = "hutaohub:Noli_Sections", Icon = "sparkles", Opened = false, Box = true, BoxBorder = true }),
     c00lkidd = TabHandles.Killers:Section({ Title = "c00lkidd", Desc = "hutaohub:c00lkidd_Sections", Icon = "flame", Opened = false, Box = true, BoxBorder = true }),
-    JohnDoe = TabHandles.Killers:Section({ Title = "John Doe", Desc = "hutaohub:JohnDoe_Sections", Icon = "asterisk", Opened = false, Box = true, BoxBorder = true }),
+    JohnDoe = TabHandles.Killers:Section({ Title = "John Doe", Desc = "hutaohub:JohnDoe_Sections", Icon = "binary", Opened = false, Box = true, BoxBorder = true }),
     YouName = TabHandles.Name:Section({ Title = "hutaohub:You_Name", Desc = "hutaohub:YouName_Sections", Icon = "user-check", Opened = false, Box = true, BoxBorder = true }),
     AntiCC = TabHandles.Player:Section({ Title = "hutaohub:Anti_CC", Desc = "hutaohub:AntiCC_Sections", Icon = "shield-alert", Opened = false, Box = true, BoxBorder = true }),
     Camlock = TabHandles.Player:Section({ Title = "hutaohub:Camlock", Desc = "hutaohub:Camlock_Sections", Icon = "crosshair", Opened = false, Box = true, BoxBorder = true }),
@@ -3544,87 +3549,77 @@ Sections.c00lkidd:Toggle({
     Callback = function(s) wallCheck = s end 
 })
 
--- =============================================================================
--- SECTION: JOHN DOE PROTECTION (MAX FPS OPTIMIZED)
--- =============================================================================
+-- Đảm bảo IngameFolder được load chính xác
+local IngameFolder = Workspace:WaitForChild("Map"):WaitForChild("Ingame")
 
+-- Khai báo biến lưu kết nối
 local spikesConnection = nil
 local trailConnection = nil
 
--- 1. TOGGLE XÓA GAI (Tối ưu hóa, không lạm dụng GetDescendants)
+-- 1. TOGGLE XÓA GAI (giữ nguyên, đã hoạt động)
 Sections.JohnDoe:Toggle({
-    Title = "Auto Delete John Doe Spikes",
-    Desc = "Automatically removes spikes spawned by John Doe to clear the path",
+    Title = "hutaohub:Delete_John_Doe_Spikes",
+    Desc = "hutaohub:Delete_John_Doe_Spikes_Desc",
     Flag = "Auto Delete John Doe Spikes",
     Value = false,
     Callback = function(state)
         if state then
-            -- Chỉ quét 1 lần duy nhất khi BẬT để dọn gai cũ
-            task.spawn(function()
-                pcall(function()
-                    for _, obj in pairs(Workspace:GetDescendants()) do
-                        if obj.Name == "Spike" then
-                            obj:Destroy()
-                        end
-                    end
-                end)
-            end)
-
-            -- Sử dụng lắng nghe sự kiện nhẹ nhàng, không tốn FPS
-            if not spikesConnection then
-                spikesConnection = Workspace.DescendantAdded:Connect(function(obj)
-                    if obj.Name == "Spike" then
-                        obj:Destroy()
-                    end
-                end)
+            for _, obj in pairs(IngameFolder:GetChildren()) do
+                if obj.Name == "Spike" then obj:Destroy() end
             end
+            spikesConnection = IngameFolder.ChildAdded:Connect(function(obj)
+                if obj.Name == "Spike" then obj:Destroy() end
+            end)
         else
-            -- TẮT: Hủy kết nối và ép giải phóng bộ nhớ
-            if spikesConnection then
-                spikesConnection:Disconnect()
-                spikesConnection = nil
+            if spikesConnection then 
+                spikesConnection:Disconnect() 
+                spikesConnection = nil 
             end
         end
     end
 })
 
--- 2. TOGGLE XÓA BƯỚC CHÂN / VỆT ĐUÔI (Siêu nhẹ máy)
+-- 2. TOGGLE XÓA VỆT ĐUÔI (phiên bản quét toàn bộ, không bỏ sót)
 Sections.JohnDoe:Toggle({
-    Title = "Delete John Doe Trail",
-    Desc = "Removes John Doe's footprint trail to reduce clutter or tracking",
+    Title = "hutaohub:Delete_John_Doe_Trail",
+    Desc = "hutaohub:Delete_John_Doe_Trail_Desc",
     Flag = "Delete John Doe Trail",
     Value = false,
     Callback = function(state)
         if state then
-            -- Dọn vết cũ 1 lần duy nhất
-            task.spawn(function()
-                pcall(function()
-                    for _, obj in pairs(Workspace:GetDescendants()) do
-                        if obj.Name == "Trail" then
-                            obj:Destroy()
-                        end
-                    end
-                end)
-            end)
-
-            -- Bắt sự kiện tạo dấu chân mới
-            if not trailConnection then
-                trailConnection = Workspace.DescendantAdded:Connect(function(obj)
-                    if obj.Name == "Trail" then
-                        obj:Destroy()
-                    end
-                end)
+            -- Hàm kiểm tra và xóa nếu là trail
+            local function isTrail(instance)
+                if not instance then return false end
+                -- Trail object hoặc tên chứa "trail" (không phân biệt hoa/thường)
+                return instance:IsA("Trail") or (instance.Name and string.find(instance.Name:lower(), "trail"))
             end
+
+            -- Quét đệ quy toàn bộ IngameFolder để xóa trail hiện có
+            local function wipeAllTrails(folder)
+                for _, child in pairs(folder:GetChildren()) do
+                    if isTrail(child) then
+                        child:Destroy()
+                    elseif child:IsA("Model") or child:IsA("Folder") then
+                        wipeAllTrails(child)
+                    end
+                end
+            end
+            wipeAllTrails(IngameFolder)
+
+            -- Lắng nghe bất kỳ object mới nào được thêm vào trong toàn bộ IngameFolder (kể cả cấp con cháu)
+            trailConnection = IngameFolder.DescendantAdded:Connect(function(descendant)
+                if isTrail(descendant) then
+                    descendant:Destroy()
+                end
+            end)
         else
-            -- TẮT: Hủy kết nối hoàn toàn
-            if trailConnection then
-                trailConnection:Disconnect()
-                trailConnection = nil
+            if trailConnection then 
+                trailConnection:Disconnect() 
+                trailConnection = nil 
             end
         end
     end
 })
-
 
 local fakeName = ""
 local enabled = false
