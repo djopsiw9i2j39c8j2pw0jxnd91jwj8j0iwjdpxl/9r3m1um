@@ -891,7 +891,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.8.3", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.8.4", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -1943,28 +1943,56 @@ Sections.SilentAim:Toggle({
     end
 })
 
--- Hàm bắn từ giữa màn hình (dùng Camera)
+-- ============== CORE LOGIC MỚI (KẾT HỢP TINH HOA CODE 1) ==============
+
+-- Hàm tìm đầu kẻ địch gần tâm nhất dựa trên GÓC THỰC (FOV ~30°) - Pro chuẩn Code 1
+local function getClosestEnemyHeadByFOV()
+    local cam = workspace.CurrentCamera
+    if not cam then return nil end
+    
+    local viewportSize = cam.ViewportSize
+    if viewportSize.X <= 0 or viewportSize.Y <= 0 then return nil end
+    
+    local ray = cam:ViewportPointToRay(viewportSize.X / 2, viewportSize.Y / 2, 0)
+    local rayOrigin = ray.Origin
+    local rayDirection = ray.Direction * 999
+    
+    local closestPlayerPos = nil
+    local shortestDistance = math.huge
+    
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= localPlayer then
+            local character = plr.Character
+            if character then
+                local head = character:FindFirstChild("Head")
+                local hum = character:FindFirstChild("Humanoid")
+                if head and hum and hum.Health > 0 then
+                    local headPos = head.Position
+                    local distance = (headPos - rayOrigin).Magnitude
+                    local direction = (headPos - rayOrigin).Unit
+                    local angle = math.acos(math.clamp(direction:Dot(rayDirection.Unit), -1, 1))
+                    
+                    -- FOV giới hạn 0.5 rad (~28.6°) - bắn cực chặt, không hút láo
+                    if angle < 0.5 and distance < shortestDistance then
+                        shortestDistance = distance
+                        closestPlayerPos = headPos
+                    end
+                end
+            end
+        end
+    end
+    
+    return closestPlayerPos
+end
+
+-- Hàm lấy vị trí ngắm từ giữa màn hình (dùng cho chế độ Center khi tắt Silent Aim)
 local function getCenterScreenPosition()
     local cam = workspace.CurrentCamera
     if cam and cam.CFrame then
         return cam.CFrame.Position + cam.CFrame.LookVector * 100
     end
-    -- Fallback
-    local char = game.Players.LocalPlayer.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        return char.HumanoidRootPart.Position + char.HumanoidRootPart.CFrame.LookVector * 10
-    end
-    return Vector3.new(0, 10, 0)
-end
-
--- Lấy vị trí chuột thật (dùng Mouse.Hit)
-local function getRealMousePosition()
-    local mouse = game.Players.LocalPlayer:GetMouse()
-    if mouse and mouse.Hit then
-        return mouse.Hit.Position
-    end
-    -- Fallback an toàn
-    local char = game.Players.LocalPlayer.Character
+    -- Fallback vào vị trí nhân vật
+    local char = localPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         local root = char.HumanoidRootPart
         return root.Position + root.CFrame.LookVector * 10
@@ -1972,87 +2000,52 @@ local function getRealMousePosition()
     return Vector3.new(0, 10, 0)
 end
 
--- Hàm tìm đầu enemy (chỉ player, có thể mở rộng thêm NPC nếu cần)
-local function getClosestEnemyHead()
-    local cam = workspace.CurrentCamera
-    if not cam then return nil end
-    local viewport = cam.ViewportSize
-    if viewport.X <= 0 or viewport.Y <= 0 then return nil end
-    
-    local center = Vector2.new(viewport.X/2, viewport.Y/2)
-    local bestPos = nil
-    local bestDistance = math.huge
-    
-    for _, plr in ipairs(game.Players:GetPlayers()) do
-        if plr ~= game.Players.LocalPlayer then
-            local char = plr.Character
-            if char then
-                local head = char:FindFirstChild("Head")
-                local hum = char:FindFirstChild("Humanoid")
-                if head and hum and hum.Health > 0 then
-                    local screenPos, onScreen = cam:WorldToViewportPoint(head.Position)
-                    if onScreen then
-                        local distToCenter = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-                        if distToCenter < bestDistance and distToCenter < viewport.X * 0.5 then
-                            bestDistance = distToCenter
-                            bestPos = head.Position
-                        end
-                    end
-                end
-            end
-        end
-    end
-    
-    return bestPos
-end
-
--- Patch module
-local function patchModule()
+-- Hook trực tiếp vào module GetPlayerMousePosition (không cần pcall, không cần _alreadyPatched)
+local function applySilentAimHook()
     local path = ReplicatedStorage:FindFirstChild("Systems")
         and ReplicatedStorage.Systems:FindFirstChild("Player")
         and ReplicatedStorage.Systems.Player:FindFirstChild("Miscellaneous")
         and ReplicatedStorage.Systems.Player.Miscellaneous:FindFirstChild("GetPlayerMousePosition")
     if not path then return end
     
-    local success, mod = pcall(require, path)
-    if not success or not mod then return end
-    if mod._alreadyPatched then return end
-    mod._alreadyPatched = true
+    local module = require(path)
+    local originalGetMousePos = module.GetMousePos
+    if not originalGetMousePos then return end
     
-    local original = mod.GetMousePos
-    mod.GetMousePos = function(...)
+    -- Bảo vệ hook chỉ gắn một lần (dùng cờ nhẹ)
+    if module.__silentAimHooked then return end
+    module.__silentAimHooked = true
+    
+    hookfunction(originalGetMousePos, function(...)
         if _G.SilentAimEnabled then
-            local target = getClosestEnemyHead()
-            if target then
-                return target
+            local targetHead = getClosestEnemyHeadByFOV()
+            if targetHead then
+                return targetHead
             end
+            -- Nếu không có mục tiêu trong FOV, trả về vị trí gốc (giữ nguyên tâm hoặc chuột)
         end
         
-        -- Khi tắt Silent Aim: dùng chế độ đã chọn
         if not _G.SilentAimEnabled then
             if _G.SilentAimOffMode == "Center" then
                 return getCenterScreenPosition()
             else -- "Mouse"
-                local result = original(...)
-                if type(result) ~= "Vector3" then
-                    result = getRealMousePosition()
-                end
-                return result
+                return originalGetMousePos(...)
             end
         end
         
-        -- Trường hợp còn lại (bật nhưng không có target) - vẫn gọi original
-        local result = original(...)
-        if type(result) ~= "Vector3" then
-            result = getRealMousePosition()
-        end
-        return result
-    end
+        -- Trường hợp bật nhưng không có target -> gọi hàm gốc
+        return originalGetMousePos(...)
+    end)
 end
 
-patchModule()
-game.Players.LocalPlayer.CharacterAdded:Connect(function() task.wait(0.5) patchModule() end)
-task.spawn(function() while task.wait(5) do patchModule() end end)
+-- Kích hoạt hook ngay lập tức
+applySilentAimHook()
+
+-- Dự phòng: nếu nhân vật chết/respawn, module có thể load lại, ta hook lại một lần duy nhất sau 1 giây
+localPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    applySilentAimHook()
+end)
 
 if not getgenv().EliotSettings then
     getgenv().EliotSettings = {
