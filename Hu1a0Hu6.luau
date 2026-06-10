@@ -19,6 +19,8 @@ LocalizationService = game:GetService("LocalizationService")
 Debris = game:GetService("Debris")
 ServerScriptService = game:GetService("ServerScriptService")
 
+MapFolder = Workspace:WaitForChild("Map")
+IngameFolder = MapFolder:WaitForChild("Ingame")
 killersFolder = Workspace:WaitForChild("Players"):WaitForChild("Killers")
 survivorsFolder = Workspace:WaitForChild("Players"):WaitForChild("Survivors")
 localPlayer = Players.LocalPlayer
@@ -894,7 +896,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.8.1", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.8.2", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
