@@ -31,7 +31,7 @@ localPlayer.CharacterAdded:Connect(function(character)
     playerCharacter = character
 end)
 
-local Camera = Workspace.CurrentCamera
+Camera = Workspace.CurrentCamera
 
 if getgenv().loadalllanguage == nil then
     getgenv().loadalllanguage = true
@@ -117,7 +117,6 @@ baseTranslations = {
     ["Nosferatu_Sections"] = "This section contains the functions of the Nosferatu killers.",
     ["Noli_Sections"] = "This is of the functions related to killers Noli.",
     ["c00lkidd_Sections"] = "This is of the functions related to killers c00lkidd",
-    ["JohnDoe_Sections"] = "Binary codes and digital anomalies.",
     ["YouName_Sections"] = "This section allows you to change your name when entering the game.",
     ["AntiCC_Sections"] = "This part provides immunity to stun.",
     ["Camlock_Sections"] = "Camlock bypass functions are here.",
@@ -339,10 +338,6 @@ baseTranslations = {
     ["Walkspeed_Override_Aimbot_Desc"] = "Automatically search for survivors near you and aimbot.",
     ["Radar_360_Wall_Check"] = "Radar 360° Wall Check",
     ["Radar_360_Wall_Check_Desc"] = "This helps you dodge walls to avoid crashing into them.",
-    ["Delete_John_Doe_Spikes"] = "Delete John Doe Spikes",
-    ["Delete_John_Doe_Spikes_Desc"] = "Automatically removes spikes spawned by John Doe to clear the path",
-    ["Delete_John_Doe_Trail"] = "Delete John Doe Trail",
-    ["Delete_John_Doe_Trail_Desc"] = "Removes John Doe's footprint trail to reduce clutter or tracking",
     ["Custom_Name"] = "Custom Name",
     ["Custom_Name_Desc"] = "Enter the name you want to fake.",
     ["You_Name"] = "You Name",
@@ -896,7 +891,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.8.2", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.8.3", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -3549,78 +3544,6 @@ Sections.c00lkidd:Toggle({
     Flag = "Redar wall check",
     Value = false,
     Callback = function(s) wallCheck = s end 
-})
-
--- Đảm bảo IngameFolder được load chính xác
-local IngameFolder = Workspace:WaitForChild("Map"):WaitForChild("Ingame")
-
--- Khai báo biến lưu kết nối
-local spikesConnection = nil
-local trailConnection = nil
-
--- 1. TOGGLE XÓA GAI (giữ nguyên, đã hoạt động)
-Sections.JohnDoe:Toggle({
-    Title = "hutaohub:Delete_John_Doe_Spikes",
-    Desc = "hutaohub:Delete_John_Doe_Spikes_Desc",
-    Flag = "Auto Delete John Doe Spikes",
-    Value = false,
-    Callback = function(state)
-        if state then
-            for _, obj in pairs(IngameFolder:GetChildren()) do
-                if obj.Name == "Spike" then obj:Destroy() end
-            end
-            spikesConnection = IngameFolder.ChildAdded:Connect(function(obj)
-                if obj.Name == "Spike" then obj:Destroy() end
-            end)
-        else
-            if spikesConnection then 
-                spikesConnection:Disconnect() 
-                spikesConnection = nil 
-            end
-        end
-    end
-})
-
--- 2. TOGGLE XÓA VỆT ĐUÔI (phiên bản quét toàn bộ, không bỏ sót)
-Sections.JohnDoe:Toggle({
-    Title = "hutaohub:Delete_John_Doe_Trail",
-    Desc = "hutaohub:Delete_John_Doe_Trail_Desc",
-    Flag = "Delete John Doe Trail",
-    Value = false,
-    Callback = function(state)
-        if state then
-            -- Hàm kiểm tra và xóa nếu là trail
-            local function isTrail(instance)
-                if not instance then return false end
-                -- Trail object hoặc tên chứa "trail" (không phân biệt hoa/thường)
-                return instance:IsA("Trail") or (instance.Name and string.find(instance.Name:lower(), "trail"))
-            end
-
-            -- Quét đệ quy toàn bộ IngameFolder để xóa trail hiện có
-            local function wipeAllTrails(folder)
-                for _, child in pairs(folder:GetChildren()) do
-                    if isTrail(child) then
-                        child:Destroy()
-                    elseif child:IsA("Model") or child:IsA("Folder") then
-                        wipeAllTrails(child)
-                    end
-                end
-            end
-            wipeAllTrails(IngameFolder)
-
-            -- Lắng nghe bất kỳ object mới nào được thêm vào trong toàn bộ IngameFolder (kể cả cấp con cháu)
-            trailConnection = IngameFolder.DescendantAdded:Connect(function(descendant)
-                if isTrail(descendant) then
-                    descendant:Destroy()
-                end
-            end)
-        else
-            if trailConnection then 
-                trailConnection:Disconnect() 
-                trailConnection = nil 
-            end
-        end
-    end
 })
 
 local fakeName = ""
