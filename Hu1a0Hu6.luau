@@ -349,6 +349,10 @@ baseTranslations = {
     ["Camlock"] = "Camlock",
     ["Camlock_Survivor"] = "Camlock Survivor",
     ["Camlock_Survivor_Desc"] = "auto camlock nearest survivor isn't blocked by anti cheat",
+    ["Show_Quick_Button"] = "Show Quick Button",
+    ["Show_Quick_Button_Desc"] = "This button will create a GUI so you can quickly toggle aimlock on and off.",
+    ["Camera_Height"] = "Camera Height",
+    ["Camera_Height_Desc"] = "This will help me adjust the camera's height so it's not hard to see.",
     ["Aim_Part"] = "Aim Part",
     ["Aim_Part_Desc"] = "Select the target body part when beginning the target lock.",
     ["Switch_Target"] = "Switch Target",
@@ -891,7 +895,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.8.4", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.8.6", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -3893,13 +3897,16 @@ if not getgenv().KillerCamlockSettings then
         Enabled = false,
         Target = nil,
         ZoomDistance = 10,
-        AimPart = "Head"
+        HeightOffset = 1.5,
+        AimPart = "Head",
+        QuickGuiVisible = false
     }
 end
 
 local Cfg = getgenv().KillerCamlockSettings
 local API = getgenv().KillerCamlockAPI or {}
 
+-- 1. Toggle bật tắt tính năng Camlock chính
 Sections.Camlock:Toggle({
     Title = "hutaohub:Camlock_Survivor",
     Desc = "hutaohub:Camlock_Survivor_Desc",
@@ -3911,6 +3918,33 @@ Sections.Camlock:Toggle({
     end
 })
 
+-- 2. Toggle ẩn hiện nút bấm nhanh trên màn hình di động (Đồng bộ hóa cao)
+Sections.Camlock:Toggle({
+    Title = "hutaohub:Show_Quick_Button",
+    Desc = "hutaohub:Show_Quick_Button_Desc",
+    Flag = "KillerCamlockQuickBtn",
+    Value = Cfg.QuickGuiVisible,
+    Callback = function(state)
+        Cfg.QuickGuiVisible = state
+        if API.SetQuickGuiVisible then API.SetQuickGuiVisible(state) end
+    end
+})
+
+-- 3. ĐÃ FIX: Ô nhập tùy chỉnh độ cao Camlock thay thế cho Slider
+Sections.Camlock:Input({
+    Title = "hutaohub:Camera_Height",
+    Desc = "hutaohub:Adjust_Cam_Vertical_Offset",
+    Flag = "KillerCamHeight",
+    Placeholder = "Ví dụ: 1.5",
+    Value = tostring(Cfg.HeightOffset or 1.5),
+    Callback = function(value)
+        local num = tonumber(value) or 1.5 -- Nếu nhập lỗi hoặc để trống thì tự về 1.5
+        Cfg.HeightOffset = num
+        if API.SetHeightOffset then API.SetHeightOffset(num) end
+    end
+})
+
+-- 4. Menu lựa chọn bộ phận ngắm bắn mục tiêu
 Sections.Camlock:Dropdown({
     Title = "hutaohub:Aim_Part",
     Desc = "hutaohub:Aim_Part_Desc",
@@ -3923,6 +3957,7 @@ Sections.Camlock:Dropdown({
     end
 })
 
+-- 5. Nút thủ công chuyển đổi mục tiêu nhanh
 Sections.Camlock:Button({
     Title = "hutaohub:Switch_Target",
     Desc = "hutaohub:Switch_Target_Desc",
