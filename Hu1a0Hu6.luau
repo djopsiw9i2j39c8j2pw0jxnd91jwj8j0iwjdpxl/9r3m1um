@@ -366,6 +366,10 @@ baseTranslations = {
     ["Max_Stamina_Value_Desc"] = "Enter custom stamina limit.",
     ["Apply_Max_Stamina"] = "Apply Max Stamina",
     ["Apply_Max_Stamina_Desc"] = "Enable custom stamina limit.",
+    ["Sprint_Speed_Value"] = "Sprint Speed Value",
+    ["Sprint_Speed_Value_Desc"] = "Adjust your character's sprint speed.",
+    ["Apply_Sprint_Speed"] = "Apply Sprint Speed",
+    ["Apply_Sprint_Speed_Desc"] = "Enable custom sprint speed settings.",
     ["Regen_Value"] = "Regen Value",
     ["Regen_Value_Desc"] = "Enter regen speed.",
     ["Apply_Regen"] = "Apply Regen",
@@ -895,7 +899,7 @@ function InitializeWindUI()
     })
 
     Window:Tag({Title = "hutaohub:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-    Window:Tag({Title = "v10.8.6", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+    Window:Tag({Title = "v10.8.7", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
     local Tabs = {
         About = Window:Section({ Title = "hutaohub:About", Opened = true }),
@@ -3973,7 +3977,7 @@ local StaminaModulePath = ReplicatedStorage
     :WaitForChild("Sprinting")
 
 local StaminaModule
-local originalMax, originalRegen, originalDrain
+local originalMax, originalRegen, originalDrain, originalSpeed
 
 -- States
 local settings = {
@@ -3986,12 +3990,17 @@ local settings = {
 
     Regen = {
         Enabled = false,
-        Value = 1
+        Value = 20
     },
 
     Drain = {
         Enabled = false,
-        Value = 1
+        Value = 10
+    },
+    
+    Speed = {
+        Enabled = false,
+        Value = 25 
     }
 }
 
@@ -4011,9 +4020,10 @@ local function LoadStaminaModule()
     if success and mod then
         StaminaModule = mod
 
-        originalMax = tonumber(mod.MaxStamina) or 100
-        originalRegen = tonumber(mod.StaminaGain) or 1
-        originalDrain = tonumber(mod.StaminaLoss) or 1
+        originalMax = tonumber(mod.MaxStamina) or tonumber(mod.maxStamina) or 100
+        originalRegen = tonumber(mod.StaminaGain) or tonumber(mod.staminaGain) or 20
+        originalDrain = tonumber(mod.StaminaLoss) or tonumber(mod.staminaLoss) or 10
+        originalSpeed = tonumber(mod.SprintSpeed) or tonumber(mod.sprintSpeed) or 25
 
         return true
     end
@@ -4023,103 +4033,67 @@ end
 
 -- Universal stamina setter
 local function SetStamina(val)
-    if not StaminaModule then
-        return
-    end
-
+    if not StaminaModule then return end
     val = tonumber(val) or 0
 
     pcall(function()
         if type(StaminaModule.SetStamina) == "function" then
             StaminaModule:SetStamina(val)
-
         elseif type(StaminaModule.UpdateStamina) == "function" then
             StaminaModule:UpdateStamina(val)
-
         elseif type(StaminaModule.ChangeStamina) == "function" then
             StaminaModule:ChangeStamina(val)
-
         else
             StaminaModule.Stamina = val
         end
     end)
 
-    pcall(function()
-        StaminaModule.Stamina = val
-    end)
+    pcall(function() StaminaModule.Stamina = val end)
 end
 
 -- Get current stamina
 local function GetCurrentStamina()
-    if not StaminaModule then
-        return 0
-    end
-
+    if not StaminaModule then return 0 end
     local current = tonumber(StaminaModule.Stamina)
-
     return current or 0
 end
 
--- Apply stats safely
+-- ĐÃ FIX: Chỉ áp dụng thông số NẾU toggle được bật. Tránh việc ép vòng lặp đè lên cơ chế game
 local function ApplyStats()
-    if not LoadStaminaModule() then
-        return
+    if not LoadStaminaModule() then return end
+
+    if settings.Max.Enabled then
+        pcall(function() StaminaModule.MaxStamina = settings.Max.Value end)
+        pcall(function() StaminaModule.maxStamina = settings.Max.Value end)
     end
 
-    local maxValue = settings.Max.Enabled
-        and settings.Max.Value
-        or originalMax
+    if settings.Regen.Enabled then
+        pcall(function() StaminaModule.StaminaGain = settings.Regen.Value end)
+        pcall(function() StaminaModule.staminaGain = settings.Regen.Value end)
+    end
 
-    local regenValue = settings.Regen.Enabled
-        and settings.Regen.Value
-        or originalRegen
-
-    local drainValue = settings.Drain.Enabled
-        and settings.Drain.Value
-        or originalDrain
-
-    -- hard apply
-    pcall(function()
-        StaminaModule.MaxStamina = maxValue
-    end)
-
-    pcall(function()
-        StaminaModule.StaminaGain = regenValue
-    end)
-
-    pcall(function()
-        StaminaModule.StaminaLoss = drainValue
-    end)
-
-    -- lowercase support
-    pcall(function()
-        StaminaModule.maxStamina = maxValue
-    end)
-
-    pcall(function()
-        StaminaModule.staminaGain = regenValue
-    end)
-
-    pcall(function()
-        StaminaModule.staminaLoss = drainValue
-    end)
+    if settings.Drain.Enabled then
+        pcall(function() StaminaModule.StaminaLoss = settings.Drain.Value end)
+        pcall(function() StaminaModule.staminaLoss = settings.Drain.Value end)
+    end
+    
+    if settings.Speed.Enabled then
+        pcall(function() StaminaModule.SprintSpeed = settings.Speed.Value end)
+        pcall(function() StaminaModule.sprintSpeed = settings.Speed.Value end)
+    end
 
     local current = GetCurrentStamina()
+    local maxValue = settings.Max.Enabled and settings.Max.Value or originalMax
 
-    -- only fix stamina stuck
     if settings.Max.Enabled then
         if current > maxValue then
             SetStamina(maxValue)
-
         elseif current <= originalMax and tick() - lastForce >= forceDelay then
             lastForce = tick()
-
-            -- only force once when stuck at original max
             SetStamina(math.clamp(current, 0, maxValue))
         end
     end
 
-    -- infinite stamina only when enabled
     if settings.InfStamina then
         if current < maxValue then
             SetStamina(maxValue)
@@ -4129,23 +4103,14 @@ end
 
 -- Main loop
 local function StartStaminaLoop()
-    if staminaLoopStarted then
-        return
-    end
-
+    if staminaLoopStarted then return end
     staminaLoopStarted = true
 
     task.spawn(function()
         while true do
             task.wait(0.1)
-
-            local ok = pcall(function()
-                ApplyStats()
-            end)
-
-            if not ok then
-                StaminaModule = nil
-            end
+            local ok = pcall(function() ApplyStats() end)
+            if not ok then StaminaModule = nil end
         end
     end)
 end
@@ -4155,15 +4120,12 @@ StartStaminaLoop()
 -- Respawn reload support
 localPlayer.CharacterAdded:Connect(function()
     task.wait(1)
-
     StaminaModule = nil
 
     if LoadStaminaModule() then
         ApplyStats()
-
         if settings.Max.Enabled then
             local current = GetCurrentStamina()
-
             if current < settings.Max.Value then
                 SetStamina(settings.Max.Value)
             end
@@ -4176,13 +4138,9 @@ end)
 Sections.Stamina:Button({
     Title = "hutaohub:Full_Stamina",
     Desc = "hutaohub:Full_Stamina_Desc",
-
     Callback = function()
         if LoadStaminaModule() then
-            local maxValue = settings.Max.Enabled
-                and settings.Max.Value
-                or (tonumber(StaminaModule.MaxStamina) or originalMax)
-
+            local maxValue = settings.Max.Enabled and settings.Max.Value or (tonumber(StaminaModule.MaxStamina) or originalMax)
             SetStamina(maxValue)
         end
     end
@@ -4192,15 +4150,10 @@ Sections.Stamina:Toggle({
     Title = "hutaohub:Infinite_Stamina",
     Desc = "hutaohub:Infinite_Stamina_Desc",
     Flag = "Inf Stamina",
-
     Callback = function(v)
         settings.InfStamina = v
-
         if v and LoadStaminaModule() then
-            local maxValue = settings.Max.Enabled
-                and settings.Max.Value
-                or (tonumber(StaminaModule.MaxStamina) or originalMax)
-
+            local maxValue = settings.Max.Enabled and settings.Max.Value or (tonumber(StaminaModule.MaxStamina) or originalMax)
             SetStamina(maxValue)
         end
     end
@@ -4215,21 +4168,12 @@ Sections.Stamina:Input({
     Placeholder = "100",
     Value = 100,
     Numeric = true,
-
     Callback = function(txt)
         local num = tonumber(txt)
-
-        if not num then
-            num = 100
-        end
-
+        if not num then num = 100 end
         num = math.clamp(num, 1, 999999)
-
         settings.Max.Value = num
-
-        if settings.Max.Enabled then
-            ApplyStats()
-        end
+        if settings.Max.Enabled then ApplyStats() end
     end
 })
 
@@ -4237,25 +4181,22 @@ Sections.Stamina:Toggle({
     Title = "hutaohub:Apply_Max_Stamina",
     Desc = "hutaohub:Apply_Max_Stamina_Desc",
     Flag = "Apply Max Stamina",
-
     Callback = function(v)
         settings.Max.Enabled = v
-
-        ApplyStats()
-
         if v then
+            ApplyStats()
             local current = GetCurrentStamina()
-
             if current < settings.Max.Value then
                 SetStamina(settings.Max.Value)
             end
         else
-            SetStamina(originalMax)
-
-            pcall(function()
-                StaminaModule.MaxStamina = originalMax
-                StaminaModule.maxStamina = originalMax
-            end)
+            if StaminaModule then
+                pcall(function()
+                    StaminaModule.MaxStamina = originalMax
+                    StaminaModule.maxStamina = originalMax
+                end)
+                SetStamina(originalMax)
+            end
         end
     end
 })
@@ -4266,22 +4207,14 @@ Sections.Stamina:Input({
     Title = "hutaohub:Regen_Value",
     Desc = "hutaohub:Regen_Value_Desc",
     Flag = "Regen Value",
-    Placeholder = "1",
-    Value = 1,
+    Placeholder = "20",
+    Value = 20,
     Numeric = true,
-
     Callback = function(txt)
         local num = tonumber(txt)
-
-        if not num then
-            num = 1
-        end
-
+        if not num then num = 1 end
         settings.Regen.Value = num
-
-        if settings.Regen.Enabled then
-            ApplyStats()
-        end
+        if settings.Regen.Enabled then ApplyStats() end
     end
 })
 
@@ -4289,17 +4222,17 @@ Sections.Stamina:Toggle({
     Title = "hutaohub:Apply_Regen",
     Desc = "hutaohub:Apply_Regen_Desc",
     Flag = "Apply Regen",
-
     Callback = function(v)
         settings.Regen.Enabled = v
-
-        ApplyStats()
-
-        if not v and StaminaModule then
-            pcall(function()
-                StaminaModule.StaminaGain = originalRegen
-                StaminaModule.staminaGain = originalRegen
-            end)
+        if v then
+            ApplyStats()
+        else
+            if StaminaModule then
+                pcall(function()
+                    StaminaModule.StaminaGain = originalRegen
+                    StaminaModule.staminaGain = originalRegen
+                end)
+            end
         end
     end
 })
@@ -4310,22 +4243,14 @@ Sections.Stamina:Input({
     Title = "hutaohub:Drain_Value",
     Desc = "hutaohub:Drain_Value_Desc",
     Flag = "Drain Value",
-    Placeholder = "1",
-    Value = 1,
+    Placeholder = "10",
+    Value = 10,
     Numeric = true,
-
     Callback = function(txt)
         local num = tonumber(txt)
-
-        if not num then
-            num = 1
-        end
-
+        if not num then num = 1 end
         settings.Drain.Value = num
-
-        if settings.Drain.Enabled then
-            ApplyStats()
-        end
+        if settings.Drain.Enabled then ApplyStats() end
     end
 })
 
@@ -4333,20 +4258,57 @@ Sections.Stamina:Toggle({
     Title = "hutaohub:Apply_Drain",
     Desc = "hutaohub:Apply_Drain_Desc",
     Flag = "Apply Drain",
-
     Callback = function(v)
         settings.Drain.Enabled = v
-
-        ApplyStats()
-
-        if not v and StaminaModule then
-            pcall(function()
-                StaminaModule.StaminaLoss = originalDrain
-                StaminaModule.staminaLoss = originalDrain
-            end)
+        if v then
+            ApplyStats()
+        else
+            if StaminaModule then
+                pcall(function()
+                    StaminaModule.StaminaLoss = originalDrain
+                    StaminaModule.staminaLoss = originalDrain
+                end)
+            end
         end
     end
 })
+
+-- Sprint Speed
+
+Sections.Stamina:Input({
+    Title = "hutaohub:Sprint_Speed_Value",
+    Desc = "hutaohub:Sprint_Speed_Value_Desc",
+    Flag = "Sprint Speed Value",
+    Placeholder = "25",
+    Value = 25,
+    Numeric = true,
+    Callback = function(txt)
+        local num = tonumber(txt)
+        if not num then num = 25 end
+        settings.Speed.Value = num
+        if settings.Speed.Enabled then ApplyStats() end
+    end
+})
+
+Sections.Stamina:Toggle({
+    Title = "hutaohub:Apply_Sprint_Speed",
+    Desc = "hutaohub:Apply_Sprint_Speed_Desc",
+    Flag = "Apply Sprint Speed",
+    Callback = function(v)
+        settings.Speed.Enabled = v
+        if v then
+            ApplyStats()
+        else
+            if StaminaModule then
+                pcall(function()
+                    StaminaModule.SprintSpeed = originalSpeed
+                    StaminaModule.sprintSpeed = originalSpeed
+                end)
+            end
+        end
+    end
+})
+
 
 if not getgenv().HitboxDevilSettings then
     getgenv().HitboxDevilSettings = {
@@ -5030,7 +4992,7 @@ local function StartAutoSave()
     StopLoops()
 
     ConfigState.InitLoop = task.spawn(function()
-        for _ = 1, 3 do
+        for _ = 1, 1 do
             if not ConfigState.AutoLoad then return end
             task.wait(1)
             
