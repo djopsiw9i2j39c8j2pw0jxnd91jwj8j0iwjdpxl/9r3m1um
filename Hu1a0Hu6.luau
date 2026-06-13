@@ -214,6 +214,8 @@ baseTranslations = {
     ["Slash_Radius_Desc"] = "Killer detection range for using skills",
     ["Set_Slash_Delay"] = "Set Slash Delay",
     ["Set_Slash_Delay_Desc"] = "Check if the killers are still within range during the time you select.",
+    ["Aura_Sword"] = "Aura Sword",
+    ["Aura_Sword_Desc"] = "Summon 7 floating swords that automatically target nearby enemies.",
     ["Aim_Plasma_Beam"] = "Aim Plasma Beam",
     ["Aim_Plasma_Beam_Desc"] = "Activate the aim function for the skill.",
     ["Aim_Plasma_Beam_Mode"] = "Aim Plasma Beam Mode",
@@ -501,7 +503,6 @@ function saveCachedLanguages(fileName, data)
     end
 end
 
--- ================= LOADER ANIMATION UI =================
 function createAmbientParticle(MainFrame)
     if not MainFrame or not MainFrame.Parent then return end
     local particle = Instance.new("Frame")
@@ -666,7 +667,6 @@ function BuildLoaderUI()
     return LoaderScreen, OuterBorder, MainFrame, InnerStroke, BlurEffect, StatusLabel, BarFill
 end
 
--- ================= CORE TRANSLATION ENGINE (OPTIMIZED) =================
 function RunTranslationProcess(StatusLabel, BarFill)
     local fileName = "HutaoHub_Data_Files.json"
     local cache = loadCachedLanguages(fileName)
@@ -688,7 +688,6 @@ function RunTranslationProcess(StatusLabel, BarFill)
         if not cache[targetLangCode] then cache[targetLangCode] = {} end
         local langCache = cache[targetLangCode]
 
-        -- Dọn dẹp cache thừa: Xóa các key không còn tồn tại trong baseTranslations
         for cachedKey in pairs(langCache) do
             if not baseTranslations[cachedKey] then
                 langCache[cachedKey] = nil
@@ -699,10 +698,8 @@ function RunTranslationProcess(StatusLabel, BarFill)
         local keysToTranslate = {}
         local textsToTranslate = {}
 
-        -- KIỂM TRA SỰ THAY ĐỔI CỦA TEXT GỐC (FIX LỖI CŨ CỦA BRO)
         for key, srcText in pairs(baseTranslations) do
             if targetLangCode == "en" then
-                -- Tiếng Anh thì giữ nguyên luôn, không cần dịch
                 langCache[key] = { src = srcText, tr = srcText }
                 finalTranslations[targetLangCode][key] = srcText
             else
@@ -712,10 +709,8 @@ function RunTranslationProcess(StatusLabel, BarFill)
                 if not cachedData then
                     needsTranslate = true
                 elseif type(cachedData) ~= "table" then
-                    -- Hỗ trợ tương thích ngược nếu file cache cũ lưu dạng String thường
                     needsTranslate = true
                 elseif cachedData.src ~= srcText then
-                    -- PHÁT HIỆN THAY ĐỔI TEXT GỐC: Ví dụ từ "Kill" đổi sang "Killers"
                     needsTranslate = true
                 end
 
@@ -723,15 +718,11 @@ function RunTranslationProcess(StatusLabel, BarFill)
                     table.insert(keysToTranslate, key)
                     table.insert(textsToTranslate, srcText)
                 else
-                    -- Cache trùng khớp hoàn toàn, sử dụng luôn bản dịch cũ
                     finalTranslations[targetLangCode][key] = cachedData.tr
                 end
             end
         end
-
-        -- GỬI FULL TEXT DỊCH BATCH THEO TỪNG NGÔN NGỮ (TĂNG TỐC ĐỘ)
         if #keysToTranslate > 0 and targetLangCode ~= "en" then
-            -- Ghép toàn bộ cụm từ cần dịch lại bằng dấu xuống dòng \n
             local combinedText = table.concat(textsToTranslate, "\n")
             local url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=" .. targetLangCode .. "&dt=t&q=" .. HttpService:UrlEncode(combinedText)
             
@@ -740,7 +731,6 @@ function RunTranslationProcess(StatusLabel, BarFill)
             if success and response then
                 local decoded = HttpService:JSONDecode(response)
                 if decoded and decoded[1] then
-                    -- Gom các chunk dữ liệu trả về từ Google thành một chuỗi lớn thống nhất
                     local translatedChunks = {}
                     for _, chunk in ipairs(decoded[1]) do
                         if chunk and chunk[1] then
@@ -749,20 +739,16 @@ function RunTranslationProcess(StatusLabel, BarFill)
                     end
                     
                     local fullTranslatedText = table.concat(translatedChunks, "")
-                    -- Tách ngược lại thành từng dòng kết quả tương ứng
                     local translatedLines = string.split(fullTranslatedText, "\n")
 
                     for idx, key in ipairs(keysToTranslate) do
                         local translatedValue = translatedLines[idx]
                         if translatedValue then
-                            -- Xóa khoảng trắng thừa ở 2 đầu chuỗi
                             translatedValue = string.gsub(translatedValue, "^%s*(.-)%s*$", "%1")
                         else
-                            -- Fallback phòng hờ lỗi mạng ngoài ý muốn
                             translatedValue = baseTranslations[key] 
                         end
 
-                        -- Cập nhật cấu trúc cache mới chống xung đột dữ liệu cũ/mới
                         langCache[key] = {
                             src = baseTranslations[key],
                             tr = translatedValue
@@ -772,17 +758,15 @@ function RunTranslationProcess(StatusLabel, BarFill)
                     globalCacheModified = true
                 end
             else
-                -- Fallback an toàn nếu API bị sập hoàn toàn
                 for _, key in ipairs(keysToTranslate) do
                     langCache[key] = { src = baseTranslations[key], tr = baseTranslations[key] }
                     finalTranslations[targetLangCode][key] = baseTranslations[key]
                 end
             end
-            task.wait(0.05) -- Delay siêu nhỏ giữa các ngôn ngữ để tránh spam API
+            task.wait(0.05)
         end
     end
 
-    -- Lưu lại file cache nếu có sự thay đổi
     if globalCacheModified then
         saveCachedLanguages(fileName, cache)
     end
@@ -1028,7 +1012,7 @@ end)
     
     local baseUrl = "https://raw.githubusercontent.com/djopsiw9i2j39c8j2pw0jxnd91jwj8j0iwjdpxl/50ur3-c0d3/refs/heads/main/"
     local Visual = loadstring(game:HttpGet(baseUrl .. "Visual.luau"))()
-    
+    local Visual1 = loadstring(game:HttpGet(baseUrl .. "R3a1V15u4l.luau"))()
     
 local Sections = {
     AutoKill = TabHandles.Farm:Section({ Title = "hutaohub:Auto_Kill", Desc = "hutaohub:Auto_Kill_Sections", Icon = "skull", Opened = false, Box = true, BoxBorder = true }),
@@ -1379,7 +1363,6 @@ local currentMap = nil
 local mapLoadTime = 0
 local isHoldingPrompt = false
 
--- FIX 1: Bỏ :Wait() để tránh bị kẹt thread (treo vòng lặp) khi chuyển round
 local function GetCharacter()
     return localPlayer.Character
 end
@@ -1466,8 +1449,7 @@ local function ChangeTarget()
 
     local oldTarget = getgenv().AutoKillerTarget
     local newTarget = FindNearestSurvivorExcept(hrp, character, oldTarget)
-    
-    -- ĐÃ FIX: Kiểm tra mục tiêu cũ phải còn trong survivorsFolder
+
     if not newTarget and oldTarget and oldTarget.Parent and oldTarget:IsDescendantOf(survivorsFolder) and IsAlive(oldTarget.Parent) then
         return
     end
@@ -1479,7 +1461,7 @@ end
 
 local function ProcessAutoKiller()
     local character = GetCharacter()
-    -- Nó sẽ tự kiểm tra xem bro có đang nằm trong killersFolder hay không
+
     if not (character and character:IsDescendantOf(killersFolder) and IsAlive(character)) then
         getgenv().AutoKillerTarget = nil 
         return
@@ -1489,11 +1471,8 @@ local function ProcessAutoKiller()
     if not hrp then return end
 
     local targetHrp = getgenv().AutoKillerTarget
-    
-    -- ĐÃ FIX: Thêm điều kiện targetHrp:IsDescendantOf(survivorsFolder)
-    -- Nếu mục tiêu teleport lỗi/thoát game làm mất nhân vật khỏi folder, script tự động nhảy target ngay lập tức
+
     if targetHrp and targetHrp.Parent and targetHrp.Parent:IsA("Model") and targetHrp:IsDescendantOf(survivorsFolder) and IsAlive(targetHrp.Parent) then
-        -- giữ nguyên target
     else
         targetHrp = FindNearestSurvivor(hrp, character)
         getgenv().AutoKillerTarget = targetHrp
@@ -1561,12 +1540,10 @@ local function HandleGeneratorPrompt(foundGen)
 end
 
 local function ProcessAutoGenerator()
-    -- FIX 2: Bỏ 'or getgenv().AutoKillerFarm' ở đây để không bị xung đột khi bật cả 2 nút
     if isHoldingPrompt then return end
 
     local character = GetCharacter()
     
-    -- Nếu không phải Survivor, tự động reset data gen và return (không làm farm gen)
     if not (character and character:IsDescendantOf(survivorsFolder) and IsAlive(character)) then 
         lastGenPosition = nil
         currentGenerator = nil
@@ -1596,7 +1573,6 @@ local function ProcessAutoGenerator()
     HandleGeneratorPrompt(foundGen)
 end
 
--- ================= VÒNG LẶP =================
 task.spawn(function()
     while task.wait(0.08) do
         if getgenv().AutoKillerFarm then
@@ -1623,7 +1599,6 @@ Sections.AutoKill:Button({
     end
 })
 
--- ================= UI =================
 Sections.AutoKill:Toggle({
     Title = "hutaohub:Auto_Kill_The_Survivors",
     Desc = "hutaohub:Auto_Kill_The_Survivors_Desc",
@@ -1926,9 +1901,8 @@ Sections.Items:Toggle({
 })
 
 _G.SilentAimEnabled = false
-_G.SilentAimOffMode = "Mouse"   -- Mặc định: "Mouse" hoặc "Center"
+_G.SilentAimOffMode = "Mouse"
 
--- Dropdown chọn chế độ khi tắt Silent Aim
 local offModes = {"Mouse", "Center"}
 Sections.SilentAim:Dropdown({
     Title = "hutaohub:Normal_Aim_Style",
@@ -1951,9 +1925,6 @@ Sections.SilentAim:Toggle({
     end
 })
 
--- ============== CORE LOGIC MỚI (KẾT HỢP TINH HOA CODE 1) ==============
-
--- Hàm tìm đầu kẻ địch gần tâm nhất dựa trên GÓC THỰC (FOV ~30°) - Pro chuẩn Code 1
 local function getClosestEnemyHeadByFOV()
     local cam = workspace.CurrentCamera
     if not cam then return nil end
@@ -1980,7 +1951,6 @@ local function getClosestEnemyHeadByFOV()
                     local direction = (headPos - rayOrigin).Unit
                     local angle = math.acos(math.clamp(direction:Dot(rayDirection.Unit), -1, 1))
                     
-                    -- FOV giới hạn 0.5 rad (~28.6°) - bắn cực chặt, không hút láo
                     if angle < 0.5 and distance < shortestDistance then
                         shortestDistance = distance
                         closestPlayerPos = headPos
@@ -1993,13 +1963,11 @@ local function getClosestEnemyHeadByFOV()
     return closestPlayerPos
 end
 
--- Hàm lấy vị trí ngắm từ giữa màn hình (dùng cho chế độ Center khi tắt Silent Aim)
 local function getCenterScreenPosition()
     local cam = workspace.CurrentCamera
     if cam and cam.CFrame then
         return cam.CFrame.Position + cam.CFrame.LookVector * 100
     end
-    -- Fallback vào vị trí nhân vật
     local char = localPlayer.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
         local root = char.HumanoidRootPart
@@ -2008,7 +1976,6 @@ local function getCenterScreenPosition()
     return Vector3.new(0, 10, 0)
 end
 
--- Hook trực tiếp vào module GetPlayerMousePosition (không cần pcall, không cần _alreadyPatched)
 local function applySilentAimHook()
     local path = ReplicatedStorage:FindFirstChild("Systems")
         and ReplicatedStorage.Systems:FindFirstChild("Player")
@@ -2020,7 +1987,6 @@ local function applySilentAimHook()
     local originalGetMousePos = module.GetMousePos
     if not originalGetMousePos then return end
     
-    -- Bảo vệ hook chỉ gắn một lần (dùng cờ nhẹ)
     if module.__silentAimHooked then return end
     module.__silentAimHooked = true
     
@@ -2030,26 +1996,22 @@ local function applySilentAimHook()
             if targetHead then
                 return targetHead
             end
-            -- Nếu không có mục tiêu trong FOV, trả về vị trí gốc (giữ nguyên tâm hoặc chuột)
         end
         
         if not _G.SilentAimEnabled then
             if _G.SilentAimOffMode == "Center" then
                 return getCenterScreenPosition()
-            else -- "Mouse"
+            else
                 return originalGetMousePos(...)
             end
         end
         
-        -- Trường hợp bật nhưng không có target -> gọi hàm gốc
         return originalGetMousePos(...)
     end)
 end
 
--- Kích hoạt hook ngay lập tức
 applySilentAimHook()
 
--- Dự phòng: nếu nhân vật chết/respawn, module có thể load lại, ta hook lại một lần duy nhất sau 1 giây
 localPlayer.CharacterAdded:Connect(function()
     task.wait(1)
     applySilentAimHook()
@@ -2179,7 +2141,6 @@ Sections.Clone007n7:Toggle({
     end
 })
 
--- Đảm bảo getgenv().ShedletskySettings tồn tại
 if not getgenv().ShedletskySettings then
     getgenv().ShedletskySettings = {
         AutoSlashEnabled = false,
@@ -2272,7 +2233,24 @@ Sections.Shedletsky:Input({
     end
 })
 
--- Đảm bảo getgenv().TwoTimeDaggerSettings tồn tại
+Sections.Shedletsky:Toggle({
+    Title = "hutaohub:Aura_Sword",
+    Desc = "hutaohub:Aura_Sword_Desc",
+    Flag = "Aura Sword",
+    Value = false,
+    Callback = function(state)
+        if state then
+            if getgenv().HutaoAuraSword then
+                getgenv().HutaoAuraSword.Start()
+            end
+        else
+            if getgenv().HutaoAuraSword then
+                getgenv().HutaoAuraSword.Stop()
+            end
+        end
+    end
+})
+
 if not getgenv().TwoTimeDaggerSettings then
     getgenv().TwoTimeDaggerSettings = {
         AutoDaggerEnabled = false,
@@ -2514,7 +2492,6 @@ Sections.Guest1337:Dropdown({
     Value = getgenv().BlockMode,
     Callback = function(value)
         getgenv().BlockMode = value
-        -- Reset Pro state
         for player, data in pairs(activeAttackers) do
             for _, conn in pairs(data.endedConns) do conn:Disconnect() end
         end
@@ -2647,7 +2624,7 @@ if not getgenv().AutoPunchSettings then
 end
 
 local S = getgenv().AutoPunchSettings
-local API = getgenv().AutoPunchAPI or {}  -- Sẽ có nếu logic đã load
+local API = getgenv().AutoPunchAPI or {}
 
 Sections.Guest1337:Dropdown({
     Title = "hutaohub:Punch_Aim_Mode",
@@ -3657,7 +3634,6 @@ end
 local function stopFakeNameLoop()
     enabled = false
 
-    -- Restore text gốc
     for obj, text in pairs(originalTexts) do
         if obj and obj.Parent then
             obj.Text = text
@@ -3910,7 +3886,6 @@ end
 local Cfg = getgenv().KillerCamlockSettings
 local API = getgenv().KillerCamlockAPI or {}
 
--- 1. Toggle bật tắt tính năng Camlock chính
 Sections.Camlock:Toggle({
     Title = "hutaohub:Camlock_Survivor",
     Desc = "hutaohub:Camlock_Survivor_Desc",
@@ -3922,7 +3897,6 @@ Sections.Camlock:Toggle({
     end
 })
 
--- 2. Toggle ẩn hiện nút bấm nhanh trên màn hình di động (Đồng bộ hóa cao)
 Sections.Camlock:Toggle({
     Title = "hutaohub:Show_Quick_Button",
     Desc = "hutaohub:Show_Quick_Button_Desc",
@@ -3934,21 +3908,19 @@ Sections.Camlock:Toggle({
     end
 })
 
--- 3. ĐÃ FIX: Ô nhập tùy chỉnh độ cao Camlock thay thế cho Slider
 Sections.Camlock:Input({
     Title = "hutaohub:Camera_Height",
-    Desc = "hutaohub:Adjust_Cam_Vertical_Offset",
+    Desc = "hutaohub:Camera_Height_Desc",
     Flag = "KillerCamHeight",
     Placeholder = "Ví dụ: 1.5",
     Value = tostring(Cfg.HeightOffset or 1.5),
     Callback = function(value)
-        local num = tonumber(value) or 1.5 -- Nếu nhập lỗi hoặc để trống thì tự về 1.5
+        local num = tonumber(value) or 1.5
         Cfg.HeightOffset = num
         if API.SetHeightOffset then API.SetHeightOffset(num) end
     end
 })
 
--- 4. Menu lựa chọn bộ phận ngắm bắn mục tiêu
 Sections.Camlock:Dropdown({
     Title = "hutaohub:Aim_Part",
     Desc = "hutaohub:Aim_Part_Desc",
@@ -3961,7 +3933,6 @@ Sections.Camlock:Dropdown({
     end
 })
 
--- 5. Nút thủ công chuyển đổi mục tiêu nhanh
 Sections.Camlock:Button({
     Title = "hutaohub:Switch_Target",
     Desc = "hutaohub:Switch_Target_Desc",
@@ -3979,7 +3950,6 @@ local StaminaModulePath = ReplicatedStorage
 local StaminaModule
 local originalMax, originalRegen, originalDrain, originalSpeed
 
--- States
 local settings = {
     InfStamina = false,
 
@@ -4004,12 +3974,10 @@ local settings = {
     }
 }
 
--- Internal cache
 local staminaLoopStarted = false
 local forceDelay = 0.2
 local lastForce = 0
 
--- Safe module loader
 local function LoadStaminaModule()
     if StaminaModule then
         return true
@@ -4031,7 +3999,6 @@ local function LoadStaminaModule()
     return false
 end
 
--- Universal stamina setter
 local function SetStamina(val)
     if not StaminaModule then return end
     val = tonumber(val) or 0
@@ -4051,14 +4018,12 @@ local function SetStamina(val)
     pcall(function() StaminaModule.Stamina = val end)
 end
 
--- Get current stamina
 local function GetCurrentStamina()
     if not StaminaModule then return 0 end
     local current = tonumber(StaminaModule.Stamina)
     return current or 0
 end
 
--- ĐÃ FIX: Chỉ áp dụng thông số NẾU toggle được bật. Tránh việc ép vòng lặp đè lên cơ chế game
 local function ApplyStats()
     if not LoadStaminaModule() then return end
 
@@ -4101,7 +4066,6 @@ local function ApplyStats()
     end
 end
 
--- Main loop
 local function StartStaminaLoop()
     if staminaLoopStarted then return end
     staminaLoopStarted = true
@@ -4117,7 +4081,6 @@ end
 
 StartStaminaLoop()
 
--- Respawn reload support
 localPlayer.CharacterAdded:Connect(function()
     task.wait(1)
     StaminaModule = nil
@@ -4132,8 +4095,6 @@ localPlayer.CharacterAdded:Connect(function()
         end
     end
 end)
-
--- UI
 
 Sections.Stamina:Button({
     Title = "hutaohub:Full_Stamina",
@@ -4158,8 +4119,6 @@ Sections.Stamina:Toggle({
         end
     end
 })
-
--- Max Stamina
 
 Sections.Stamina:Input({
     Title = "hutaohub:Max_Stamina_Value",
@@ -4201,8 +4160,6 @@ Sections.Stamina:Toggle({
     end
 })
 
--- Regen
-
 Sections.Stamina:Input({
     Title = "hutaohub:Regen_Value",
     Desc = "hutaohub:Regen_Value_Desc",
@@ -4237,8 +4194,6 @@ Sections.Stamina:Toggle({
     end
 })
 
--- Drain
-
 Sections.Stamina:Input({
     Title = "hutaohub:Drain_Value",
     Desc = "hutaohub:Drain_Value_Desc",
@@ -4272,8 +4227,6 @@ Sections.Stamina:Toggle({
         end
     end
 })
-
--- Sprint Speed
 
 Sections.Stamina:Input({
     Title = "hutaohub:Sprint_Speed_Value",
@@ -4355,7 +4308,6 @@ Sys.Folders.Gen = genFolder
 
 local dynamicMap = Sys.Internal.GetDynamicMapFolder()
 
--- 3. Khởi tạo cấu hình Runtime chuyển tiếp gọn nhẹ (Giảm thiểu khai báo biến local)
 Sys.Internal.RegisterRuntimeConfig("Clone", { Id = "Clone", Color = Color3.fromRGB(0,255,0), ShowHealth = true, Living = true, WorkspaceOnly = true, Validator = Sys.Validators.Clone })
 Sys.Internal.RegisterRuntimeConfig("Model", { Id = "Model", Color = Color3.fromRGB(255,170,0), Validator = Sys.Validators.Model })
 Sys.Internal.RegisterRuntimeConfig("Survivor", { Id = "Survivor", Color = Color3.fromRGB(255,255,255), ShowHealth = true, Living = true, WatchFolder = survivorsFolder, WorkspaceOnly = true, Validator = Sys.Validators.Survivor })
@@ -4472,7 +4424,7 @@ if not getgenv().MiscModule then
             AntiAFKConn = nil,
             ChatWindow = game:GetService("TextChatService"):FindFirstChild("ChatWindowConfiguration"),
             AntiAdminLoop = nil,
-            NoliTracked = {} -- ĐÃ THÊM: Sổ theo dõi thời gian sống của Noli
+            NoliTracked = {}
         }
     }
 end
@@ -4549,11 +4501,10 @@ end
 
 local function processRemoveNoli()
     if not M.Settings.RemoveNPCNoli then 
-        table.clear(M.Cache.NoliTracked) -- Dọn sổ theo dõi nếu tắt chức năng
+        table.clear(M.Cache.NoliTracked)
         return 
     end
-    
-    -- Dọn dẹp những model Noli đã tự biến mất khỏi map để chống rác bộ nhớ
+
     for model, _ in pairs(M.Cache.NoliTracked) do
         if not model or not model.Parent then
             M.Cache.NoliTracked[model] = nil
@@ -4563,15 +4514,12 @@ local function processRemoveNoli()
     for _, v in ipairs(workspace:GetDescendants()) do
         if v:IsA("Model") and v.Name == "Noli" then
             if Players:GetPlayerFromCharacter(v) then
-                -- Nếu nó đã hóa thành Player thật -> Xóa khỏi sổ theo dõi, tha mạng
                 M.Cache.NoliTracked[v] = nil
             else
                 if v:FindFirstChildOfClass("Humanoid") then
                     if not M.Cache.NoliTracked[v] then
-                        -- Lần đầu nhìn thấy, ghi lại thời gian (tick)
                         M.Cache.NoliTracked[v] = tick()
                     else
-                        -- Nếu đã trôi qua 5 giây mà vẫn không phải Player -> Tiêu diệt
                         if tick() - M.Cache.NoliTracked[v] >= 5 then
                             pcall(v.Destroy, v)
                             M.Cache.NoliTracked[v] = nil
@@ -4589,7 +4537,6 @@ local function processAntiAdmin()
     local myName = Players.LocalPlayer.Name
     for _, player in ipairs(Players:GetPlayers()) do
         if player.Name ~= myName and table.find(M.Constants.AdminNames, player.Name) then
-            -- Thông báo qua WindUI
             pcall(function()
                 WindUI:Notify({
                     Title = "hutaohub:Anti_Admin_Forsaken",
@@ -4600,7 +4547,6 @@ local function processAntiAdmin()
             end)
             warn("[AntiAdmin] Phát hiện admin: " .. player.Name .. " - Server hop sau 1 giây.")
 
-            -- Chờ 1 giây rồi chuyển server
             task.wait(1)
             pcall(function()
                 TeleportService:Teleport(game.PlaceId, Players.LocalPlayer)
