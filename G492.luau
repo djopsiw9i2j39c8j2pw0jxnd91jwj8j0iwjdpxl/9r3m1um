@@ -131,6 +131,8 @@ WindUI:Localization({
             Settings = "Settings",
             Plant = "Plant",
             Plant_Sections = "Install garden-related functions in the map",
+            Seed = "Seed",
+            SeedSections = "Claim special seeds automatically and configure related options.",
             Shop = "Shop",
             Shop_Sections = "Configure automatic buying, selling, and shop-related features.",
             Power = "Character Powers",
@@ -175,6 +177,12 @@ WindUI:Localization({
             Steal_Radius_Desc = "Expands the stealing range, allowing you to target items from farther away.",
             Steal_Speed = "Steal Speed",
             Steal_Speed_Desc = "Increases the speed of stealing nearby items and resources.",
+            ShowGearShop = "Show Gear Shop",
+            ShowGearShopDesc = "Display the Gear Shop interface.",
+            ShowSeedShop = "Show Seed Shop",
+            ShowSeedShopDesc = "Display the Seed Shop interface.",
+            ShowWeatherUI = "Show Weather UI",
+            ShowWeatherUIDesc = "Display the current weather information interface.",
             AutoSellAll = "Auto Sell All",
             AutoSellAllDesc = "Automatically sell all fruits stored in your inventory.",
             SellAllSpeed = "Sell All Speed",
@@ -418,13 +426,28 @@ local ElementConfigs = {
     },
     
     {
+        ID = "Seed",
+        Type = "Section",
+        Parent = TabHandles.Farm,
+        Config = {
+            Title = "loc:Seed",
+            Desc = "loc:SeedSections",
+            Icon = "sprout",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
         ID = "Shop",
         Type = "Section",
         Parent = TabHandles.Farm,
         Config = {
             Title = "loc:Shop",
             Desc = "loc:Shop_Sections",
-            Icon = "shopping_cart",
+            Icon = "shopping-cart",
             Box = true,
             BoxBorder = true,
             Opened = false,
@@ -883,8 +906,7 @@ MyUIElements.Plant:Input({
     end
 })
 
--- [ SPECIAL SEEDS CONFIGS ]
-MyUIElements.Plant:Toggle({
+MyUIElements.Seed:Toggle({
     Title = "loc:AutoClaimGoldSeed", 
     Desc = "loc:AutoClaimGoldSeedDesc", 
     Flag = "Auto Gold Seed Config",
@@ -894,7 +916,7 @@ MyUIElements.Plant:Toggle({
     end
 })
 
-MyUIElements.Plant:Toggle({
+MyUIElements.Seed:Toggle({
     Title = "loc:AutoClaimRainbowSeed", 
     Desc = "loc:AutoClaimRainbowSeedDesc", 
     Flag = "Auto Rainbow Seed Config",
@@ -1003,11 +1025,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
---=============================================
--- 4. HỆ THỐNG VÒNG LẶP LOGIC (BACKGROUND LOOPS)
---=============================================
-
--- [LOOP 1] Quét và tối ưu hóa bộ nhớ đệm Prompt mỗi 0.5 giây
 task.spawn(function()
     while task.wait(0.5) do
         local activeHarvestSteal = FarmSettings.AutoHarvest or FarmSettings.AutoSteal
@@ -1193,34 +1210,37 @@ local KeepUIOpen = {
 local SellSettings = {
     AutoSellAll = false,
     AutoSellNormal = false,
-    SellAllSpeed = 1.0,     -- Tốc độ giãn cách mặc định (giây) cho Sell All
-    SellNormalSpeed = 1.0   -- Tốc độ giãn cách mặc định (giây) cho Sell Thường
+    SellAllSpeed = 1.0,     
+    SellNormalSpeed = 1.0   
 }
 
--- [FIX LAG CHÍ SỰ] Tải module Networking 1 lần duy nhất ở ngoài, không đưa vào vòng lặp trùng lặp tài nguyên
+-- Tải module Networking 1 lần duy nhất
 local Networking = nil
 pcall(function()
     Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 end)
 
--- ==================== HÀM MÓC NỐI ĐỆ QUY TÌM FILE WEATHERDATA ====================
+-- ==================== [TỐI ƯU 1] CACHE WEATHER DATA ====================
+-- Thay vì quét toàn bộ thư mục mỗi 0.5s, ta chỉ tìm 1 lần và lưu lại vào biến cache
+local cachedWeatherData = nil
+
 local function getLiveWeatherData()
-    local foundData = nil
-    -- Thêm tham số true để kích hoạt tìm kiếm đệ quy xuyên qua mọi thư mục con trong ReplicatedStorage
+    if cachedWeatherData then return cachedWeatherData end -- Trả về luôn nếu đã tìm thấy trước đó
+    
     local weatherModule = ReplicatedStorage:FindFirstChild("WeatherData", true)
     
     if weatherModule and weatherModule:IsA("ModuleScript") then
         local success, result = pcall(require, weatherModule)
         if success and type(result) == "table" then
             if result.Data then
-                foundData = result.Data
+                cachedWeatherData = result.Data
             elseif type(result[1]) == "table" then
-                foundData = result
+                cachedWeatherData = result
             end
         end
     end
     
-    return foundData
+    return cachedWeatherData
 end
 
 -- Hàm chuyển đổi số giây sang định dạng thời gian trực quan (MM:SS hoặc HH:MM:SS)
@@ -1236,115 +1256,105 @@ local function formatTime(seconds)
     end
 end
 
--- ==================== VÒNG LẶP CHÍNH CẬP NHẬT UI & ĐẾM NGƯỢC THỜI GIAN CHUẨN ====================
+-- ==================== [TỐI ƯU 2] VÒNG LẶP CHÍNH CẬP NHẬT UI ====================
 task.spawn(function()
-    while task.wait(0.5) do -- Chạy liên tục mỗi 0.5s đảm bảo thời gian cập nhật mượt mà
+    -- Gắn biến UI bên ngoài vòng lặp để tránh FindFirstChild hàng chục lần 1 giây
+    local gearShopUI = PlayerGui:WaitForChild("GearShop", 5)
+    local seedShopUI = PlayerGui:WaitForChild("SeedShop", 5)
+    local weatherUI = PlayerGui:WaitForChild("WeatherUI", 5)
+
+    while task.wait(0.5) do
         -- 1. Ghim Gear Shop
-        if KeepUIOpen.GearShop then
-            local ui = PlayerGui:FindFirstChild("GearShop")
-            if ui then 
-                ui.Enabled = true 
-                local frame = ui:FindFirstChildWhichIsA("Frame")
-                if frame then
-                    frame.Visible = true
-                end
-            end
+        if KeepUIOpen.GearShop and gearShopUI then
+            -- Chỉ gán bằng true nếu nó đang false (tránh bắt máy tính set liên tục)
+            if not gearShopUI.Enabled then gearShopUI.Enabled = true end
+            local frame = gearShopUI:FindFirstChildWhichIsA("Frame")
+            if frame and not frame.Visible then frame.Visible = true end
         end
         
         -- 2. Ghim Seed Shop
-        if KeepUIOpen.SeedShop then
-            local ui = PlayerGui:FindFirstChild("SeedShop")
-            if ui then 
-                ui.Enabled = true 
-                local frame = ui:FindFirstChildWhichIsA("Frame")
-                if frame then
-                    frame.Visible = true
-                end
-            end
+        if KeepUIOpen.SeedShop and seedShopUI then
+            if not seedShopUI.Enabled then seedShopUI.Enabled = true end
+            local frame = seedShopUI:FindFirstChildWhichIsA("Frame")
+            if frame and not frame.Visible then frame.Visible = true end
         end
         
-        -- 3. Ghim Weather UI & ÉP CHẠY TIME ĐẾM NGƯỢC THỰC
-        if KeepUIOpen.WeatherUI then
-            local weatherUI = PlayerGui:FindFirstChild("WeatherUI")
-            if weatherUI then
-                weatherUI.Enabled = true
-                local frame = weatherUI:FindFirstChild("Frame")
-                if frame then
-                    frame.Visible = true
-                    
-                    -- Gọi hàm lấy dữ liệu thời tiết
-                    local weatherDataList = getLiveWeatherData()
-                    
-                    for _, child in pairs(frame:GetChildren()) do
-                        local timeLabel = child:FindFirstChild("Time")
-                        if timeLabel and timeLabel:IsA("TextLabel") then
-                            timeLabel.Visible = true
-                            child.Visible = true 
+        -- 3. Ghim Weather UI & ÉP CHẠY TIME
+        if KeepUIOpen.WeatherUI and weatherUI then
+            if not weatherUI.Enabled then weatherUI.Enabled = true end
+            local frame = weatherUI:FindFirstChild("Frame")
+            
+            if frame then
+                if not frame.Visible then frame.Visible = true end
+                
+                local weatherDataList = getLiveWeatherData()
+                
+                for _, child in pairs(frame:GetChildren()) do
+                    local timeLabel = child:FindFirstChild("Time")
+                    if timeLabel and timeLabel:IsA("TextLabel") then
+                        -- Check trạng thái Visible trước khi gán
+                        if not timeLabel.Visible then timeLabel.Visible = true end
+                        if not child.Visible then child.Visible = true end
+                        if not timeLabel.TextScaled then timeLabel.TextScaled = true end
+                        
+                        local matchedData = nil
+                        
+                        if weatherDataList then
+                            local childNameLower = string.lower(child.Name)
                             
-                            if not timeLabel.TextScaled then
-                                timeLabel.TextScaled = true 
+                            -- Cách 1: Đối chiếu tên
+                            for _, wData in ipairs(weatherDataList) do
+                                if string.find(childNameLower, string.lower(wData.Name)) then
+                                    matchedData = wData
+                                    break
+                                end
                             end
                             
-                            local matchedData = nil
-                            
-                            -- XỬ LÝ ĐỒNG BỘ DỮ LIỆU THỜI GIAN
-                            if weatherDataList then
-                                local childNameLower = string.lower(child.Name)
-                                
-                                -- Cách 1: Đối chiếu theo tên Object Khung chứa
-                                for _, wData in ipairs(weatherDataList) do
-                                    local wNameLower = string.lower(wData.Name)
-                                    if string.find(childNameLower, wNameLower) then
-                                        matchedData = wData
-                                        break
-                                    end
-                                end
-                                
-                                -- Cách 2 (Bảo hiểm): Quét chữ hiển thị bên trong xem có chứa tên Thời tiết không
-                                if not matchedData then
-                                    for _, desc in ipairs(child:GetDescendants()) do
-                                        if desc:IsA("TextLabel") and desc.Name ~= "Time" then
-                                            local textLower = string.lower(desc.Text)
-                                            for _, wData in ipairs(weatherDataList) do
-                                                local wNameLower = string.lower(wData.Name)
-                                                if string.find(textLower, wNameLower) or textLower == wNameLower then
-                                                    matchedData = wData
-                                                    break
-                                                end
+                            -- Cách 2: TỐI ƯU HÓA - Thay GetDescendants bằng GetChildren để quét mượt hơn
+                            if not matchedData then
+                                for _, desc in pairs(child:GetChildren()) do
+                                    if desc:IsA("TextLabel") and desc.Name ~= "Time" then
+                                        local textLower = string.lower(desc.Text)
+                                        for _, wData in ipairs(weatherDataList) do
+                                            local wNameLower = string.lower(wData.Name)
+                                            if string.find(textLower, wNameLower) or textLower == wNameLower then
+                                                matchedData = wData
+                                                break
                                             end
                                         end
-                                        if matchedData then break end
                                     end
+                                    if matchedData then break end
                                 end
                             end
-                            
-                            -- Khi đã tìm thấy đúng Data tương thích hoặc dùng bộ đếm ảo khi mất kết nối file
-                            if matchedData then
-                                if matchedData.AlwaysOn then
+                        end
+                        
+                        -- Hiển thị dữ liệu
+                        if matchedData then
+                            if matchedData.AlwaysOn then
+                                if timeLabel.Text ~= "Always Active" then
                                     timeLabel.Text = "Always Active"
                                     timeLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-                                else
-                                    local now = os.time()
-                                    local occuranceSecs = (matchedData.Occurance or 60) * 60
-                                    local durationSecs = matchedData.Last or 300
-                                    
-                                    local timeMod = now % occuranceSecs
-                                    
-                                    if timeMod < durationSecs then
-                                        local left = durationSecs - timeMod
-                                        timeLabel.Text = "Active: " .. formatTime(left)
-                                        timeLabel.TextColor3 = Color3.fromRGB(85, 255, 85)
-                                    else
-                                        local left = occuranceSecs - timeMod
-                                        timeLabel.Text = formatTime(left)
-                                        timeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                                    end
                                 end
                             else
-                                local fallbackLoop = os.time() % 3600
-                                timeLabel.Text = formatTime(3600 - fallbackLoop)
-                                timeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+                                local now = os.time()
+                                local occuranceSecs = (matchedData.Occurance or 60) * 60
+                                local durationSecs = matchedData.Last or 300
+                                local timeMod = now % occuranceSecs
+                                
+                                if timeMod < durationSecs then
+                                    local left = durationSecs - timeMod
+                                    timeLabel.Text = "Active: " .. formatTime(left)
+                                    timeLabel.TextColor3 = Color3.fromRGB(85, 255, 85)
+                                else
+                                    local left = occuranceSecs - timeMod
+                                    timeLabel.Text = formatTime(left)
+                                    timeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                                end
                             end
+                        else
+                            local fallbackLoop = os.time() % 3600
+                            timeLabel.Text = formatTime(3600 - fallbackLoop)
+                            timeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
                         end
                     end
                 end
@@ -1353,7 +1363,7 @@ task.spawn(function()
     end
 end)
 
--- ==================== [TỐI ƯU] VÒNG LẶP AUTO SELL SIÊU MƯỢT KHÔNG DROP FPS ====================
+-- ==================== VÒNG LẶP AUTO SELL ====================
 task.spawn(function()
     while true do
         if SellSettings.AutoSellAll and Networking then
@@ -1362,7 +1372,7 @@ task.spawn(function()
             end)
             task.wait(SellSettings.SellAllSpeed)
         else
-            task.wait(0.5) -- Nếu tắt tính năng, ép vòng lặp nghỉ 0.5s để giải phóng dung lượng CPU triệt để
+            task.wait(0.5) 
         end
     end
 end)
@@ -1377,17 +1387,15 @@ task.spawn(function()
                         local fruitName = tool:GetAttribute("FruitName")
                         local petName = tool:GetAttribute("Pet")
                         
-                        if fruitName or petName then
-                            if fruitName then
-                                local fruitId = tool:GetAttribute("Id")
-                                if fruitId then
-                                    Networking.NPCS.SellFruit:Fire(fruitId)
-                                end
-                            elseif petName then
-                                local petId = tool:GetAttribute("PetId")
-                                if petId then
-                                    Networking.NPCS.SellPet:Fire(petId)
-                                end
+                        if fruitName then
+                            local fruitId = tool:GetAttribute("Id")
+                            if fruitId then
+                                Networking.NPCS.SellFruit:Fire(fruitId)
+                            end
+                        elseif petName then
+                            local petId = tool:GetAttribute("PetId")
+                            if petId then
+                                Networking.NPCS.SellPet:Fire(petId)
                             end
                         end
                     end
@@ -1401,8 +1409,8 @@ task.spawn(function()
 end)
 
 MyUIElements.Shop:Toggle({
-    Title = "Auto Gear Shop", 
-    Desc = "Tự động tìm và ghim hiện GearShop UI", 
+    Title = "loc:ShowGearShop", 
+    Desc = "loc:ShowGearShopDesc", 
     Flag = "Toggle_GearShop",
     Value = false, 
     Callback = function(val) 
@@ -1415,8 +1423,8 @@ MyUIElements.Shop:Toggle({
 })
 
 MyUIElements.Shop:Toggle({
-    Title = "Auto Seed Shop", 
-    Desc = "Tự động tìm và ghim hiện SeedShop UI", 
+    Title = "loc:ShowSeedShop", 
+    Desc = "loc:ShowSeedShopDesc", 
     Flag = "Toggle_SeedShop",
     Value = false, 
     Callback = function(val) 
@@ -1429,8 +1437,8 @@ MyUIElements.Shop:Toggle({
 })
 
 MyUIElements.Shop:Toggle({
-    Title = "Auto Weather UI", 
-    Desc = "Đồng bộ Time Server và ghim hiện WeatherUI", 
+    Title = "loc:ShowWeatherUI", 
+    Desc = "loc:ShowWeatherUIDesc", 
     Flag = "Toggle_WeatherUI",
     Value = false, 
     Callback = function(val)
