@@ -559,7 +559,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.0.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.0.6", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -2002,12 +2002,32 @@ task.spawn(function()
             for _, itemName in ipairs(ShopConfig.Seed.Selected) do
                 if not ShopConfig.Seed.AutoBuy then break end
                 local price = ShopConfig.Seed.Prices[itemName] or 0
-                if currentMoney >= price then
-                    local stockItem = ShopConfig.Seed.Stock:FindFirstChild(itemName)
-                    if stockItem and stockItem.Value > 0 then
-                        pcall(function() ShopConfig.Net.SeedShop.PurchaseSeed:Fire(itemName) end)
-                        currentMoney = currentMoney - price
-                        task.wait(0.1)
+                
+                local stockItem = ShopConfig.Seed.Stock:FindFirstChild(itemName)
+                if stockItem then
+                    -- Lấy tổng số lượng trên kệ (Max Stock) của đợt refresh này
+                    local maxStock = stockItem.Value
+                    
+                    -- Check trong dữ liệu người chơi xem đợt này đã mua bao nhiêu cái rồi
+                    local purchased = 0
+                    if ShopConfig.PlayerReplica and ShopConfig.PlayerReplica.Data and ShopConfig.PlayerReplica.Data.PurchasedThisRestock and ShopConfig.PlayerReplica.Data.PurchasedThisRestock.Seeds then
+                        purchased = ShopConfig.PlayerReplica.Data.PurchasedThisRestock.Seeds[itemName] or 0
+                    end
+                    
+                    -- Tính toán số lượng hàng thực tế còn lại (giống hệt code gốc của game)
+                    local remainingStock = math.max(maxStock - purchased, 0)
+                    
+                    -- Lặp đúng số lần bằng số lượng hàng còn lại
+                    for i = 1, remainingStock do
+                        -- Check lại tiền và trạng thái AutoBuy trước khi fire từng cái một
+                        if currentMoney >= price and ShopConfig.Seed.AutoBuy then
+                            pcall(function() ShopConfig.Net.SeedShop.PurchaseSeed:Fire(itemName) end)
+                            currentMoney = currentMoney - price
+                            task.wait(0.1) -- Delay nhỏ để server không kick vì spam
+                        else
+                            -- Nếu giữa chừng mà hết tiền hoặc bị tắt AutoBuy thì break vòng lặp luôn
+                            break 
+                        end
                     end
                 end
             end
