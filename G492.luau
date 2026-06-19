@@ -29,6 +29,8 @@ end)
 
 Camera = Workspace.CurrentCamera
 
+getgenv().SprinklerList = {"Common Sprinkler", "Uncommon Sprinkler", "Rare Sprinkler", "Legendary Sprinkler", "Super Sprinkler" }
+
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-GAMING-MOD/WindUI-Mod/refs/heads/main/WindUI-Mod.luau"))()
 
 WindUI:AddTheme({
@@ -138,6 +140,8 @@ WindUI:Localization({
             Harvest_Sections = "Manage harvesting features and automation.",
             Steal = "Steal",
             Steal_Sections = "Manage stealing features and automation.",
+            Gear = "Gear",
+            GearSections = "Manage gear features and automation.",
             SellFruit = "Sell Fruit",
             SellFruitSections = "Manage fruit selling features and automation.",
             BuySeed = "Buy Seed",
@@ -278,6 +282,12 @@ WindUI:Localization({
             UI = "UI",
             Config = "Config",
             Free = "Free",
+            SelectSprinkler = "Select Sprinkler",
+            SelectSprinklerDesc = "Choose the sprinkler to use automatically.",
+            AutoPlaceSprinkler = "Auto Place Sprinkler",
+            AutoPlaceSprinklerDesc = "Automatically place the selected sprinkler.",
+            AutoEquipSprinkler = "Auto Equip Sprinkler",
+            AutoEquipSprinklerDesc = "Automatically equip the selected sprinkler.",
         },
         vi = {
 HubTitle = "Hutao Hub",
@@ -307,6 +317,8 @@ HubTitle = "Hutao Hub",
             Harvest_Sections = "Quản lý các tính năng và tự động hóa thu hoạch.",
             Steal = "Trộm",
             Steal_Sections = "Quản lý các tính năng và tự động hóa trộm.",
+            Gear = "Trang bị",
+            GearSections = "Quản lý và tự động hóa các tính năng liên quan đến trang bị.",
             SellFruit = "Bán trái cây",
             SellFruitSections = "Quản lý các tính năng và tự động hóa bán trái cây.",
             BuySeed = "Mua hạt giống",
@@ -448,6 +460,12 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             UI = "Giao diện",
             Config = "Cấu hình",
             Free = "Miễn phí",
+            SelectSprinkler = "Chọn vòi tưới",
+            SelectSprinklerDesc = "Chọn sprinkler để tự động sử dụng.",
+            AutoPlaceSprinkler = "Tự đặt vòi tưới",
+            AutoPlaceSprinklerDesc = "Tự động đặt sprinkler đã chọn.",
+            AutoEquipSprinkler = "Tự dùng vòi tưới",
+            AutoEquipSprinklerDesc = "Tự động trang bị sprinkler đã chọn.",
         }
     }
 })
@@ -541,7 +559,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.0.4", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.0.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -638,6 +656,21 @@ local ElementConfigs = {
             Title = "loc:Seed",
             Desc = "loc:SeedSections",
             Icon = "wheat",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "Gear",
+        Type = "Section",
+        Parent = TabHandles.Main,
+        Config = {
+            Title = "loc:Gear",
+            Desc = "loc:GearSections",
+            Icon = "wrench",
             Box = true,
             BoxBorder = true,
             Opened = false,
@@ -1201,9 +1234,6 @@ local function getInventoryCount()
     return count
 end
 
---=============================================
--- 3. HỆ THỐNG BYPASS ANTI-CHEAT THÔNG MINH
---=============================================
 RunService.Heartbeat:Connect(function()
     local isLockValid = false
 
@@ -1415,7 +1445,148 @@ task.spawn(function()
     end
 end)
 
--- Bảng quản lý trạng thái của các UI và cài đặt tự động bán
+local AutoSprinkler = {
+	-- Đã gỡ CollectionService vì không còn dùng tới
+	Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking")),
+	Gardens = Workspace:WaitForChild("Gardens"),
+	SelectedTool = nil,
+	AutoPlace = false,
+	AutoEquip = false,
+	LastPlaceTime = 0,
+	LastScanTime = 0,
+	Cooldown = 0.5,      
+	ScanInterval = 0.05  
+}
+
+-- Hàm tìm kiếm đối tượng Tool thực tế 
+function AutoSprinkler:GetTool()
+	local selected = self.SelectedTool
+	
+	-- CHỐNG ĐẶT BẬY: Nếu chưa chọn gì trên UI thì lập tức từ chối, không tự động lấy tool linh tinh nữa
+	if not selected or selected == "" then return nil end
+
+	-- Hàm phụ để check xem tool có trên người hay balo không
+	local function findToolInPlayer(toolName)
+		if localPlayer.Backpack and localPlayer.Backpack:FindFirstChild(toolName) then
+			return localPlayer.Backpack:FindFirstChild(toolName)
+		end
+		if playerCharacter and playerCharacter:FindFirstChild(toolName) then
+			return playerCharacter:FindFirstChild(toolName)
+		end
+		return nil
+	end
+
+	-- Xử lý thông minh: Nếu UI đang dùng Multi = true (chọn nhiều cái cùng lúc)
+	if type(selected) == "table" then
+		for _, name in pairs(selected) do
+			local found = findToolInPlayer(name)
+			if found then return found end -- Lấy cái đầu tiên tìm thấy trong danh sách đã chọn
+		end
+	-- Nếu UI dùng Multi = false (chỉ chọn 1 cái)
+	elseif type(selected) == "string" then
+		return findToolInPlayer(selected)
+	end
+	
+	return nil
+end
+
+-- Hàm lấy Khu Đất (Plot) từ Part dẫm lên
+function AutoSprinkler:GetPlot(part)
+	local current = part
+	while current do
+		if current.Parent == self.Gardens and string.match(current.Name, "^Plot%d+$") then
+			return current
+		end
+		current = current.Parent
+		if current == Workspace then break end
+	end
+	return nil
+end
+
+MyUIElements.Gear:Dropdown({
+	Title = "loc:SelectSprinkler",
+	Desc = "loc:SelectSprinklerDesc",
+	Values = getgenv().SprinklerList,
+	Value = nil,
+	Flag = "SelectSprinklerDropdown",
+	Multi = true,
+	AllowNone = true,
+	Callback = function(option) 
+		AutoSprinkler.SelectedTool = option 
+	end
+})
+
+MyUIElements.Gear:Toggle({
+	Title = "loc:AutoPlaceSprinkler", 
+	Desc = "loc:AutoPlaceSprinklerDesc", 
+	Flag = "AutoPlaceSprinklerToggle",
+	Value = false, 
+	Callback = function(val)
+		AutoSprinkler.AutoPlace = val
+	end
+})
+
+MyUIElements.Gear:Toggle({
+	Title = "loc:AutoEquipSprinkler", 
+	Desc = "loc:AutoEquipSprinklerDesc", 
+	Flag = "AutoEquipSprinklerToggle",
+	Value = false, 
+	Callback = function(val)
+		AutoSprinkler.AutoEquip = val
+	end
+})
+
+RunService.Heartbeat:Connect(function()
+	if not AutoSprinkler.AutoPlace then return end
+	
+	local now = os.clock()
+	if now - AutoSprinkler.LastScanTime < AutoSprinkler.ScanInterval then return end
+	AutoSprinkler.LastScanTime = now
+	
+	if now - AutoSprinkler.LastPlaceTime < AutoSprinkler.Cooldown then return end
+	
+	local char = playerCharacter
+	if not char then return end
+	
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	local humanoid = char:FindFirstChild("Humanoid")
+	if not hrp or not humanoid then return end
+	
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = {char, Camera}
+	
+	local result = Workspace:Raycast(hrp.Position, Vector3.new(0, -15, 0), params)
+	if not result or not result.Instance then return end
+	
+	local hitPart = result.Instance
+	
+	-- Đã bỏ check isPlantArea, truyền thẳng hitPart vào GetPlot
+	local plot = AutoSprinkler:GetPlot(hitPart)
+	if not plot or plot:GetAttribute("Owner") == nil then return end
+	
+	local myPlotId = localPlayer:GetAttribute("PlotId")
+	local plotId = tonumber(string.match(plot.Name, "%d+"))
+	
+	if myPlotId and plotId == myPlotId then
+		local tool = AutoSprinkler:GetTool()
+		-- KHI CHƯA CHỌN DROPDOWN => TOOL = NIL => DỪNG LUÔN KHÔNG CHẠY XUỐNG DƯỚI
+		if not tool then return end 
+		
+		if AutoSprinkler.AutoEquip and tool.Parent == localPlayer.Backpack then
+			humanoid:EquipTool(tool)
+		end
+		
+		if tool.Parent == char then
+			local sprinklerType = tool:GetAttribute("Sprinkler") or tool.Name
+			
+			AutoSprinkler.Networking.Place.PlaceSprinkler:Fire(result.Position, sprinklerType, tool, plotId)
+			AutoSprinkler.LastPlaceTime = now
+		end
+	end
+end)
+
+
 local KeepUIOpen = {
     GearShop = false,
     SeedShop = false,
