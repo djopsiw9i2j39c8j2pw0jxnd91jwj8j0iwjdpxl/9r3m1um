@@ -128,6 +128,7 @@ WindUI:Localization({
             Main = "Main",
             Information = "Information",
             Update = "Update",
+            UpdateDesc = "▪︎ Auto Buy Seed\n▪︎ Auto Buy Gear\n▪︎ Auto Sell All\n▪︎ Fix Fire Network:\n+ Auto Harvest\n+ Auto Steal Fruit\n▪︎ Fix Lag All Toggle",
             Settings = "Settings",
             Seed = "Seed",
             SeedSections = "Claim special seeds automatically and configure related options.",
@@ -296,6 +297,7 @@ HubTitle = "Hutao Hub",
             Main = "Chính",
             Information = "Thông tin",
             Update = "Cập nhật",
+            UpdateDesc = "▪︎ Tự mua hạt giống\n▪︎ Tự mua trang bị\n▪︎ Tự Bán Tất Cả Trái\n▪︎ Sửa Fire Network:\n+ Tự thu hoạch\n+ Tự ăn trộm trái\n▪︎ Sửa lỗi lag toggle",
             Settings = "Cài đặt",
             Seed = "Hạt giống",
             SeedSections = "Tự động nhận hạt giống đặc biệt và cấu hình các tùy chọn liên quan.",
@@ -539,7 +541,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.0.3", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.0.4", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -793,6 +795,15 @@ for _, item in ipairs(ElementConfigs) do
 end
 
 Window:SelectTab(1)
+
+TabHandles.Update:Paragraph({
+    Title = "loc:Update",
+    Desc = "loc:UpdateDesc",
+    Icon = "how",
+})
+
+
+
 local Info = TabHandles["Info"]
 
 Info:Divider()
@@ -1418,14 +1429,11 @@ local SellSettings = {
     SellNormalSpeed = 1.0   
 }
 
--- Tải module Networking 1 lần duy nhất
 local Networking = nil
 pcall(function()
     Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 end)
 
--- ==================== [TỐI ƯU 1] CACHE WEATHER DATA ====================
--- Thay vì quét toàn bộ thư mục mỗi 0.5s, ta chỉ tìm 1 lần và lưu lại vào biến cache
 local cachedWeatherData = nil
 
 local function getLiveWeatherData()
@@ -1566,7 +1574,6 @@ task.spawn(function()
     end
 end)
 
--- ==================== VÒNG LẶP AUTO SELL ====================
 task.spawn(function()
     while true do
         if SellSettings.AutoSellAll and Networking then
