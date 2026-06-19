@@ -125,16 +125,24 @@ WindUI:Localization({
             Visual = "Visual",
             Player = "Player",
             Teleport = "Teleport",
-            Farm = "Farm",
+            Main = "Main",
             Information = "Information",
             Update = "Update",
             Settings = "Settings",
-            Plant = "Plant",
-            Plant_Sections = "Install garden-related functions in the map",
             Seed = "Seed",
             SeedSections = "Claim special seeds automatically and configure related options.",
             Shop = "Shop",
             Shop_Sections = "Configure automatic buying, selling, and shop-related features.",
+            Harvest = "Harvest",
+            Harvest_Sections = "Manage harvesting features and automation.",
+            Steal = "Steal",
+            Steal_Sections = "Manage stealing features and automation.",
+            SellFruit = "Sell Fruit",
+            SellFruitSections = "Manage fruit selling features and automation.",
+            BuySeed = "Buy Seed",
+            BuySeedSections = "Manage seed purchasing features and automation.",
+            BuyGear = "Buy Gear",
+            BuyGearSections = "Manage gear purchasing features and automation.",
             Power = "Character Powers",
             PowerDesc = "Adjust your character's enhanced movement and special abilities.",
             SettingsManager = "Settings Manager",
@@ -191,6 +199,18 @@ WindUI:Localization({
             AutoSellToolInHandDesc = "Automatically sell the fruit or pet currently held in your hand.",
             SellToolInHandSpeed = "Sell Tool In Hand Speed",
             SellToolInHandSpeedDesc = "Adjust the speed of selling the item currently held in your hand.",
+            SeclectSeed = "Seclect Seed",
+            SeclectSeedDesc = "Choose the seed to purchase automatically.",
+            AutoBuySeed = "Auto Buy Seed",
+            AutoBuySeedDesc = "Automatically purchase the selected seed.",
+            BuySeedSpeed = "Buy Seed Speed",
+            BuySeedSpeedDesc = "Adjust the speed of automatic seed purchases.",
+            SeclectGear = "Seclect Gear",
+            SeclectGearDesc = "Choose the gear to purchase automatically.",
+            AutoBuyGear = "Auto Buy Gear",
+            AutoBuyGearDesc = "Automatically purchase the selected gear.",
+            BuyGearSpeed = "Buy Gear Speed",
+            BuyGearSpeedDesc = "Adjust the speed of automatic gear purchases.",
             Noclip = "Noclip",
             NoclipDesc = "Toggle collision to walk through walls and other objects.",
             InfJump = "Infinite Jump",
@@ -356,7 +376,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "Beta", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.0.3", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -376,19 +396,24 @@ local TabHandles = {
         Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1 
     }),
     
-    Farm = Tabs.Features:Tab({ 
-        Title = "loc:Farm", Icon = "crown", Desc = "Phần Cày", IconThemed = true, 
+    Main = Tabs.Features:Tab({ 
+        Title = "loc:Main", Icon = "crown", Desc = "Phần Chính", IconThemed = true, 
         Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1 
     }),
     
-    Teleport = Tabs.Gameplay:Tab({ 
-        Title = "loc:Teleport", Icon = "map", Desc = "Dịch Chuyển", IconThemed = true, 
+    Shop = Tabs.Features:Tab({ 
+        Title = "loc:Shop", Icon = "shopping-cart", Desc = "Cửa Hàng", IconThemed = true, 
         Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1 
     }),
     
     Player = Tabs.Gameplay:Tab({ 
         Title = "loc:Player", Icon = "user", Desc = "Người Chơi", IconThemed = true, 
         Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 2 
+    }),
+    
+    Teleport = Tabs.Gameplay:Tab({ 
+        Title = "loc:Teleport", Icon = "map", Desc = "Dịch Chuyển", IconThemed = true, 
+        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1 
     }),
     
     Visual = Tabs.Gameplay:Tab({ 
@@ -411,13 +436,28 @@ local MyUIElements = {}
 
 local ElementConfigs = {
     {
-        ID = "Plant",
+        ID = "Harvest",
         Type = "Section",
-        Parent = TabHandles.Farm,
+        Parent = TabHandles.Main,
         Config = {
-            Title = "loc:Plant",
-            Desc = "loc:Plant_Sections",
+            Title = "loc:Harvest",
+            Desc = "loc:Harvest_Sections",
             Icon = "leaf",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "Steal",
+        Type = "Section",
+        Parent = TabHandles.Main,
+        Config = {
+            Title = "loc:Steal",
+            Desc = "loc:Steal_Sections",
+            Icon = "sprout",
             Box = true,
             BoxBorder = true,
             Opened = false,
@@ -428,11 +468,11 @@ local ElementConfigs = {
     {
         ID = "Seed",
         Type = "Section",
-        Parent = TabHandles.Farm,
+        Parent = TabHandles.Main,
         Config = {
             Title = "loc:Seed",
             Desc = "loc:SeedSections",
-            Icon = "sprout",
+            Icon = "wheat",
             Box = true,
             BoxBorder = true,
             Opened = false,
@@ -443,11 +483,56 @@ local ElementConfigs = {
     {
         ID = "Shop",
         Type = "Section",
-        Parent = TabHandles.Farm,
+        Parent = TabHandles.Shop,
         Config = {
             Title = "loc:Shop",
             Desc = "loc:Shop_Sections",
             Icon = "shopping-cart",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "SellFruit",
+        Type = "Section",
+        Parent = TabHandles.Shop,
+        Config = {
+            Title = "loc:SellFruit",
+            Desc = "loc:SellFruitSections",
+            Icon = "coins",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "BuySeed",
+        Type = "Section",
+        Parent = TabHandles.Shop,
+        Config = {
+            Title = "loc:BuySeed",
+            Desc = "loc:BuySeedSections",
+            Icon = "package",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "GearShop",
+        Type = "Section",
+        Parent = TabHandles.Shop,
+        Config = {
+            Title = "loc:BuyGear",
+            Desc = "loc:BuyGearSections",
+            Icon = "briefcase",
             Box = true,
             BoxBorder = true,
             Opened = false,
@@ -816,52 +901,47 @@ for item, _ in pairs(ValidItems) do
     ValidItemsLower[string.lower(item)] = true
 end
 
---=============================================
--- 1. CẤU HÌNH GIAO DIỆN
---=============================================
--- (Giữ nguyên phần UI của bro...)
--- [ HARVEST CONFIGS ]
-MyUIElements.Plant:Toggle({
+MyUIElements.Harvest:Toggle({
     Title = "loc:Auto_Harvest", Desc = "loc:Auto_Harvest_Desc", Flag = "Auto Harvest v2",
     Value = false, Callback = function(val) FarmSettings.AutoHarvest = val end
 })
 
-MyUIElements.Plant:Input({
+MyUIElements.Harvest:Input({
     Title = "loc:Harvest_Radius", Desc = "loc:Harvest_Radius_Desc", Flag = "Harvest Radius Config",
     Placeholder = "Enter harvest radius (Default: 50)", Value = "50", 
     Callback = function(val) FarmSettings.HarvestRadius = tonumber(val) or 50 end
 })
 
-MyUIElements.Plant:Input({
+MyUIElements.Harvest:Input({
     Title = "loc:Harvest_Speed", Desc = "loc:Harvest_Speed_Desc", Flag = "Harvest Speed Config",
     Placeholder = "Delay between harvests (Default: 0.1)", Value = "0.1", 
     Callback = function(val) FarmSettings.HarvestSpeed = tonumber(val) or 0.1 end
 })
 
-MyUIElements.Plant:Input({
+MyUIElements.Harvest:Input({
     Title = "loc:Max_Inventory_Capacity", Desc = "loc:Max_Inventory_Capacity_Desc", Flag = "Max Capacity Config",
     Placeholder = "Default: 100", Value = "100", 
     Callback = function(val) FarmSettings.MaxCapacity = tonumber(val) or 100 end
 })
 
 -- [ STEAL CONFIGS ]
-MyUIElements.Plant:Toggle({
+MyUIElements.Steal:Toggle({
     Title = "loc:Auto_Steal", Desc = "loc:Auto_Steal_Desc", Flag = "Auto Steal v2",
     Value = false, Callback = function(val) FarmSettings.AutoSteal = val end
 })
 
-MyUIElements.Plant:Toggle({
+MyUIElements.Steal:Toggle({
     Title = "loc:Teleport_to_Steal", Desc = "loc:Teleport_to_Steal_Desc", Flag = "Teleport Steal Config",
     Value = false, Callback = function(val) FarmSettings.TeleportSteal = val end
 })
 
-MyUIElements.Plant:Input({
+MyUIElements.Steal:Input({
     Title = "loc:Steal_Radius", Desc = "loc:Steal_Radius_Desc", Flag = "Steal Radius Config",
     Placeholder = "Enter steal radius (Default: 50)", Value = "50", 
     Callback = function(val) FarmSettings.StealRadius = tonumber(val) or 50 end
 })
 
-MyUIElements.Plant:Input({
+MyUIElements.Steal:Input({
     Title = "loc:Steal_Speed", Desc = "loc:Steal_Speed_Desc", Flag = "Steal Speed Config",
     Placeholder = "Delay between steals (Default: 0.2)", Value = "0.2", 
     Callback = function(val) FarmSettings.StealSpeed = tonumber(val) or 0.2 end
@@ -877,16 +957,10 @@ MyUIElements.Seed:Toggle({
     Value = false, Callback = function(val) FarmSettings.AutoRainbowSeed = val end
 })
 
---=============================================
--- 2. HÀM XỬ LÝ ACTION TỐI ƯU
---=============================================
-
--- [MỚI] Hàm Fire trực tiếp RemoteEvent (Bypass Prompt)
 local function executeActionDirectly(data)
     if not data then return end
     
     if data.IsHarvest and data.PlantId then
-        -- Gửi Remote thu hoạch
         Networking.Garden.CollectFruit:Fire(data.PlantId, data.FruitId)
         
     elseif data.IsSteal and data.OwnerUserId and data.PlantId then
@@ -1226,7 +1300,6 @@ local function formatTime(seconds)
     end
 end
 
--- ==================== [TỐI ƯU 2] VÒNG LẶP CHÍNH CẬP NHẬT UI ====================
 task.spawn(function()
     -- Gắn biến UI bên ngoài vòng lặp để tránh FindFirstChild hàng chục lần 1 giây
     local gearShopUI = PlayerGui:WaitForChild("GearShop", 5)
@@ -1433,7 +1506,7 @@ MyUIElements.Shop:Toggle({
     end 
 })
 
-MyUIElements.Shop:Toggle({
+MyUIElements.SellFruit:Toggle({
     Title = "loc:AutoSellAll", 
     Desc = "loc:AutoSellAllDesc", 
     Flag = "Toggle_AutoSellAll",
@@ -1443,7 +1516,7 @@ MyUIElements.Shop:Toggle({
     end 
 })
 
-MyUIElements.Shop:Input({
+MyUIElements.SellFruit:Input({
     Title = "loc:SellAllSpeed", 
     Desc = "loc:SellAllSpeedDesc", 
     Flag = "Input_SellAllSpeed",
@@ -1456,7 +1529,7 @@ MyUIElements.Shop:Input({
     end
 })
 
-MyUIElements.Shop:Toggle({
+MyUIElements.SellFruit:Toggle({
     Title = "loc:AutoSellToolInHand", 
     Desc = "loc:AutoSellToolInHandDesc", 
     Flag = "Toggle_AutoSellNormal",
@@ -1466,7 +1539,7 @@ MyUIElements.Shop:Toggle({
     end 
 })
 
-MyUIElements.Shop:Input({
+MyUIElements.SellFruit:Input({
     Title = "loc:SellToolInHandSpeed", 
     Desc = "loc:SellToolInHandSpeedDesc", 
     Flag = "Input_SellNormalSpeed",
@@ -1478,6 +1551,162 @@ MyUIElements.Shop:Input({
         end
     end
 })
+
+local ShopConfig = {
+    Net = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking")),
+    PlayerReplica = require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("PlayerStateClient")):WaitForLocalReplica(30),
+    
+    Seed = {
+        AutoBuy = false,
+        All = {},
+        Selected = {},
+        Prices = {},
+        SpeedDelay = 2,
+        Stock = ReplicatedStorage:WaitForChild("StockValues"):WaitForChild("SeedShop"):WaitForChild("Items")
+    },
+    
+    Gear = {
+        AutoBuy = false,
+        All = {},
+        Selected = {},
+        Prices = {}, 
+        SpeedDelay = 2,
+        Stock = ReplicatedStorage:WaitForChild("StockValues"):WaitForChild("GearShop"):WaitForChild("Items")
+    }
+}
+
+for _, v in ipairs(require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("SeedData"))) do
+    if v.RestockShop and v.SeedName then
+        table.insert(ShopConfig.Seed.All, v.SeedName)
+        table.insert(ShopConfig.Seed.Selected, v.SeedName)
+        ShopConfig.Seed.Prices[v.SeedName] = v.PurchasePrice or 0
+    end
+end
+
+for _, v in ipairs(require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("GearShopData")).Data) do
+    if v.ItemName then
+        table.insert(ShopConfig.Gear.All, v.ItemName)
+        table.insert(ShopConfig.Gear.Selected, v.ItemName)
+        ShopConfig.Gear.Prices[v.ItemName] = v.PurchasePrice or v.Price or 0 
+    end
+end
+
+MyUIElements.BuySeed:Dropdown({
+    Title = "loc:SeclectSeed",
+    Desc = "loc:SeclectSeedDesc",
+    Values = ShopConfig.Seed.All,
+    Value = ShopConfig.Seed.Selected,
+    Flag = "SeclectSeed",
+    Multi = true,
+    AllowNone = true,
+    Callback = function(option) ShopConfig.Seed.Selected = option end
+})
+
+MyUIElements.BuySeed:Toggle({
+    Title = "loc:AutoBuySeed",
+    Desc = "loc:AutoBuySeedDesc",
+    Flag = "BuySeed",
+    Value = false, 
+    Callback = function(state) ShopConfig.Seed.AutoBuy = state end
+})
+
+MyUIElements.BuySeed:Input({
+    Title = "loc:BuySeedSpeed",
+    Desc = "loc:BuySeedSpeedDesc",
+    Flag = "BuySeed_Speed",
+    Value = tostring(ShopConfig.Seed.SpeedDelay),
+    ClearTextOnFocus = false,
+    Callback = function(val)
+        local num = tonumber(val)
+        if num and num >= 0 then ShopConfig.Seed.SpeedDelay = num end
+    end
+})
+
+MyUIElements.GearShop:Dropdown({
+    Title = "loc:SeclectGear",
+    Desc = "loc:SeclectGearDesc",
+    Flag = "SeclectGear",
+    Values = ShopConfig.Gear.All,
+    Value = ShopConfig.Gear.Selected,
+    Multi = true,
+    AllowNone = true,
+    Callback = function(val) ShopConfig.Gear.Selected = val end
+})
+
+MyUIElements.GearShop:Toggle({
+    Title = "loc:AutoBuyGear",
+    Desc = "loc:AutoBuyGearDesc",
+    Flag = "AutoBuyGear",
+    Callback = function(state) ShopConfig.Gear.AutoBuy = state end
+})
+
+MyUIElements.GearShop:Input({
+    Title = "loc:BuyGearSpeed",
+    Desc = "loc:BuyGearSpeedDesc",
+    Flag = "BuyGear_Speed",
+    Value = tostring(ShopConfig.Gear.SpeedDelay),
+    ClearTextOnFocus = false,
+    Callback = function(val)
+        local num = tonumber(val)
+        if num and num >= 0 then ShopConfig.Gear.SpeedDelay = num end
+    end
+})
+
+local function GetMoney()
+    return (ShopConfig.PlayerReplica and ShopConfig.PlayerReplica.Data) and (ShopConfig.PlayerReplica.Data.Sheckles or 0) or 0
+end
+
+task.spawn(function()
+    while true do
+        task.wait(ShopConfig.Seed.SpeedDelay) 
+        if ShopConfig.Seed.AutoBuy then
+            local currentMoney = GetMoney()
+            for _, itemName in ipairs(ShopConfig.Seed.Selected) do
+                if not ShopConfig.Seed.AutoBuy then break end
+                local price = ShopConfig.Seed.Prices[itemName] or 0
+                if currentMoney >= price then
+                    local stockItem = ShopConfig.Seed.Stock:FindFirstChild(itemName)
+                    if stockItem and stockItem.Value > 0 then
+                        pcall(function() ShopConfig.Net.SeedShop.PurchaseSeed:Fire(itemName) end)
+                        currentMoney = currentMoney - price
+                        task.wait(0.1)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(ShopConfig.Gear.SpeedDelay)
+        if ShopConfig.Gear.AutoBuy then
+            local ownedGears = {}
+            pcall(function()
+                local state = ShopConfig.Net.GearShop.RequestEquippableState:Fire()
+                if type(state) == "table" and state.OwnedEquippableGears then
+                    for k in pairs(state.OwnedEquippableGears) do ownedGears[k] = true end
+                end
+            end)
+            
+            local currentMoney = GetMoney()
+            for _, itemName in ipairs(ShopConfig.Gear.Selected) do
+                if not ShopConfig.Gear.AutoBuy then break end
+                if not ownedGears[itemName] then
+                    local price = ShopConfig.Gear.Prices[itemName] or 0
+                    if currentMoney >= price then
+                        local stockItem = ShopConfig.Gear.Stock:FindFirstChild(itemName)
+                        if stockItem and stockItem.Value > 0 then
+                            pcall(function() ShopConfig.Net.GearShop.PurchaseGear:Fire(itemName) end)
+                            currentMoney = currentMoney - price
+                            task.wait(0.2)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
 
 local Toggles = {
     Noclip = false,
