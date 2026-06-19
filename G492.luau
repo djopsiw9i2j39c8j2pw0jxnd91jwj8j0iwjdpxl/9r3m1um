@@ -777,6 +777,8 @@ Info:Paragraph({
     }
 })
 
+local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
+
 local FarmSettings = {
     AutoHarvest = false,
     HarvestRadius = 50,
@@ -795,9 +797,8 @@ local lastStealTime = 0
 local cachedPrompts = {}
 
 -- Biến kiểm soát trạng thái KHÓA bypass Anti-cheat
-local activeTargetPrompt = nil
-local activeTargetPart = nil
-local activeTargetType = nil -- [MỚI] Xác định loại mục tiêu đang khóa ("Rainbow", "Gold", "Steal")
+local activeTargetData = nil -- [ĐÃ SỬA] Đổi thành lưu nguyên cụm data thay vì chỉ Prompt
+local activeTargetType = nil
 
 -- Danh sách vật phẩm hợp lệ ban đầu
 local ValidItems = {
@@ -818,130 +819,98 @@ end
 --=============================================
 -- 1. CẤU HÌNH GIAO DIỆN
 --=============================================
-
+-- (Giữ nguyên phần UI của bro...)
 -- [ HARVEST CONFIGS ]
 MyUIElements.Plant:Toggle({
-    Title = "loc:Auto_Harvest", 
-    Desc = "loc:Auto_Harvest_Desc", 
-    Flag = "Auto Harvest v2",
-    Value = false, 
-    Callback = function(val)
-        FarmSettings.AutoHarvest = val
-    end
+    Title = "loc:Auto_Harvest", Desc = "loc:Auto_Harvest_Desc", Flag = "Auto Harvest v2",
+    Value = false, Callback = function(val) FarmSettings.AutoHarvest = val end
 })
 
 MyUIElements.Plant:Input({
-    Title = "loc:Harvest_Radius", 
-    Desc = "loc:Harvest_Radius_Desc", 
-    Flag = "Harvest Radius Config",
-    Placeholder = "Enter harvest radius (Default: 50)", 
-    Value = "50", 
-    Callback = function(val)
-        FarmSettings.HarvestRadius = tonumber(val) or 50
-    end
+    Title = "loc:Harvest_Radius", Desc = "loc:Harvest_Radius_Desc", Flag = "Harvest Radius Config",
+    Placeholder = "Enter harvest radius (Default: 50)", Value = "50", 
+    Callback = function(val) FarmSettings.HarvestRadius = tonumber(val) or 50 end
 })
 
 MyUIElements.Plant:Input({
-    Title = "loc:Harvest_Speed", 
-    Desc = "loc:Harvest_Speed_Desc", 
-    Flag = "Harvest Speed Config",
-    Placeholder = "Delay between harvests (Default: 0.1)", 
-    Value = "0.1", 
-    Callback = function(val)
-        FarmSettings.HarvestSpeed = tonumber(val) or 0.1
-    end
+    Title = "loc:Harvest_Speed", Desc = "loc:Harvest_Speed_Desc", Flag = "Harvest Speed Config",
+    Placeholder = "Delay between harvests (Default: 0.1)", Value = "0.1", 
+    Callback = function(val) FarmSettings.HarvestSpeed = tonumber(val) or 0.1 end
 })
 
 MyUIElements.Plant:Input({
-    Title = "loc:Max_Inventory_Capacity", 
-    Desc = "loc:Max_Inventory_Capacity_Desc", 
-    Flag = "Max Capacity Config",
-    Placeholder = "Default: 100", 
-    Value = "100", 
-    Callback = function(val)
-        FarmSettings.MaxCapacity = tonumber(val) or 100
-    end
+    Title = "loc:Max_Inventory_Capacity", Desc = "loc:Max_Inventory_Capacity_Desc", Flag = "Max Capacity Config",
+    Placeholder = "Default: 100", Value = "100", 
+    Callback = function(val) FarmSettings.MaxCapacity = tonumber(val) or 100 end
 })
 
 -- [ STEAL CONFIGS ]
 MyUIElements.Plant:Toggle({
-    Title = "loc:Auto_Steal", 
-    Desc = "loc:Auto_Steal_Desc", 
-    Flag = "Auto Steal v2",
-    Value = false, 
-    Callback = function(val)
-        FarmSettings.AutoSteal = val
-    end
+    Title = "loc:Auto_Steal", Desc = "loc:Auto_Steal_Desc", Flag = "Auto Steal v2",
+    Value = false, Callback = function(val) FarmSettings.AutoSteal = val end
 })
 
 MyUIElements.Plant:Toggle({
-    Title = "loc:Teleport_to_Steal", 
-    Desc = "loc:Teleport_to_Steal_Desc", 
-    Flag = "Teleport Steal Config",
-    Value = false, 
-    Callback = function(val)
-        FarmSettings.TeleportSteal = val
-    end
+    Title = "loc:Teleport_to_Steal", Desc = "loc:Teleport_to_Steal_Desc", Flag = "Teleport Steal Config",
+    Value = false, Callback = function(val) FarmSettings.TeleportSteal = val end
 })
 
 MyUIElements.Plant:Input({
-    Title = "loc:Steal_Radius", 
-    Desc = "loc:Steal_Radius_Desc", 
-    Flag = "Steal Radius Config",
-    Placeholder = "Enter steal radius (Default: 50)", 
-    Value = "50", 
-    Callback = function(val)
-        FarmSettings.StealRadius = tonumber(val) or 50
-    end
+    Title = "loc:Steal_Radius", Desc = "loc:Steal_Radius_Desc", Flag = "Steal Radius Config",
+    Placeholder = "Enter steal radius (Default: 50)", Value = "50", 
+    Callback = function(val) FarmSettings.StealRadius = tonumber(val) or 50 end
 })
 
 MyUIElements.Plant:Input({
-    Title = "loc:Steal_Speed", 
-    Desc = "loc:Steal_Speed_Desc", 
-    Flag = "Steal Speed Config",
-    Placeholder = "Delay between steals (Default: 0.2)", 
-    Value = "0.2", 
-    Callback = function(val)
-        FarmSettings.StealSpeed = tonumber(val) or 0.2
-    end
+    Title = "loc:Steal_Speed", Desc = "loc:Steal_Speed_Desc", Flag = "Steal Speed Config",
+    Placeholder = "Delay between steals (Default: 0.2)", Value = "0.2", 
+    Callback = function(val) FarmSettings.StealSpeed = tonumber(val) or 0.2 end
 })
 
 MyUIElements.Seed:Toggle({
-    Title = "loc:AutoClaimGoldSeed", 
-    Desc = "loc:AutoClaimGoldSeedDesc", 
-    Flag = "Auto Gold Seed Config",
-    Value = false, 
-    Callback = function(val)
-        FarmSettings.AutoGoldSeed = val
-    end
+    Title = "loc:AutoClaimGoldSeed", Desc = "loc:AutoClaimGoldSeedDesc", Flag = "Auto Gold Seed Config",
+    Value = false, Callback = function(val) FarmSettings.AutoGoldSeed = val end
 })
 
 MyUIElements.Seed:Toggle({
-    Title = "loc:AutoClaimRainbowSeed", 
-    Desc = "loc:AutoClaimRainbowSeedDesc", 
-    Flag = "Auto Rainbow Seed Config",
-    Value = false, 
-    Callback = function(val)
-        FarmSettings.AutoRainbowSeed = val
-    end
+    Title = "loc:AutoClaimRainbowSeed", Desc = "loc:AutoClaimRainbowSeedDesc", Flag = "Auto Rainbow Seed Config",
+    Value = false, Callback = function(val) FarmSettings.AutoRainbowSeed = val end
 })
 
-local function autoClickPrompt(prompt)
-    if not prompt or not prompt.Parent then return end
-    if fireproximityprompt then
-        fireproximityprompt(prompt)
+--=============================================
+-- 2. HÀM XỬ LÝ ACTION TỐI ƯU
+--=============================================
+
+-- [MỚI] Hàm Fire trực tiếp RemoteEvent (Bypass Prompt)
+local function executeActionDirectly(data)
+    if not data then return end
+    
+    if data.IsHarvest and data.PlantId then
+        -- Gửi Remote thu hoạch
+        Networking.Garden.CollectFruit:Fire(data.PlantId, data.FruitId)
+        
+    elseif data.IsSteal and data.OwnerUserId and data.PlantId then
+        -- Gửi Remote ăn trộm (Gửi Begin trước rồi Complete luôn)
+        Networking.Steal.BeginSteal:Fire(data.OwnerUserId, data.PlantId, data.FruitId)
+        Networking.Steal.CompleteSteal:Fire()
+        
     else
-        prompt:InputHoldBegin()
-        task.wait(prompt.HoldDuration or 0)
-        prompt:InputHoldEnd()
+        -- Fallback dùng lại Prompt Click cho mấy hạt giống lặt vặt (nếu cần)
+        if data.Prompt and data.Prompt.Parent then
+            if fireproximityprompt then
+                fireproximityprompt(data.Prompt)
+            else
+                data.Prompt:InputHoldBegin()
+                task.wait(data.Prompt.HoldDuration or 0)
+                data.Prompt:InputHoldEnd()
+            end
+        end
     end
 end
 
 local function getPlotOwner(plot)
     local ownerAttr = plot:GetAttribute("Owner")
-    if ownerAttr and ownerAttr ~= "" then
-        return tostring(ownerAttr)
-    end
+    if ownerAttr and ownerAttr ~= "" then return tostring(ownerAttr) end
     
     local signs = plot:FindFirstChild("Signs")
     local gardenFolder = signs and signs:FindFirstChild("Garden")
@@ -968,7 +937,6 @@ local function getInventoryCount()
         for i = 1, #children do
             local item = children[i]
             local itemNameLower = string.lower(item.Name)
-            
             for validNameLower, _ in pairs(ValidItemsLower) do
                 if string.find(itemNameLower, validNameLower, 1, true) then
                     local amountNode = item:FindFirstChild("Amount") or item:FindFirstChild("Quantity") or item:FindFirstChild("Value")
@@ -994,17 +962,20 @@ end
 RunService.Heartbeat:Connect(function()
     local isLockValid = false
 
-    -- [MỚI] Kiểm tra tính hợp lệ của Khóa liên tục mỗi frame
-    if activeTargetPrompt and activeTargetPrompt.Parent and activeTargetPrompt.Enabled and activeTargetPart and activeTargetPart.Parent then
-        if activeTargetType == "Rainbow" and FarmSettings.AutoRainbowSeed then
-            isLockValid = true
-        elseif activeTargetType == "Gold" and FarmSettings.AutoGoldSeed then
-            isLockValid = true
-        elseif activeTargetType == "Steal" and FarmSettings.AutoSteal and FarmSettings.TeleportSteal then
-            -- Nếu là Steal, ép buộc phải kiểm tra trời tối
-            local timeNow = Lighting.ClockTime
-            if timeNow >= 18 or timeNow <= 6 then
+    -- Kiểm tra tính hợp lệ của Khóa liên tục mỗi frame
+    if activeTargetData and activeTargetData.Part and activeTargetData.Part.Parent then
+        -- Thêm check coi Prompt còn tồn tại và Enabled ko, hoặc cây đã thu hoạch mất rễ
+        local prompt = activeTargetData.Prompt
+        if prompt and prompt.Parent and prompt.Enabled then
+            if activeTargetType == "Rainbow" and FarmSettings.AutoRainbowSeed then
                 isLockValid = true
+            elseif activeTargetType == "Gold" and FarmSettings.AutoGoldSeed then
+                isLockValid = true
+            elseif activeTargetType == "Steal" and FarmSettings.AutoSteal and FarmSettings.TeleportSteal then
+                local timeNow = Lighting.ClockTime
+                if timeNow >= 18 or timeNow <= 6 then
+                    isLockValid = true
+                end
             end
         end
     end
@@ -1013,14 +984,12 @@ RunService.Heartbeat:Connect(function()
         local character = localPlayer.Character
         local hrp = character and character:FindFirstChild("HumanoidRootPart")
         if hrp then
-            hrp.CFrame = activeTargetPart.CFrame + Vector3.new(0, 3, 0)
+            hrp.CFrame = activeTargetData.Part.CFrame + Vector3.new(0, 3, 0)
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.AssemblyAngularVelocity = Vector3.zero
         end
     else
-        -- [MỚI] Hủy khóa hoàn toàn nếu tắt Toggle hoặc mục tiêu hết hạn (ví dụ: chuyển qua ban ngày)
-        activeTargetPrompt = nil
-        activeTargetPart = nil
+        activeTargetData = nil
         activeTargetType = nil
     end
 end)
@@ -1043,11 +1012,16 @@ task.spawn(function()
             
             local isHarvest = (nameLower == "harvest" or actionLower == "harvest" or objectLower == "harvest")
             local isSteal = (nameLower == "steal" or actionLower == "steal" or objectLower == "steal")
-            
             local isGold = (string.find(objectLower, "gold", 1, true) and string.find(actionLower, "claim", 1, true)) or string.find(nameLower, "gold", 1, true)
             local isRainbow = (string.find(objectLower, "rainbow", 1, true) and string.find(actionLower, "claim", 1, true)) or string.find(nameLower, "rainbow", 1, true)
 
             if isHarvest or isSteal or isGold or isRainbow then
+                -- [MỚI] Bóc Data từ Model mẹ để nạp cho Remote Event
+                local model = obj:FindFirstAncestorWhichIsA("Model")
+                local ownerUserId = model and tonumber(model:GetAttribute("UserId")) or nil
+                local plantId = model and model:GetAttribute("PlantId") or nil
+                local fruitId = model and model:GetAttribute("FruitId") or ""
+
                 table.insert(newCache, {
                     Prompt = obj,
                     Part = obj.Parent,
@@ -1056,7 +1030,10 @@ task.spawn(function()
                     IsHarvest = isHarvest,
                     IsSteal = isSteal,
                     IsGoldSeed = isGold,
-                    IsRainbowSeed = isRainbow
+                    IsRainbowSeed = isRainbow,
+                    OwnerUserId = ownerUserId,
+                    PlantId = plantId,
+                    FruitId = fruitId
                 })
             end
         end
@@ -1101,10 +1078,9 @@ task.spawn(function()
         local hrpPos = hrp.Position
         local timeNow = os.clock()
         
-        -- 1. THỰC THI MỤC TIÊU ĐANG BỊ KHÓA
-        -- (Việc kiểm tra khóa hợp lệ hay không đã được lo liệu ở Heartbeat)
-        if activeTargetPrompt and activeTargetPart then
-            task.spawn(autoClickPrompt, activeTargetPrompt)
+        -- 1. THỰC THI MỤC TIÊU ĐANG BỊ KHÓA BẰNG REMOTE
+        if activeTargetData then
+            task.spawn(executeActionDirectly, activeTargetData)
             continue
         end
 
@@ -1126,10 +1102,10 @@ task.spawn(function()
             end
         end
 
-        local closestRainbowPrompt, closestRainbowPart, closestRainbowDist = nil, nil, math.huge
-        local closestGoldPrompt, closestGoldPart, closestGoldDist = nil, nil, math.huge
-        local closestStealPrompt, closestStealPart, closestStealDist = nil, nil, (FarmSettings.TeleportSteal and math.huge or FarmSettings.StealRadius)
-        local closestHarvestPrompt, closestHarvestDist = nil, FarmSettings.HarvestRadius 
+        local closestRainbowData, closestRainbowDist = nil, math.huge
+        local closestGoldData, closestGoldDist = nil, math.huge
+        local closestStealData, closestStealDist = nil, (FarmSettings.TeleportSteal and math.huge or FarmSettings.StealRadius)
+        local closestHarvestData, closestHarvestDist = nil, FarmSettings.HarvestRadius 
 
         for i = 1, #cachedPrompts do
             local data = cachedPrompts[i]
@@ -1138,14 +1114,12 @@ task.spawn(function()
             local distance = (hrpPos - data.Part.Position).Magnitude
 
             if FarmSettings.AutoRainbowSeed and data.IsRainbowSeed and distance < closestRainbowDist then
-                closestRainbowPrompt = data.Prompt
-                closestRainbowPart = data.Part
+                closestRainbowData = data
                 closestRainbowDist = distance
             end
 
             if FarmSettings.AutoGoldSeed and data.IsGoldSeed and distance < closestGoldDist then
-                closestGoldPrompt = data.Prompt
-                closestGoldPart = data.Part
+                closestGoldData = data
                 closestGoldDist = distance
             end
 
@@ -1154,47 +1128,43 @@ task.spawn(function()
                 local isOwnerHome = ownerCurrentPos and ((ownerCurrentPos - data.Part.Position).Magnitude <= 50)
                 
                 if not isOwnerHome then
-                    closestStealPrompt = data.Prompt
-                    closestStealPart = data.Part
+                    closestStealData = data
                     closestStealDist = distance
                 end
             end
 
             if canHarvest and data.IsHarvest and data.IsMyPlot and distance < closestHarvestDist and not isInventoryFull then
-                closestHarvestPrompt = data.Prompt
+                closestHarvestData = data
                 closestHarvestDist = distance
             end
         end
 
         -- 2. GÁN MỤC TIÊU MỚI VÀO BỘ KHÓA CỨNG (Theo thứ tự ưu tiên)
-        if closestRainbowPrompt and closestRainbowPart then
-            activeTargetPrompt = closestRainbowPrompt
-            activeTargetPart = closestRainbowPart
-            activeTargetType = "Rainbow" -- [MỚI] Gán thẻ phân loại
-            task.spawn(autoClickPrompt, activeTargetPrompt)
+        if closestRainbowData then
+            activeTargetData = closestRainbowData
+            activeTargetType = "Rainbow"
+            task.spawn(executeActionDirectly, activeTargetData)
             
-        elseif closestGoldPrompt and closestGoldPart then
-            activeTargetPrompt = closestGoldPrompt
-            activeTargetPart = closestGoldPart
-            activeTargetType = "Gold" -- [MỚI] Gán thẻ phân loại
-            task.spawn(autoClickPrompt, activeTargetPrompt)
+        elseif closestGoldData then
+            activeTargetData = closestGoldData
+            activeTargetType = "Gold"
+            task.spawn(executeActionDirectly, activeTargetData)
             
-        elseif closestStealPrompt and closestStealPart and FarmSettings.TeleportSteal then
-            activeTargetPrompt = closestStealPrompt
-            activeTargetPart = closestStealPart
-            activeTargetType = "Steal" -- [MỚI] Gán thẻ phân loại
-            task.spawn(autoClickPrompt, activeTargetPrompt)
+        elseif closestStealData and FarmSettings.TeleportSteal then
+            activeTargetData = closestStealData
+            activeTargetType = "Steal"
+            task.spawn(executeActionDirectly, activeTargetData)
             lastStealTime = timeNow
             
-        -- Trường hợp Steal không dùng Teleport (Chỉ đứng gần bấm)
-        elseif closestStealPrompt and not FarmSettings.TeleportSteal then
-            task.spawn(autoClickPrompt, closestStealPrompt)
+        -- Trường hợp Steal không dùng Teleport (Chỉ đứng gần bấm/Fire)
+        elseif closestStealData and not FarmSettings.TeleportSteal then
+            task.spawn(executeActionDirectly, closestStealData)
             lastStealTime = timeNow
         end
 
-        -- Auto Harvest (Chạy song song bằng bán kính cũ)
-        if closestHarvestPrompt then
-            task.spawn(autoClickPrompt, closestHarvestPrompt)
+        -- Auto Harvest (Chạy song song bằng bán kính)
+        if closestHarvestData then
+            task.spawn(executeActionDirectly, closestHarvestData)
             lastHarvestTime = timeNow
         end
     end
