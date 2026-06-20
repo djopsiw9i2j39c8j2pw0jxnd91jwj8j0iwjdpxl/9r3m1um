@@ -30,6 +30,7 @@ end)
 Camera = Workspace.CurrentCamera
 
 getgenv().SprinklerList = {"Common Sprinkler", "Uncommon Sprinkler", "Rare Sprinkler", "Legendary Sprinkler", "Super Sprinkler" }
+getgenv().SeedList = {"Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo", "Corn", "Cactus", "Pineapple", "Mushroom", "Green Bean", "Banana", "Grape", "Coconut", "Mango", "Dragon Fruit", "Acorn", "Cherry", "Sunflower", "Venus Fly Trap", "Pomegranate", "Poison Apple", "Venom Spitter", "Moon Bloom", "Dragon's Breath", "Ghost Pepper", "Poison Ivy", "Baby Cactus", "Glow Mushroom", "Romanesco", "Horned Melon", "Gold", "Rainbow", "Hypnobloom" }
 
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-GAMING-MOD/WindUI-Mod/refs/heads/main/WindUI-Mod.luau"))()
 
@@ -763,6 +764,21 @@ local ElementConfigs = {
         Config = {
             Title = "loc:Gear",
             Desc = "loc:GearSections",
+            Icon = "wrench",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "AutoPlant",
+        Type = "Section",
+        Parent = TabHandles.Main,
+        Config = {
+            Title = "loc:AutoPlant",
+            Desc = "loc:AutoPlantSections",
             Icon = "wrench",
             Box = true,
             BoxBorder = true,
@@ -1895,6 +1911,143 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
+-- ==========================================
+-- 1. KHAI BÁO MODULE & SERVICE CÒN THIẾU
+-- ==========================================
+-- (Giữ lại CollectionService vì trong list chung chưa có)
+local CollectionService = game:GetService("CollectionService")
+local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
+
+-- ==========================================
+-- 2. CẤU HÌNH TRẠNG THÁI (CONFIG)
+-- ==========================================
+local AutoPlantConfig = {
+	SelectedSeed = "Carrot", -- Giá trị mặc định
+	AutoPlant = false
+}
+
+-- ==========================================
+-- 3. LOGIC AUTO TRỒNG CÂY
+-- ==========================================
+local function autoPlantLoop()
+	while AutoPlantConfig.AutoPlant do
+		task.wait(0.5) -- Chu kỳ check
+		
+		local targetSeed = AutoPlantConfig.SelectedSeed
+		if not targetSeed or targetSeed == "" then continue end
+
+		-- Sử dụng trực tiếp biến localPlayer và playerCharacter từ list chung của bro
+		local char = localPlayer.Character or playerCharacter
+		local hum = char and char:FindFirstChild("Humanoid")
+		local backpack = localPlayer:FindFirstChildOfClass("Backpack")
+		
+		local seedTool = nil
+		
+		-- Tìm tool trong Character và Backpack
+		if char then
+			for _, t in ipairs(char:GetChildren()) do
+				if t:IsA("Tool") and t:GetAttribute("SeedTool") == targetSeed then
+					seedTool = t; break
+				end
+			end
+		end
+		if not seedTool and backpack then
+			for _, t in ipairs(backpack:GetChildren()) do
+				if t:IsA("Tool") and t:GetAttribute("SeedTool") == targetSeed then
+					seedTool = t; break
+				end
+			end
+		end
+		
+		if not seedTool then continue end -- Hết hạt thì bỏ qua vòng lặp này
+		
+		-- Ép buộc tự động cầm hạt giống lên tay để vượt Server Check
+		if seedTool.Parent ~= char and hum then
+			hum:EquipTool(seedTool)
+			task.wait(0.2)
+		end
+
+		-- Định vị khu vườn của mình (Workspace đã có sẵn ở file chung)
+		local plotId = localPlayer:GetAttribute("PlotId")
+		if not plotId then continue end
+		local gardens = Workspace:FindFirstChild("Gardens")
+		local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+		if not myPlot then continue end
+		
+		local plantsFolder = myPlot:FindFirstChild("Plants")
+		local allPlantAreas = CollectionService:GetTagged("PlantArea")
+		
+		-- Hàm check khoảng cách với các cây mọc rồi (yêu cầu Magnitude > 1)
+		local function isPositionOccupied(worldPos)
+			if not plantsFolder then return false end
+			for _, plant in ipairs(plantsFolder:GetChildren()) do
+				local pPos = plant:GetPivot().Position
+				if (Vector2.new(pPos.X, pPos.Z) - Vector2.new(worldPos.X, worldPos.Z)).Magnitude <= 1.1 then
+					return true
+				end
+			end
+			return false
+		end
+		
+		for _, area in ipairs(allPlantAreas) do
+			if not AutoPlantConfig.AutoPlant then break end
+			
+			if area:IsDescendantOf(myPlot) then
+				local size = area.Size
+				local cframe = area.CFrame
+				local spacing = 1.3 -- Rải cách nhau 1.3 stud
+				
+				-- Tính toán lưới toạ độ (Grid) trên bề mặt của phần đất
+				local startX = -size.X/2 + (spacing/2)
+				local endX = size.X/2 - (spacing/2)
+				local startZ = -size.Z/2 + (spacing/2)
+				local endZ = size.Z/2 - (spacing/2)
+				
+				for x = startX, endX, spacing do
+					if not AutoPlantConfig.AutoPlant then break end
+					for z = startZ, endZ, spacing do
+						if not AutoPlantConfig.AutoPlant then break end
+						
+						-- Tính toạ độ nằm trên bề mặt Part (Y = top)
+						local localPos = Vector3.new(x, size.Y/2, z)
+						local worldPos = cframe * localPos
+						
+						if not isPositionOccupied(worldPos) then
+							Networking.Plant.PlantSeed:Fire(worldPos, targetSeed, seedTool)
+							task.wait(0.05) -- Delay nhẹ chống sập server/bị kick
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+MyUIElements.AutoPlant:Dropdown({
+    Title = "Chọn hạt giống",
+    Desc = "Chọn loại hạt giống bạn muốn trồng tự động",
+    Flag = "SelectPlantSeed",
+    Values = getgenv().SeedList,
+    Value = AutoPlantConfig.SelectedSeed,
+    Multi = true,
+    AllowNone = false,
+    Callback = function(val) 
+        AutoPlantConfig.SelectedSeed = val 
+    end
+})
+
+MyUIElements.AutoPlant:Toggle({
+    Title = "Auto Trồng Cây",
+    Desc = "Tự động rải hạt giống thành hàng trên khu đất của bạn",
+    Flag = "AutoPlantToggle",
+    Callback = function(state) 
+        AutoPlantConfig.AutoPlant = state 
+        if state then
+            task.spawn(autoPlantLoop)
+        end
+    end
+})
+
 
 local KeepUIOpen = {
     GearShop = false,
@@ -2709,11 +2862,6 @@ MyUIElements.Bypass:Toggle({
     end
 })
 
--- ==========================================
--- CÁC VÒNG LẶP & EVENT XỬ LÝ NGẦM BÊN DƯỚI
--- ==========================================
-
--- Logic chạy ngầm cho Greenbean
 task.spawn(function()
     while task.wait(0.5) do
         if greenbeanBypassEnabled and playerCharacter then
