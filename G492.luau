@@ -306,6 +306,12 @@ WindUI:Localization({
             OnlyStealMutationsDesc = "Only steal fruits with the selected mutations.",
             OnlyHarvestMutations = "Only Harvest Mutations",
             OnlyHarvestMutationsDesc = "Only harvest fruits with the selected mutations.",
+            JumpPower1 = "Jump Power",
+            SpeedPower = "Speed Power",
+            AirPower = "Air Power",
+            JumpPowerDesc1 = "Adjust your character's jump power.",
+            SpeedPowerDesc = "Adjust your character's movement speed.",
+            AirPowerDesc = "Adjust your character's air power.",
         },
         vi = {
 HubTitle = "Hutao Hub",
@@ -502,6 +508,12 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             OnlyStealMutationsDesc = "Chỉ trộm những trái cây có các đột biến đã chọn.",
             OnlyHarvestMutations = "Chỉ thu hoạch đột biến",
             OnlyHarvestMutationsDesc = "Chỉ thu hoạch những trái cây có các đột biến đã chọn.",
+            JumpPower1 = "Sức mạnh nhảy",
+            SpeedPower = "Sức mạnh tốc độ",
+            AirPower = "Sức mạnh không khí",
+            JumpPowerDesc1 = "Điều chỉnh sức bật của nhân vật.",
+            SpeedPowerDesc = "Điều chỉnh tốc độ di chuyển của nhân vật.",
+            AirPowerDesc = "Điều chỉnh lực trên không của nhân vật."
         }
     }
 })
@@ -790,13 +802,58 @@ local ElementConfigs = {
     },
     
     {
-        ID = "Power",
+        ID = "NormalPower",
         Type = "Section",
         Parent = TabHandles.Player,
         Config = {
             Title = "loc:Power",
             Desc = "loc:PowerDesc",
             Icon = "zap",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "SpeedPower",
+        Type = "Section",
+        Parent = TabHandles.Player,
+        Config = {
+            Title = "loc:SpeedPower",
+            Desc = "loc:SpeedPowerDesc",
+            Icon = "gauge",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "JumpPower1",
+        Type = "Section",
+        Parent = TabHandles.Player,
+        Config = {
+            Title = "loc:JumpPower1",
+            Desc = "loc:JumpPowerDesc1",
+            Icon = "rabbit",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "AirPower",
+        Type = "Section",
+        Parent = TabHandles.Player,
+        Config = {
+            Title = "loc:AirPower",
+            Desc = "loc:AirPowerDesc",
+            Icon = "wind",
             Box = true,
             BoxBorder = true,
             Opened = false,
@@ -2331,7 +2388,7 @@ local function tweenPlatformHeight(targetY)
     activeTween:Play()
 end
 
-MyUIElements.Power:Toggle({
+MyUIElements.NormalPower:Toggle({
     Title = "loc:Noclip",
     Desc = "loc:NoclipDesc",
     Flag = "Noclip",
@@ -2341,7 +2398,7 @@ MyUIElements.Power:Toggle({
     end
 })
 
-MyUIElements.Power:Toggle({
+MyUIElements.NormalPower:Toggle({
     Title = "loc:InfJump",
     Desc = "loc:InfJumpDesc",
     Flag = "InfJump",
@@ -2351,7 +2408,7 @@ MyUIElements.Power:Toggle({
     end
 })
 
-MyUIElements.Power:Toggle({
+MyUIElements.SpeedPower:Toggle({
     Title = "loc:ForceSpeed",
     Desc = "loc:ForceSpeedDesc",
     Flag = "ForceSpeed",
@@ -2361,7 +2418,7 @@ MyUIElements.Power:Toggle({
     end
 })
 
-MyUIElements.Power:Slider({
+MyUIElements.SpeedPower:Slider({
     Title = "loc:SetSpeed",
     Desc = "loc:SetSpeedDesc",
     Flag = "SetSpeed",
@@ -2372,7 +2429,7 @@ MyUIElements.Power:Slider({
     end
 })
 
-MyUIElements.Power:Toggle({
+MyUIElements.JumpPower1:Toggle({
     Title = "loc:JumpPower",
     Desc = "loc:JumpPowerDesc",
     Flag = "JumpPower",
@@ -2388,7 +2445,7 @@ MyUIElements.Power:Toggle({
     end
 })
 
-MyUIElements.Power:Slider({
+MyUIElements.JumpPower1:Slider({
     Title = "loc:SetPower",
     Desc = "loc:SetPowerDesc",
     Flag = "SetPower",
@@ -2399,7 +2456,7 @@ MyUIElements.Power:Slider({
     end
 })
 
-MyUIElements.Power:Toggle({
+MyUIElements.AirPower:Toggle({
     Title = "loc:StandInTheAir",
     Desc = "loc:StandInTheAirDesc",
     Flag = "StandInTheAir",
@@ -2428,7 +2485,7 @@ MyUIElements.Power:Toggle({
     end
 })
 
-MyUIElements.Power:Slider({
+MyUIElements.AirPower:Slider({
     Title = "loc:StandingHeight",
     Desc = "loc:StandingHeightDesc",
     Flag = "StandingHeight",
@@ -2454,7 +2511,6 @@ RunService.Stepped:Connect(function()
     end
 end)
 
--- [ LOGIC ] Infinite Jump
 UserInputService.JumpRequest:Connect(function()
     if Toggles.InfJump and playerCharacter then
         local humanoid = playerCharacter:FindFirstChildOfClass("Humanoid")
@@ -2464,7 +2520,6 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- [ LOGIC ] Force Speed & Khóa vị trí bệ đỡ (Theo trục X, Z) + Bảo hiểm chống lọt sàn
 RunService.Heartbeat:Connect(function()
     if not playerCharacter then return end
     local humanoid = playerCharacter:FindFirstChildOfClass("Humanoid")
@@ -2492,7 +2547,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- [ LOGIC ] Jump Power Loop
 task.spawn(function()
     while task.wait(0.1) do
         if Toggles.Jump and playerCharacter then
