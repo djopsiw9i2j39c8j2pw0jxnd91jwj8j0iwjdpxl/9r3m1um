@@ -312,9 +312,24 @@ WindUI:Localization({
             JumpPowerDesc1 = "Adjust your character's jump power.",
             SpeedPowerDesc = "Adjust your character's movement speed.",
             AirPowerDesc = "Adjust your character's air power.",
+            Bypass = "Bypass",
+            BypassDesc = "Game bypass functions",
+            AntiAFK = "Anti-AFK Bypass",
+            AntiAFKDesc = "Bypass anti-AFK for the game.",
+            GreenbeanSeed = "Greenbean Seed",
+            GreenbeanSeedDesc = "Bypass Greenbean purchase rights",
+            Rejoin_Starting = "Rejoin Starting",
+            Rejoin_Starting_Content1 = "Started on the server with the lag fixed.",
+            Rejoin_Settings = "Rejoin Settings",
+            Rejoin_Settings_Content2 = "Reducing Lag on Servers...",
+            Teleport_Error = "Teleport Error",
+            Rejoin_To_Fix_Lag = "Rejoin To Fix Lag",
+            Rejoin_To_Fix_Lag_Desc = "Press to activate the server lag reduction function.",
+            FixLag = "Fix Lag",
+            FixLagDesc = "Enhanced the user experience with smoother performance.",
         },
         vi = {
-HubTitle = "Hutao Hub",
+            HubTitle = "Hutao Hub",
             GameTitle = "Trồng Một Khu Vườn 2 - Bởi 72ms",
             ThemeChanged = "Đã đổi giao diện",
             TransparencyTitle = "Độ trong suốt",
@@ -513,7 +528,22 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             AirPower = "Sức mạnh không khí",
             JumpPowerDesc1 = "Điều chỉnh sức bật của nhân vật.",
             SpeedPowerDesc = "Điều chỉnh tốc độ di chuyển của nhân vật.",
-            AirPowerDesc = "Điều chỉnh lực trên không của nhân vật."
+            AirPowerDesc = "Điều chỉnh lực trên không của nhân vật.",
+            Bypass = "Vượt giới hạn",
+            BypassDesc = "Các chức năng vượt giới hạn của trò chơi.",
+            AntiAFK = "Vượt Anti-AFK",
+            AntiAFKDesc = "Vượt cơ chế chống AFK của trò chơi.",
+            GreenbeanSeed = "Hạt Greenbean",
+            GreenbeanSeedDesc = "Vượt quyền mua Hạt Greenbean.",
+            Rejoin_Starting = "Đang bắt đầu vào lại",
+            Rejoin_Starting_Content1 = "Đã vào máy chủ với chế độ giảm lag được kích hoạt.",
+            Rejoin_Settings = "Cài đặt vào lại",
+            Rejoin_Settings_Content2 = "Đang giảm lag máy chủ...",
+            Teleport_Error = "Lỗi dịch chuyển",
+            Rejoin_To_Fix_Lag = "Vào lại để giảm lag",
+            Rejoin_To_Fix_Lag_Desc = "Nhấn để kích hoạt tính năng giảm lag máy chủ.",
+            FixLag = "Giảm giật",
+            FixLagDesc = "Nâng cao trải nghiệm người dùng với hiệu năng mượt mà hơn.",
         }
     }
 })
@@ -607,7 +637,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.0.7", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.0.9", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -862,13 +892,28 @@ local ElementConfigs = {
     },
     
     {
+        ID = "FixLag",
+        Type = "Section",
+        Parent = TabHandles.Misc,
+        Config = {
+            Title = "loc:FixLag",
+            Desc = "loc:FixLagDesc",
+            Icon = "microchip",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
         ID = "Bypass",
         Type = "Section",
         Parent = TabHandles.Misc,
         Config = {
             Title = "loc:Bypass",
             Desc = "loc:BypassDesc",
-            Icon = "wind",
+            Icon = "shield-off",
             Box = true,
             BoxBorder = true,
             Opened = false,
@@ -2562,6 +2607,8 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- Fix Lag
+
 task.spawn(function()
     while task.wait(0.1) do
         if Toggles.Jump and playerCharacter then
@@ -2574,11 +2621,55 @@ task.spawn(function()
     end
 end)
 
-local greenbeanBypassEnabled = true 
+local function ServerHop()
+    local placeId = game.PlaceId
+    print("[ServerHop] Đang rời server hiện tại...")
 
+    local success, err = pcall(function()
+        TeleportService:Teleport(placeId, localPlayer)
+    end)
+
+    if success then
+        WindUI:Notify({
+            Title = "loc:Rejoin_Starting",
+            Content = "loc:Rejoin_Starting_Content1",
+            Duration = 3,
+            Icon = "info"
+        })
+    else
+        warn("[ServerHop] Lỗi khi Teleport:", err)
+        WindUI:Notify({
+            Title = "loc:Teleport_Error",
+            Content = tostring(err),
+            Duration = 4,
+            Icon = "alert"
+        })
+    end
+end
+
+MyUIElements.FixLag:Button({
+    Title = "loc:Rejoin_To_Fix_Lag",
+    Desc = "loc:Rejoin_To_Fix_Lag_Desc",
+    Callback = function()
+        WindUI:Notify({
+            Title = "loc:Rejoin_Settings",
+            Content = "loc:Rejoin_Settings_Content2",
+            Duration = 2,
+            Icon = "info"
+        })
+
+        task.wait(0.3)
+        ServerHop()
+    end
+})
+
+local greenbeanBypassEnabled = true 
+local antiRagdollEnabled = false -- Biến kiểm soát trạng thái Anti-Ragdoll
+
+-- [1] NÚT GREENBEAN
 MyUIElements.Bypass:Toggle({
-    Title = "Bypass Greenbean",
-    Desc = "Giả mạo nhân vật thành Greenbean để mua Seed độc quyền",
+    Title = "loc:GreenbeanSeed",
+    Desc = "loc:GreenbeanSeedDesc",
     Flag = "GreenbeanBypass",
     Value = true,
     Callback = function(state) 
@@ -2589,9 +2680,10 @@ MyUIElements.Bypass:Toggle({
     end
 })
 
+-- [2] NÚT ANTI-AFK
 MyUIElements.Bypass:Toggle({
-    Title = "Anti-AFK Bypass",
-    Desc = "Hack giới hạn thời gian AFK lên vô hạn",
+    Title = "loc:AntiAFK",
+    Desc = "loc:AntiAFKDesc",
     Flag = "AntiAfkOverride",
     Value = true,
     Callback = function(state) 
@@ -2603,6 +2695,26 @@ MyUIElements.Bypass:Toggle({
     end
 })
 
+-- [3] NÚT ANTI-RAGDOLL (MỚI THÊM)
+MyUIElements.Bypass:Toggle({
+    Title = "Anti-Ragdoll",
+    Desc = "Chống té ngã (Tự động đứng dậy ngay lập tức)",
+    Flag = "AntiRagdollBypass",
+    Value = false,
+    Callback = function(state) 
+        antiRagdollEnabled = state
+        -- Nếu bật lúc đang bị ngã, thì gọi hàm ép đứng dậy luôn
+        if state and playerCharacter and playerCharacter:GetAttribute("Ragdolled") then
+            playerCharacter:SetAttribute("Ragdolled", true) -- Kích hoạt lại attribute trigger
+        end
+    end
+})
+
+-- ==========================================
+-- CÁC VÒNG LẶP & EVENT XỬ LÝ NGẦM BÊN DƯỚI
+-- ==========================================
+
+-- Logic chạy ngầm cho Greenbean
 task.spawn(function()
     while task.wait(0.5) do
         if greenbeanBypassEnabled and playerCharacter then
@@ -2613,10 +2725,70 @@ task.spawn(function()
     end
 end)
 
+-- Logic chạy ngầm cho Anti-AFK
 localPlayer.Idled:Connect(function()
     VirtualUser:Button2Down(Vector2.new(0,0), Camera.CFrame)
     task.wait(1)
     VirtualUser:Button2Up(Vector2.new(0,0), Camera.CFrame)
+end)
+
+-- Logic xử lý ngầm cho Anti-Ragdoll
+local antiRagdollConnection = nil
+
+local function handleUnragdoll(character)
+    if not antiRagdollEnabled then return end
+    
+    if character:GetAttribute("Ragdolled") then
+        -- 1. Xóa cờ ngã
+        character:SetAttribute("Ragdolled", nil)
+        
+        -- 2. Đánh thức Humanoid
+        local humanoid = character:FindFirstChildWhichIsA("Humanoid")
+        if humanoid then
+            humanoid.AutoRotate = true
+            humanoid.PlatformStand = false
+            humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+        end
+        
+        -- 3. Nối lại xương
+        local torso = character:FindFirstChild("Torso")
+        if torso then
+            for _, v in pairs(torso:GetDescendants()) do
+                if v:IsA("Motor6D") then
+                    v.Enabled = true
+                    if v.Part1 then v.Part1.CollisionGroup = "Default" end
+                elseif v.Name == "RagdollConstraint" then
+                    if v.Attachment0 then v.Attachment0:Destroy() end
+                    if v.Attachment1 then v.Attachment1:Destroy() end
+                    v:Destroy()
+                end
+            end
+        end
+        
+        -- 4. Bỏ các cục collider tạ
+        for _, v in pairs(character:GetChildren()) do
+            if v.Name == "Collider" then
+                v:Destroy()
+            end
+        end
+    end
+end
+
+-- Hàm setup Event nghe lóng khi bị Server gắn cờ Ragdoll
+local function setupAntiRagdollEvent(character)
+    if antiRagdollConnection then antiRagdollConnection:Disconnect() end
+    antiRagdollConnection = character:GetAttributeChangedSignal("Ragdolled"):Connect(function()
+        if antiRagdollEnabled then
+            handleUnragdoll(character)
+        end
+    end)
+end
+
+-- Áp dụng cho nhân vật hiện tại và cập nhật lại biến playerCharacter mỗi khi hồi sinh
+if playerCharacter then setupAntiRagdollEvent(playerCharacter) end
+localPlayer.CharacterAdded:Connect(function(newChar)
+    playerCharacter = newChar -- Đảm bảo biến gốc của bro được update
+    setupAntiRagdollEvent(newChar)
 end)
 
 MyUIElements.SettingsManager.MySubTabs.Languages:Paragraph({
