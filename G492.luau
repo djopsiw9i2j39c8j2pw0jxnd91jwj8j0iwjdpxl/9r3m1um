@@ -637,7 +637,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.0.9", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.1.0", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -2664,7 +2664,7 @@ MyUIElements.FixLag:Button({
 })
 
 local greenbeanBypassEnabled = true 
-local antiRagdollEnabled = false -- Biến kiểm soát trạng thái Anti-Ragdoll
+local antiRagdollEnabled = false 
 
 -- [1] NÚT GREENBEAN
 MyUIElements.Bypass:Toggle({
@@ -2695,17 +2695,16 @@ MyUIElements.Bypass:Toggle({
     end
 })
 
--- [3] NÚT ANTI-RAGDOLL (MỚI THÊM)
+-- [3] NÚT ANTI-RAGDOLL (ĐÃ NÂNG CẤP ANTI-KNOCKBACK)
 MyUIElements.Bypass:Toggle({
     Title = "Anti-Ragdoll",
-    Desc = "Chống té ngã (Tự động đứng dậy ngay lập tức)",
+    Desc = "Chống té ngã & Chống đẩy lùi",
     Flag = "AntiRagdollBypass",
     Value = false,
     Callback = function(state) 
         antiRagdollEnabled = state
-        -- Nếu bật lúc đang bị ngã, thì gọi hàm ép đứng dậy luôn
         if state and playerCharacter and playerCharacter:GetAttribute("Ragdolled") then
-            playerCharacter:SetAttribute("Ragdolled", true) -- Kích hoạt lại attribute trigger
+            playerCharacter:SetAttribute("Ragdolled", true) 
         end
     end
 })
@@ -2771,6 +2770,27 @@ local function handleUnragdoll(character)
                 v:Destroy()
             end
         end
+
+        -- 5. PHANH GẤP - TRIỆT TIÊU LỰC ĐẨY (ANTI-KNOCKBACK)
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            task.spawn(function()
+                -- Lặp nhanh vài lần để đảm bảo Server không đè lại lực đẩy
+                for i = 1, 5 do
+                    -- Ép vận tốc bay & vận tốc xoay về 0
+                    hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                    
+                    -- Quét và tiêu diệt các Object tạo lực hất mà Dev có thể giấu vào
+                    for _, v in pairs(hrp:GetChildren()) do
+                        if v:IsA("BodyVelocity") or v:IsA("BodyForce") or v:IsA("LinearVelocity") or v:IsA("VectorForce") then
+                            v:Destroy()
+                        end
+                    end
+                    task.wait(0.05)
+                end
+            end)
+        end
     end
 end
 
@@ -2787,7 +2807,7 @@ end
 -- Áp dụng cho nhân vật hiện tại và cập nhật lại biến playerCharacter mỗi khi hồi sinh
 if playerCharacter then setupAntiRagdollEvent(playerCharacter) end
 localPlayer.CharacterAdded:Connect(function(newChar)
-    playerCharacter = newChar -- Đảm bảo biến gốc của bro được update
+    playerCharacter = newChar 
     setupAntiRagdollEvent(newChar)
 end)
 
