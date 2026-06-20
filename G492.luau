@@ -134,8 +134,10 @@ WindUI:Localization({
             Settings = "Settings",
             Seed = "Seed",
             SeedSections = "Claim special seeds automatically and configure related options.",
+            Pets = "Pets",
+            PetsSections = "Manage your pet settings and automation.",
             Shop = "Shop",
-            Shop_Sections = "Configure automatic buying, selling, and shop-related features.",
+            Shop_Sections = "Settings for Displaying Game UI.",
             Harvest = "Harvest",
             Harvest_Sections = "Manage harvesting features and automation.",
             Steal = "Steal",
@@ -288,6 +290,22 @@ WindUI:Localization({
             AutoPlaceSprinklerDesc = "Automatically place the selected sprinkler.",
             AutoEquipSprinkler = "Auto Equip Sprinkler",
             AutoEquipSprinklerDesc = "Automatically equip the selected sprinkler.",
+            SelectPets = "Select Pets",
+            SelectPetsDesc = "Select the pet to buy.",
+            TeleportToPets = "Teleport To Pets",
+            TeleportToPetsDesc = "Automatically teleport to the selected pet.",
+            AutoBuyPets = "Auto Buy Pets",
+            AutoBuyPetsDesc = "Automatically buy the selected pet.",
+            SelectFruit = "Select Fruit",
+            SelectFruitDesc = "Select the fruit to target.",
+            SelectMutations = "Select Mutations",
+            SelectMutationsDesc = "Select the mutations to target.",
+            Countofmutations = "Count of Mutations",
+            CountofmutationsDesc = "Set the minimum number of mutations required.",
+            OnlyStealMutations = "Only Steal Mutations",
+            OnlyStealMutationsDesc = "Only steal fruits with the selected mutations.",
+            OnlyHarvestMutations = "Only Harvest Mutations",
+            OnlyHarvestMutationsDesc = "Only harvest fruits with the selected mutations.",
         },
         vi = {
 HubTitle = "Hutao Hub",
@@ -311,8 +329,10 @@ HubTitle = "Hutao Hub",
             Settings = "Cài đặt",
             Seed = "Hạt giống",
             SeedSections = "Tự động nhận hạt giống đặc biệt và cấu hình các tùy chọn liên quan.",
+            Pets = "Thú cưng",
+            PetsSections = "Quản lí cài đặt và các tính năng tự động của thú cưng.",
             Shop = "Cửa hàng",
-            Shop_Sections = "Cấu hình các tính năng tự động mua, bán và liên quan đến cửa hàng.",
+            Shop_Sections = "Cài đặt hiển thị cho các UI của trò chơi.",
             Harvest = "Thu hoạch",
             Harvest_Sections = "Quản lý các tính năng và tự động hóa thu hoạch.",
             Steal = "Trộm",
@@ -466,6 +486,22 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             AutoPlaceSprinklerDesc = "Tự động đặt sprinkler đã chọn.",
             AutoEquipSprinkler = "Tự dùng vòi tưới",
             AutoEquipSprinklerDesc = "Tự động trang bị sprinkler đã chọn.",
+            SelectPets = "Chọn thú cưng",
+            SelectPetsDesc = "Chọn thú cưng để mua.",
+            TeleportToPets = "Dịch chuyển đến thú cưng",
+            TeleportToPetsDesc = "Tự động dịch chuyển đến thú cưng đã chọn.",
+            AutoBuyPets = "Tự mua thú cưng",
+            AutoBuyPetsDesc = "Tự động mua các thú cưng đã chọn.",
+            SelectFruit = "Chọn trái cây",
+            SelectFruitDesc = "Chọn loại trái cây cần nhắm đến.",
+            SelectMutations = "Chọn đột biến",
+            SelectMutationsDesc = "Chọn các loại đột biến cần nhắm đến.",
+            Countofmutations = "Số lượng đột biến",
+            CountofmutationsDesc = "Đặt số lượng đột biến tối thiểu yêu cầu.",
+            OnlyStealMutations = "Chỉ trộm đột biến",
+            OnlyStealMutationsDesc = "Chỉ trộm những trái cây có các đột biến đã chọn.",
+            OnlyHarvestMutations = "Chỉ thu hoạch đột biến",
+            OnlyHarvestMutationsDesc = "Chỉ thu hoạch những trái cây có các đột biến đã chọn.",
         }
     }
 })
@@ -559,7 +595,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.0.6", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.0.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -655,6 +691,21 @@ local ElementConfigs = {
         Config = {
             Title = "loc:Seed",
             Desc = "loc:SeedSections",
+            Icon = "wheat",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "Pets",
+        Type = "Section",
+        Parent = TabHandles.Main,
+        Config = {
+            Title = "loc:Pets",
+            Desc = "loc:PetsSections",
             Icon = "wheat",
             Box = true,
             BoxBorder = true,
@@ -1068,122 +1119,93 @@ Info:Paragraph({
 
 local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 
-local FarmSettings = {
-    AutoHarvest = false,
-    HarvestRadius = 50,
-    HarvestSpeed = 0.1,
-    AutoSteal = false,
-    TeleportSteal = false,
-    StealRadius = 50,
-    StealSpeed = 0.2,
-    MaxCapacity = 100,
-    AutoGoldSeed = false,
-    AutoRainbowSeed = false
+-- 1. BẢNG DỮ LIỆU ĐỒNG BỘ GỘP CHUNG (1 BẢNG DUY NHẤT)
+local Config = {
+    -- Harvest Configs
+    AutoHarvest = false, HarvestRadius = 50, HarvestSpeed = 0.1, MaxCapacity = 100,
+    TargetSeeds = {}, TargetEffects = {}, EffectCount = 1, FilterByEffect = false,
+    -- Steal Configs
+    AutoSteal = false, TeleportSteal = false, StealRadius = 50, StealSpeed = 0.2, 
+    Steal_TargetSeeds = {}, Steal_TargetEffects = {}, Steal_EffectCount = 1, Steal_FilterByEffect = false,
+    -- Seed Configs
+    AutoGoldSeed = false, AutoRainbowSeed = false,
+    -- Pet Configs
+    WildPet_TargetPets = {}, WildPet_AutoTp = false, WildPet_AutoInteract = false
 }
 
-local lastHarvestTime = 0
-local lastStealTime = 0
-local cachedPrompts = {}
-
--- Biến kiểm soát trạng thái KHÓA bypass Anti-cheat
-local activeTargetData = nil -- [ĐÃ SỬA] Đổi thành lưu nguyên cụm data thay vì chỉ Prompt
-local activeTargetType = nil
-
--- Danh sách vật phẩm hợp lệ ban đầu
-local ValidItems = {
-    ["Carrot"] = true, ["Strawberry"] = true, ["Tomato"] = true, ["Blueberry"] = true, ["Apple"] = true,
-    ["Pinetree"] = true, ["Bamboo"] = true, ["Pumpkin"] = true, ["Cactus"] = true, ["Pineapple"] = true,
-    ["Green Bean"] = true, ["Banana"] = true, ["Grape"] = true, ["Mushroom"] = true, ["Coconut"] = true,
-    ["Mango"] = true, ["Thorn Rose"] = true, ["Dragon Fruit"] = true, ["Acorn"] = true, ["Cherry"] = true,
-    ["Sunflower"] = true, ["Venus Fly Trap"] = true, ["Lotus"] = true, ["Pomegranate"] = true, ["Beanstalk"] = true,
-    ["Poison Apple"] = true, ["Moon Bloom"] = true, ["Dragon's Breath"] = true, ["Poison Ivy"] = true, ["Glow Mushroom"] = true,
-    ["Ghost Pepper"] = true, ["Horned Melon"] = true, ["Corn"] = true, ["Baby Cactus"] = true, ["Tulip"] = true, ["Romanesco"] = true
+local SysData = {
+    LastHarvest = 0, LastSteal = 0, CachedTargets = {},
+    ActiveTarget = nil, ActiveType = nil
 }
 
-local ValidItemsLower = {}
-for item, _ in pairs(ValidItems) do
-    ValidItemsLower[string.lower(item)] = true
+-- 2. DANH SÁCH & HÀM BỔ TRỢ
+local ValidItemsLower = {
+    ["carrot"] = true, ["strawberry"] = true, ["tomato"] = true, ["blueberry"] = true, ["apple"] = true,
+    ["pinetree"] = true, ["bamboo"] = true, ["pumpkin"] = true, ["cactus"] = true, ["pineapple"] = true,
+    ["green bean"] = true, ["banana"] = true, ["grape"] = true, ["mushroom"] = true, ["coconut"] = true,
+    ["mango"] = true, ["thorn rose"] = true, ["dragon fruit"] = true, ["acorn"] = true, ["cherry"] = true,
+    ["sunflower"] = true, ["venus fly trap"] = true, ["lotus"] = true, ["pomegranate"] = true, ["beanstalk"] = true,
+    ["poison apple"] = true, ["moon bloom"] = true, ["dragon's breath"] = true, ["poison ivy"] = true, ["glow mushroom"] = true,
+    ["ghost pepper"] = true, ["horned melon"] = true, ["corn"] = true, ["baby cactus"] = true, ["tulip"] = true, ["romanesco"] = true
+}
+
+local SeedList = {}
+for k, _ in pairs(ValidItemsLower) do table.insert(SeedList, k) end
+table.sort(SeedList)
+
+local EffectList = {"Shiny", "Giant", "Albino", "Overgrown", "Perfect", "Radioactive", "Gold", "Rainbow", "Mutated"}
+
+local allPets = {}
+pcall(function()
+    local PetModules = require(ReplicatedStorage:WaitForChild("SharedModules", 5):WaitForChild("PetModules", 5))
+    for petName, _ in pairs(PetModules) do
+        if type(petName) == "string" then table.insert(allPets, petName) end
+    end
+    table.sort(allPets)
+end)
+
+local function isTargetPet(petName)
+    if type(Config.WildPet_TargetPets) == "table" then
+        for key, selected in pairs(Config.WildPet_TargetPets) do
+            if (type(key) == "number" and selected == petName) or (type(key) == "string" and key == petName and selected == true) then
+                return true
+            end
+        end
+    elseif type(Config.WildPet_TargetPets) == "string" and Config.WildPet_TargetPets == petName then
+        return true
+    end
+    return false
 end
 
-MyUIElements.Harvest:Toggle({
-    Title = "loc:Auto_Harvest", Desc = "loc:Auto_Harvest_Desc", Flag = "Auto Harvest v2",
-    Value = false, Callback = function(val) FarmSettings.AutoHarvest = val end
-})
-
-MyUIElements.Harvest:Input({
-    Title = "loc:Harvest_Radius", Desc = "loc:Harvest_Radius_Desc", Flag = "Harvest Radius Config",
-    Placeholder = "Enter harvest radius (Default: 50)", Value = "50", 
-    Callback = function(val) FarmSettings.HarvestRadius = tonumber(val) or 50 end
-})
-
-MyUIElements.Harvest:Input({
-    Title = "loc:Harvest_Speed", Desc = "loc:Harvest_Speed_Desc", Flag = "Harvest Speed Config",
-    Placeholder = "Delay between harvests (Default: 0.1)", Value = "0.1", 
-    Callback = function(val) FarmSettings.HarvestSpeed = tonumber(val) or 0.1 end
-})
-
-MyUIElements.Harvest:Input({
-    Title = "loc:Max_Inventory_Capacity", Desc = "loc:Max_Inventory_Capacity_Desc", Flag = "Max Capacity Config",
-    Placeholder = "Default: 100", Value = "100", 
-    Callback = function(val) FarmSettings.MaxCapacity = tonumber(val) or 100 end
-})
-
--- [ STEAL CONFIGS ]
-MyUIElements.Steal:Toggle({
-    Title = "loc:Auto_Steal", Desc = "loc:Auto_Steal_Desc", Flag = "Auto Steal v2",
-    Value = false, Callback = function(val) FarmSettings.AutoSteal = val end
-})
-
-MyUIElements.Steal:Toggle({
-    Title = "loc:Teleport_to_Steal", Desc = "loc:Teleport_to_Steal_Desc", Flag = "Teleport Steal Config",
-    Value = false, Callback = function(val) FarmSettings.TeleportSteal = val end
-})
-
-MyUIElements.Steal:Input({
-    Title = "loc:Steal_Radius", Desc = "loc:Steal_Radius_Desc", Flag = "Steal Radius Config",
-    Placeholder = "Enter steal radius (Default: 50)", Value = "50", 
-    Callback = function(val) FarmSettings.StealRadius = tonumber(val) or 50 end
-})
-
-MyUIElements.Steal:Input({
-    Title = "loc:Steal_Speed", Desc = "loc:Steal_Speed_Desc", Flag = "Steal Speed Config",
-    Placeholder = "Delay between steals (Default: 0.2)", Value = "0.2", 
-    Callback = function(val) FarmSettings.StealSpeed = tonumber(val) or 0.2 end
-})
-
-MyUIElements.Seed:Toggle({
-    Title = "loc:AutoClaimGoldSeed", Desc = "loc:AutoClaimGoldSeedDesc", Flag = "Auto Gold Seed Config",
-    Value = false, Callback = function(val) FarmSettings.AutoGoldSeed = val end
-})
-
-MyUIElements.Seed:Toggle({
-    Title = "loc:AutoClaimRainbowSeed", Desc = "loc:AutoClaimRainbowSeedDesc", Flag = "Auto Rainbow Seed Config",
-    Value = false, Callback = function(val) FarmSettings.AutoRainbowSeed = val end
-})
-
-local function executeActionDirectly(data)
-    if not data then return end
-    
-    if data.IsHarvest and data.PlantId then
-        Networking.Garden.CollectFruit:Fire(data.PlantId, data.FruitId)
+local function isSeedMatched(seedName, configTable)
+    if not configTable or type(configTable) ~= "table" then return true end
+    local hasSelection = false
+    for k, v in pairs(configTable) do
+        local targetName = type(k) == "string" and k or v
+        local isSelected = true
+        if type(k) == "string" then isSelected = v end
         
-    elseif data.IsSteal and data.OwnerUserId and data.PlantId then
-        -- Gửi Remote ăn trộm (Gửi Begin trước rồi Complete luôn)
-        Networking.Steal.BeginSteal:Fire(data.OwnerUserId, data.PlantId, data.FruitId)
-        Networking.Steal.CompleteSteal:Fire()
-        
-    else
-        -- Fallback dùng lại Prompt Click cho mấy hạt giống lặt vặt (nếu cần)
-        if data.Prompt and data.Prompt.Parent then
-            if fireproximityprompt then
-                fireproximityprompt(data.Prompt)
-            else
-                data.Prompt:InputHoldBegin()
-                task.wait(data.Prompt.HoldDuration or 0)
-                data.Prompt:InputHoldEnd()
+        if isSelected then
+            hasSelection = true
+            if string.find(string.lower(seedName), string.lower(targetName), 1, true) then return true end
+        end
+    end
+    return not hasSelection
+end
+
+local function isEffectMatched(effectString, configTable)
+    if type(configTable) == "table" then
+        for k, v in pairs(configTable) do
+            local effectName = type(k) == "string" and k or v
+            local isSelected = true
+            if type(k) == "string" then isSelected = v end
+            
+            if isSelected and string.find(string.lower(effectString), string.lower(effectName), 1, true) then
+                return true
             end
         end
     end
+    return false
 end
 
 local function getPlotOwner(plot)
@@ -1205,245 +1227,415 @@ end
 
 local function getInventoryCount()
     local count = 0
-    local backpack = localPlayer:FindFirstChildOfClass("Backpack")
-    local character = localPlayer.Character
-    
-    local function countValidTools(parentFolder)
-        if not parentFolder then return end
-        local children = parentFolder:GetChildren()
-        
-        for i = 1, #children do
-            local item = children[i]
+    local function countValid(folder)
+        if not folder then return end
+        for _, item in ipairs(folder:GetChildren()) do
             local itemNameLower = string.lower(item.Name)
             for validNameLower, _ in pairs(ValidItemsLower) do
                 if string.find(itemNameLower, validNameLower, 1, true) then
-                    local amountNode = item:FindFirstChild("Amount") or item:FindFirstChild("Quantity") or item:FindFirstChild("Value")
-                    if amountNode and (amountNode:IsA("IntValue") or amountNode:IsA("NumberValue")) then
-                        count = count + amountNode.Value
-                    else
-                        count = count + 1
-                    end
+                    local amtNode = item:FindFirstChild("Amount") or item:FindFirstChild("Quantity") or item:FindFirstChild("Value")
+                    count = count + (amtNode and (amtNode:IsA("IntValue") or amtNode:IsA("NumberValue")) and amtNode.Value or 1)
                     break
                 end
             end
         end
     end
-    
-    countValidTools(backpack)
-    countValidTools(character)
+    countValid(localPlayer:FindFirstChildOfClass("Backpack"))
+    countValid(localPlayer.Character)
     return count
 end
 
+local function executeActionDirectly(data)
+    if not data then return end
+    if data.IsHarvest and data.PlantId then
+        Networking.Garden.CollectFruit:Fire(data.PlantId, data.FruitId)
+    elseif data.IsSteal and data.OwnerUserId and data.PlantId then
+        Networking.Steal.BeginSteal:Fire(data.OwnerUserId, data.PlantId, data.FruitId)
+        Networking.Steal.CompleteSteal:Fire()
+    elseif data.Prompt and data.Prompt.Parent then
+        if fireproximityprompt then
+            fireproximityprompt(data.Prompt)
+        else
+            data.Prompt:InputHoldBegin()
+            task.wait(data.Prompt.HoldDuration or 0)
+            data.Prompt:InputHoldEnd()
+        end
+    end
+end
+
+-- 3. GIAO DIỆN UI (Đã sắp xếp đúng order)
+MyUIElements.Harvest:Dropdown({
+    Title = "loc:SelectFruit", Desc = "loc:SelectFruitDesc", 
+    Flag = "Harvest_TargetSeeds", Values = SeedList, Value = {}, Multi = true, AllowNone = true,
+    Callback = function(val) Config.TargetSeeds = val end
+})
+
+MyUIElements.Harvest:Dropdown({
+    Title = "loc:SelectMutations", Desc = "loc:SelectMutationsDesc", 
+    Flag = "Harvest_TargetEffects", Values = EffectList, Value = {}, Multi = true, AllowNone = true,
+    Callback = function(val) Config.TargetEffects = val end
+})
+
+MyUIElements.Harvest:Input({
+    Title = "loc:Countofmutations", Desc = "loc:CountofmutationsDesc", 
+    Flag = "Harvest_EffectCount", Value = "1", 
+    Callback = function(val) Config.EffectCount = tonumber(val) or 1 end
+})
+
+MyUIElements.Harvest:Toggle({
+    Title = "loc:Auto_Harvest", Desc = "loc:Auto_Harvest_Desc", Flag = "Auto Harvest v2",
+    Value = false, Callback = function(val) Config.AutoHarvest = val end
+})
+
+MyUIElements.Harvest:Toggle({
+    Title = "loc:OnlyHarvestMutations", Desc = "loc:OnlyHarvestMutationsDesc", Flag = "Harvest_EffectFilter",
+    Value = false, Callback = function(val) Config.FilterByEffect = val end
+})
+
+MyUIElements.Harvest:Input({
+    Title = "loc:Harvest_Radius", Desc = "loc:Harvest_Radius_Desc", Flag = "Harvest Radius Config",
+    Placeholder = "Enter harvest radius", Value = "50", 
+    Callback = function(val) Config.HarvestRadius = tonumber(val) or 50 end
+})
+
+MyUIElements.Harvest:Input({
+    Title = "loc:Harvest_Speed", Desc = "loc:Harvest_Speed_Desc", Flag = "Harvest Speed Config",
+    Placeholder = "Delay between harvests", Value = "0.1", 
+    Callback = function(val) Config.HarvestSpeed = tonumber(val) or 0.1 end
+})
+
+MyUIElements.Harvest:Input({
+    Title = "loc:Max_Inventory_Capacity", Desc = "loc:Max_Inventory_Capacity_Desc", Flag = "Max Capacity Config",
+    Placeholder = "Default: 100", Value = "100", 
+    Callback = function(val) Config.MaxCapacity = tonumber(val) or 100 end
+})
+
+-- Steal UI Section
+MyUIElements.Steal:Dropdown({
+    Title = "loc:SelectFruit", Desc = "loc:SelectFruitDesc", 
+    Flag = "Steal_TargetSeeds", Values = SeedList, Value = {}, Multi = true, AllowNone = true,
+    Callback = function(val) Config.Steal_TargetSeeds = val end
+})
+
+MyUIElements.Steal:Dropdown({
+    Title = "loc:SelectMutations", Desc = "loc:SelectMutationsDesc", 
+    Flag = "Steal_TargetEffects", Values = EffectList, Value = {}, Multi = true, AllowNone = true,
+    Callback = function(val) Config.Steal_TargetEffects = val end
+})
+
+MyUIElements.Steal:Input({
+    Title = "loc:Countofmutations", Desc = "loc:CountofmutationsDesc", 
+    Flag = "Steal_EffectCount", Value = "1", 
+    Callback = function(val) Config.Steal_EffectCount = tonumber(val) or 1 end
+})
+
+MyUIElements.Steal:Toggle({
+    Title = "loc:Auto_Steal", Desc = "loc:Auto_Steal_Desc", Flag = "Auto Steal v2",
+    Value = false, Callback = function(val) Config.AutoSteal = val end
+})
+
+MyUIElements.Steal:Toggle({
+    Title = "loc:OnlyStealMutations", Desc = "loc:OnlyStealMutationsDesc", Flag = "Steal_EffectFilter",
+    Value = false, Callback = function(val) Config.Steal_FilterByEffect = val end
+})
+
+MyUIElements.Steal:Toggle({
+    Title = "loc:Teleport_to_Steal", Desc = "loc:Teleport_to_Steal_Desc", Flag = "Teleport Steal Config",
+    Value = false, Callback = function(val) Config.TeleportSteal = val end
+})
+
+MyUIElements.Steal:Input({
+    Title = "loc:Steal_Radius", Desc = "loc:Steal_Radius_Desc", Flag = "Steal Radius Config",
+    Placeholder = "Enter steal radius", Value = "50", 
+    Callback = function(val) Config.StealRadius = tonumber(val) or 50 end
+})
+
+MyUIElements.Steal:Input({
+    Title = "loc:Steal_Speed", Desc = "loc:Steal_Speed_Desc", Flag = "Steal Speed Config",
+    Placeholder = "Delay between steals", Value = "0.2", 
+    Callback = function(val) Config.StealSpeed = tonumber(val) or 0.2 end
+})
+
+MyUIElements.Seed:Toggle({
+    Title = "loc:AutoClaimGoldSeed", Desc = "loc:AutoClaimGoldSeedDesc", Flag = "Auto Gold Seed Config",
+    Value = false, Callback = function(val) Config.AutoGoldSeed = val end
+})
+
+MyUIElements.Seed:Toggle({
+    Title = "loc:AutoClaimRainbowSeed", Desc = "loc:AutoClaimRainbowSeedDesc", Flag = "Auto Rainbow Seed Config",
+    Value = false, Callback = function(val) Config.AutoRainbowSeed = val end
+})
+
+MyUIElements.Pets:Dropdown({
+    Title = "loc:SelectPets", Desc = "loc:SelectPetsDesc", Flag = "WildPet_Select",
+    Values = allPets, Value = {}, Multi = true, AllowNone = true,
+    Callback = function(val) Config.WildPet_TargetPets = val end
+})
+
+MyUIElements.Pets:Toggle({
+    Title = "loc:TeleportToPets", Desc = "loc:TeleportToPetsDesc", Flag = "WildPet_AutoTp",
+    Value = false, Callback = function(state) Config.WildPet_AutoTp = state end
+})
+
+MyUIElements.Pets:Toggle({
+    Title = "loc:AutoBuyPets", Desc = "loc:AutoBuyPetsDesc", Flag = "WildPet_AutoInteract",
+    Value = false, Callback = function(state) Config.WildPet_AutoInteract = state end
+})
+
+-- 4. BỘ KHÓA CFRAME ĐỒNG BỘ
 RunService.Heartbeat:Connect(function()
     local isLockValid = false
 
-    -- Kiểm tra tính hợp lệ của Khóa liên tục mỗi frame
-    if activeTargetData and activeTargetData.Part and activeTargetData.Part.Parent then
-        -- Thêm check coi Prompt còn tồn tại và Enabled ko, hoặc cây đã thu hoạch mất rễ
-        local prompt = activeTargetData.Prompt
-        if prompt and prompt.Parent and prompt.Enabled then
-            if activeTargetType == "Rainbow" and FarmSettings.AutoRainbowSeed then
-                isLockValid = true
-            elseif activeTargetType == "Gold" and FarmSettings.AutoGoldSeed then
-                isLockValid = true
-            elseif activeTargetType == "Steal" and FarmSettings.AutoSteal and FarmSettings.TeleportSteal then
+    if SysData.ActiveTarget then
+        local data = SysData.ActiveTarget
+        if data.Prompt and data.Prompt.Parent and data.Prompt.Enabled then
+            if SysData.ActiveType == "Rainbow" and Config.AutoRainbowSeed then isLockValid = true
+            elseif SysData.ActiveType == "Gold" and Config.AutoGoldSeed then isLockValid = true
+            elseif SysData.ActiveType == "Steal" and Config.AutoSteal and Config.TeleportSteal then
                 local timeNow = Lighting.ClockTime
-                if timeNow >= 18 or timeNow <= 6 then
-                    isLockValid = true
-                end
+                if timeNow >= 18 or timeNow <= 6 then isLockValid = true end
+            elseif SysData.ActiveType == "WildPet" and Config.WildPet_AutoTp and data.RefPart and data.RefPart.Parent then
+                isLockValid = true
             end
         end
     end
 
     if isLockValid then
-        local character = localPlayer.Character
-        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        local playerCharacter = localPlayer.Character
+        local hrp = playerCharacter and playerCharacter:FindFirstChild("HumanoidRootPart")
         if hrp then
-            hrp.CFrame = activeTargetData.Part.CFrame + Vector3.new(0, 3, 0)
+            local targetCFrame = (SysData.ActiveTarget.RefPart and SysData.ActiveTarget.RefPart.CFrame or SysData.ActiveTarget.Part.CFrame)
+            local offset = (SysData.ActiveType == "WildPet") and Vector3.new(0, 2.5, 0) or Vector3.new(0, 3, 0)
+            
+            hrp.CFrame = targetCFrame + offset
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.AssemblyAngularVelocity = Vector3.zero
         end
     else
-        activeTargetData = nil
-        activeTargetType = nil
+        SysData.ActiveTarget = nil
+        SysData.ActiveType = nil
     end
 end)
 
+-- 5. QUÉT VÀ LƯU TRỮ (CACHE) MỌI THỨ CÓ TÍCH HỢP LỌC SEED/EFFECT
 task.spawn(function()
     while task.wait(0.5) do
-        local activeHarvestSteal = FarmSettings.AutoHarvest or FarmSettings.AutoSteal
-        local activeSeeds = FarmSettings.AutoGoldSeed or FarmSettings.AutoRainbowSeed
-        if not activeHarvestSteal and not activeSeeds then continue end
+        local isAnyFarmActive = Config.AutoHarvest or Config.AutoSteal or Config.AutoGoldSeed or Config.AutoRainbowSeed
+        local isPetActive = Config.WildPet_AutoTp or Config.WildPet_AutoInteract
+        if not isAnyFarmActive and not isPetActive then continue end
         
         local newCache = {}
-        local myName, myDisplayName, myUserId = localPlayer.Name, localPlayer.DisplayName, tostring(localPlayer.UserId)
-
-        local function processPrompt(obj, plotOwner, isMyPlot)
-            if not obj:IsA("ProximityPrompt") then return end
+        
+        if isPetActive then
+            local wildPetRef = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("WildPetRef")
+            local wildPetSpawns = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("WildPetSpawns")
             
-            local nameLower = string.lower(obj.Name)
-            local actionLower = string.lower(obj.ActionText)
-            local objectLower = string.lower(obj.ObjectText)
-            
-            local isHarvest = (nameLower == "harvest" or actionLower == "harvest" or objectLower == "harvest")
-            local isSteal = (nameLower == "steal" or actionLower == "steal" or objectLower == "steal")
-            local isGold = (string.find(objectLower, "gold", 1, true) and string.find(actionLower, "claim", 1, true)) or string.find(nameLower, "gold", 1, true)
-            local isRainbow = (string.find(objectLower, "rainbow", 1, true) and string.find(actionLower, "claim", 1, true)) or string.find(nameLower, "rainbow", 1, true)
-
-            if isHarvest or isSteal or isGold or isRainbow then
-                -- [MỚI] Bóc Data từ Model mẹ để nạp cho Remote Event
-                local model = obj:FindFirstAncestorWhichIsA("Model")
-                local ownerUserId = model and tonumber(model:GetAttribute("UserId")) or nil
-                local plantId = model and model:GetAttribute("PlantId") or nil
-                local fruitId = model and model:GetAttribute("FruitId") or ""
-
-                table.insert(newCache, {
-                    Prompt = obj,
-                    Part = obj.Parent,
-                    PlotOwner = plotOwner,
-                    IsMyPlot = isMyPlot,
-                    IsHarvest = isHarvest,
-                    IsSteal = isSteal,
-                    IsGoldSeed = isGold,
-                    IsRainbowSeed = isRainbow,
-                    OwnerUserId = ownerUserId,
-                    PlantId = plantId,
-                    FruitId = fruitId
-                })
-            end
-        end
-
-        local gardens = Workspace:FindFirstChild("Gardens")
-        if gardens then
-            for _, plot in pairs(gardens:GetChildren()) do
-                local plotOwner = getPlotOwner(plot)
-                local isMyPlot = (plotOwner == myName or plotOwner == myDisplayName or plotOwner == myUserId)
-                
-                for _, obj in pairs(plot:GetDescendants()) do
-                    processPrompt(obj, plotOwner, isMyPlot)
-                end
-            end
-        end
-
-        if activeSeeds then
-            for _, child in pairs(Workspace:GetChildren()) do
-                if child ~= gardens and child.Name ~= "Players" and child.Name ~= "Terrain" and child ~= Camera then
-                    for _, obj in pairs(child:GetDescendants()) do
-                        processPrompt(obj, nil, false)
+            if wildPetRef and wildPetSpawns then
+                for _, refPart in pairs(wildPetRef:GetChildren()) do
+                    if refPart:IsA("BasePart") then
+                        local petName = refPart:GetAttribute("PetName")
+                        local ownerId = refPart:GetAttribute("OwnerUserId")
+                        if (not ownerId or ownerId == 0 or ownerId == localPlayer.UserId) and isTargetPet(petName) then
+                            for _, petModel in pairs(wildPetSpawns:GetChildren()) do
+                                if petModel:IsA("Model") and petModel:GetAttribute("PetName") == petName then
+                                    local primary = petModel.PrimaryPart
+                                    if primary and (primary.Position - refPart.Position).Magnitude < 10 then
+                                        local prompt = primary:FindFirstChild("BuyPrompt")
+                                        if prompt and prompt.Enabled then
+                                            table.insert(newCache, { IsWildPet = true, RefPart = refPart, Part = primary, Prompt = prompt })
+                                        end
+                                    end
+                                end
+                            end
+                        end
                     end
                 end
             end
         end
 
-        cachedPrompts = newCache
+        if isAnyFarmActive then
+            local myId = tostring(localPlayer.UserId)
+            local function processPrompt(obj, plotOwner, isMyPlot)
+                if not obj:IsA("ProximityPrompt") then return end
+                local nameL, actL, objL = string.lower(obj.Name), string.lower(obj.ActionText), string.lower(obj.ObjectText)
+                
+                local isHarvest = (nameL == "harvest" or actL == "harvest" or objL == "harvest")
+                local isSteal = (nameL == "steal" or actL == "steal" or objL == "steal")
+                local isGold = (string.find(objL, "gold", 1, true) and string.find(actL, "claim", 1, true)) or string.find(nameL, "gold", 1, true)
+                local isRainbow = (string.find(objL, "rainbow", 1, true) and string.find(actL, "claim", 1, true)) or string.find(nameL, "rainbow", 1, true)
+
+                if isHarvest or isSteal or isGold or isRainbow then
+                    local model = obj:FindFirstAncestorWhichIsA("Model")
+                    local isValidAction = true
+                    
+                    if (isHarvest or isSteal) and model then
+                        local cfgSeeds, cfgFilterByEffect, cfgEffects, cfgEffectCount
+                        
+                        if isHarvest then
+                            cfgSeeds = Config.TargetSeeds
+                            cfgFilterByEffect = Config.FilterByEffect
+                            cfgEffects = Config.TargetEffects
+                            cfgEffectCount = Config.EffectCount
+                        elseif isSteal then
+                            cfgSeeds = Config.Steal_TargetSeeds
+                            cfgFilterByEffect = Config.Steal_FilterByEffect
+                            cfgEffects = Config.Steal_TargetEffects
+                            cfgEffectCount = Config.Steal_EffectCount
+                        end
+
+                        -- Lọc hạt giống (Seed)
+                        local sName = model:GetAttribute("CorePartName") or model:GetAttribute("SeedName") or model.Name
+                        isValidAction = isSeedMatched(sName, cfgSeeds)
+
+                        -- Lọc theo hiệu ứng (Effect/Mutation)
+                        if isValidAction and cfgFilterByEffect then
+                            local effectCount = 0
+                            local matchedTargetEffect = false
+                            
+                            -- Quét các Attribute
+                            for k, v in pairs(model:GetAttributes()) do
+                                local kL, vL = string.lower(tostring(k)), string.lower(tostring(v))
+                                if string.find(kL, "mutation") or string.find(kL, "effect") then
+                                    effectCount = effectCount + 1
+                                    if isEffectMatched(vL, cfgEffects) or isEffectMatched(kL, cfgEffects) then matchedTargetEffect = true end
+                                end
+                            end
+                            
+                            -- Quét dự phòng các object con
+                            local effFolder = model:FindFirstChild("Mutations") or model:FindFirstChild("Effects")
+                            if effFolder then
+                                for _, child in ipairs(effFolder:GetChildren()) do
+                                    effectCount = effectCount + 1
+                                    if isEffectMatched(child.Name, cfgEffects) or (child:IsA("StringValue") and isEffectMatched(child.Value, cfgEffects)) then
+                                        matchedTargetEffect = true
+                                    end
+                                end
+                            end
+
+                            -- Kiểm tra điều kiện có được phép nhặt/trộm hay không
+                            local hasRequiredEffectsSelected = false
+                            if type(cfgEffects) == "table" then
+                                for k, v in pairs(cfgEffects) do
+                                    if (type(k) == "string" and v) or (type(k) == "number") then hasRequiredEffectsSelected = true break end
+                                end
+                            end
+
+                            if effectCount < cfgEffectCount then
+                                isValidAction = false
+                            elseif hasRequiredEffectsSelected and not matchedTargetEffect then
+                                isValidAction = false
+                            end
+                        end
+                    end
+
+                    if (isHarvest and isValidAction) or (isSteal and isValidAction) or isGold or isRainbow then
+                        table.insert(newCache, {
+                            Prompt = obj, Part = obj.Parent, PlotOwner = plotOwner, IsMyPlot = isMyPlot,
+                            IsHarvest = isHarvest, IsSteal = isSteal, IsGoldSeed = isGold, IsRainbowSeed = isRainbow,
+                            OwnerUserId = model and tonumber(model:GetAttribute("UserId")),
+                            PlantId = model and model:GetAttribute("PlantId"),
+                            FruitId = model and model:GetAttribute("FruitId") or ""
+                        })
+                    end
+                end
+            end
+
+            local gardens = Workspace:FindFirstChild("Gardens")
+            if gardens then
+                for _, plot in pairs(gardens:GetChildren()) do
+                    local plotOwner = getPlotOwner(plot)
+                    local isMyPlot = (plotOwner == localPlayer.Name or plotOwner == localPlayer.DisplayName or plotOwner == myId)
+                    for _, obj in pairs(plot:GetDescendants()) do processPrompt(obj, plotOwner, isMyPlot) end
+                end
+            end
+
+            if Config.AutoGoldSeed or Config.AutoRainbowSeed then
+                for _, child in pairs(Workspace:GetChildren()) do
+                    if child ~= gardens and child.Name ~= "Players" and child.Name ~= "Terrain" and child ~= Workspace.CurrentCamera then
+                        for _, obj in pairs(child:GetDescendants()) do processPrompt(obj, nil, false) end
+                    end
+                end
+            end
+        end
+
+        SysData.CachedTargets = newCache
     end
 end)
 
--- [LOOP 2] Thực thi click và duy trì khóa mục tiêu trộm/hạt hiếm
+-- 6. THỰC THI (ĐÃ PHÂN QUYỀN ƯU TIÊN)
 task.spawn(function()
     while task.wait(0.05) do
-        local activeHarvestSteal = FarmSettings.AutoHarvest or FarmSettings.AutoSteal
-        local activeSeeds = FarmSettings.AutoGoldSeed or FarmSettings.AutoRainbowSeed
-        if not activeHarvestSteal and not activeSeeds then continue end
-        
-        local character = localPlayer.Character
-        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        local playerCharacter = localPlayer.Character
+        local hrp = playerCharacter and playerCharacter:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
+        local hrpPos, timeNow = hrp.Position, os.clock()
         
-        local hrpPos = hrp.Position
-        local timeNow = os.clock()
-        
-        -- 1. THỰC THI MỤC TIÊU ĐANG BỊ KHÓA BẰNG REMOTE
-        if activeTargetData then
-            task.spawn(executeActionDirectly, activeTargetData)
+        if SysData.ActiveTarget then
+            task.spawn(executeActionDirectly, SysData.ActiveTarget)
             continue
         end
 
-        -- Nếu không có mục tiêu khóa, tiến hành tìm mục tiêu mới gần nhất
-        local canHarvest = FarmSettings.AutoHarvest and (timeNow - lastHarvestTime >= FarmSettings.HarvestSpeed)
-        local canSteal = FarmSettings.AutoSteal and (timeNow - lastStealTime >= FarmSettings.StealSpeed)
         local isNight = (Lighting.ClockTime >= 18 or Lighting.ClockTime <= 6)
-        local isInventoryFull = (getInventoryCount() >= FarmSettings.MaxCapacity)
+        local canSteal = Config.AutoSteal and (timeNow - SysData.LastSteal >= Config.StealSpeed)
+        local canHarvest = Config.AutoHarvest and (timeNow - SysData.LastHarvest >= Config.HarvestSpeed) and (getInventoryCount() < Config.MaxCapacity)
 
         local activePlayersPos = {}
         if canSteal and isNight then
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    local pPos = p.Character.HumanoidRootPart.Position
-                    activePlayersPos[p.Name] = pPos
-                    activePlayersPos[p.DisplayName] = pPos
-                    activePlayersPos[tostring(p.UserId)] = pPos
+                    local pos = p.Character.HumanoidRootPart.Position
+                    activePlayersPos[p.Name] = pos
+                    activePlayersPos[p.DisplayName] = pos
+                    activePlayersPos[tostring(p.UserId)] = pos
                 end
             end
         end
 
-        local closestRainbowData, closestRainbowDist = nil, math.huge
-        local closestGoldData, closestGoldDist = nil, math.huge
-        local closestStealData, closestStealDist = nil, (FarmSettings.TeleportSteal and math.huge or FarmSettings.StealRadius)
-        local closestHarvestData, closestHarvestDist = nil, FarmSettings.HarvestRadius 
+        local closest = { Rainbow = nil, Gold = nil, Pet = nil, Steal = nil, Harvest = nil }
+        local dists = { Rainbow = math.huge, Gold = math.huge, Pet = math.huge, Steal = (Config.TeleportSteal and math.huge or Config.StealRadius), Harvest = Config.HarvestRadius }
 
-        for i = 1, #cachedPrompts do
-            local data = cachedPrompts[i]
+        for _, data in ipairs(SysData.CachedTargets) do
             if not data.Prompt or not data.Part or not data.Prompt.Parent or not data.Prompt.Enabled then continue end
-            
-            local distance = (hrpPos - data.Part.Position).Magnitude
+            local pos = data.RefPart and data.RefPart.Position or data.Part.Position
+            if not pos then continue end
+            local distance = (hrpPos - pos).Magnitude
 
-            if FarmSettings.AutoRainbowSeed and data.IsRainbowSeed and distance < closestRainbowDist then
-                closestRainbowData = data
-                closestRainbowDist = distance
-            end
-
-            if FarmSettings.AutoGoldSeed and data.IsGoldSeed and distance < closestGoldDist then
-                closestGoldData = data
-                closestGoldDist = distance
-            end
-
-            if canSteal and data.IsSteal and not data.IsMyPlot and distance < closestStealDist and isNight then
-                local ownerCurrentPos = data.PlotOwner and activePlayersPos[data.PlotOwner]
-                local isOwnerHome = ownerCurrentPos and ((ownerCurrentPos - data.Part.Position).Magnitude <= 50)
-                
-                if not isOwnerHome then
-                    closestStealData = data
-                    closestStealDist = distance
+            if Config.AutoRainbowSeed and data.IsRainbowSeed and distance < dists.Rainbow then 
+                closest.Rainbow = data; dists.Rainbow = distance
+            elseif Config.AutoGoldSeed and data.IsGoldSeed and distance < dists.Gold then 
+                closest.Gold = data; dists.Gold = distance
+            elseif (Config.WildPet_AutoTp or Config.WildPet_AutoInteract) and data.IsWildPet and distance < dists.Pet then 
+                closest.Pet = data; dists.Pet = distance
+            elseif canSteal and data.IsSteal and not data.IsMyPlot and distance < dists.Steal and isNight then
+                local ownerPos = data.PlotOwner and activePlayersPos[data.PlotOwner]
+                if not ownerPos or (ownerPos - pos).Magnitude > 50 then
+                    closest.Steal = data; dists.Steal = distance
                 end
-            end
-
-            if canHarvest and data.IsHarvest and data.IsMyPlot and distance < closestHarvestDist and not isInventoryFull then
-                closestHarvestData = data
-                closestHarvestDist = distance
+            elseif canHarvest and data.IsHarvest and data.IsMyPlot and distance < dists.Harvest then 
+                closest.Harvest = data; dists.Harvest = distance
             end
         end
 
-        -- 2. GÁN MỤC TIÊU MỚI VÀO BỘ KHÓA CỨNG (Theo thứ tự ưu tiên)
-        if closestRainbowData then
-            activeTargetData = closestRainbowData
-            activeTargetType = "Rainbow"
-            task.spawn(executeActionDirectly, activeTargetData)
-            
-        elseif closestGoldData then
-            activeTargetData = closestGoldData
-            activeTargetType = "Gold"
-            task.spawn(executeActionDirectly, activeTargetData)
-            
-        elseif closestStealData and FarmSettings.TeleportSteal then
-            activeTargetData = closestStealData
-            activeTargetType = "Steal"
-            task.spawn(executeActionDirectly, activeTargetData)
-            lastStealTime = timeNow
-            
-        -- Trường hợp Steal không dùng Teleport (Chỉ đứng gần bấm/Fire)
-        elseif closestStealData and not FarmSettings.TeleportSteal then
-            task.spawn(executeActionDirectly, closestStealData)
-            lastStealTime = timeNow
-        end
-
-        -- Auto Harvest (Chạy song song bằng bán kính)
-        if closestHarvestData then
-            task.spawn(executeActionDirectly, closestHarvestData)
-            lastHarvestTime = timeNow
+        if closest.Rainbow then
+            SysData.ActiveTarget, SysData.ActiveType = closest.Rainbow, "Rainbow"
+            task.spawn(executeActionDirectly, closest.Rainbow)
+        elseif closest.Gold then
+            SysData.ActiveTarget, SysData.ActiveType = closest.Gold, "Gold"
+            task.spawn(executeActionDirectly, closest.Gold)
+        elseif closest.Pet then
+            if Config.WildPet_AutoTp then SysData.ActiveTarget, SysData.ActiveType = closest.Pet, "WildPet" end
+            if Config.WildPet_AutoInteract then task.spawn(executeActionDirectly, closest.Pet) end
+        elseif closest.Steal and Config.TeleportSteal then
+            SysData.ActiveTarget, SysData.ActiveType = closest.Steal, "Steal"
+            task.spawn(executeActionDirectly, closest.Steal); SysData.LastSteal = timeNow
+        elseif closest.Steal and not Config.TeleportSteal then
+            task.spawn(executeActionDirectly, closest.Steal); SysData.LastSteal = timeNow
+        elseif closest.Harvest then
+            task.spawn(executeActionDirectly, closest.Harvest); SysData.LastHarvest = timeNow
         end
     end
 end)
+
 
 local AutoSprinkler = {
 	-- Đã gỡ CollectionService vì không còn dùng tới
@@ -1889,6 +2081,30 @@ MyUIElements.SellFruit:Input({
         end
     end
 })
+
+-- ==========================================
+-- HỆ THỐNG CHẶN ÂM THANH THEO ID
+-- ==========================================
+local function muteTargetSound(inst)
+    if inst:IsA("Sound") and string.find(tostring(inst.SoundId), "550209561") then
+        inst.Volume = 0
+        task.spawn(function()
+            inst:Stop()
+        end)
+    end
+end
+
+-- Quét các khu vực thường chứa âm thanh và hook sự kiện
+local targetServices = {Workspace, SoundService, localPlayer, ReplicatedStorage}
+for _, service in ipairs(targetServices) do
+    for _, v in ipairs(service:GetDescendants()) do
+        pcall(muteTargetSound, v)
+    end
+    service.DescendantAdded:Connect(function(v)
+        pcall(muteTargetSound, v)
+    end)
+end
+-- ==========================================
 
 local ShopConfig = {
     Net = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking")),
