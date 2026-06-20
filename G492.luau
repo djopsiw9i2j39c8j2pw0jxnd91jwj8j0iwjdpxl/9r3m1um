@@ -595,7 +595,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.0.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.0.6", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -676,7 +676,7 @@ local ElementConfigs = {
         Config = {
             Title = "loc:Steal",
             Desc = "loc:Steal_Sections",
-            Icon = "sprout",
+            Icon = "mask",
             Box = true,
             BoxBorder = true,
             Opened = false,
@@ -706,7 +706,7 @@ local ElementConfigs = {
         Config = {
             Title = "loc:Pets",
             Desc = "loc:PetsSections",
-            Icon = "wheat",
+            Icon = "paw-print",
             Box = true,
             BoxBorder = true,
             Opened = false,
