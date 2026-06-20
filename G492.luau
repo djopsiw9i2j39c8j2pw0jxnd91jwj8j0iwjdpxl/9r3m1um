@@ -607,7 +607,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.0.6", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.0.7", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -853,6 +853,21 @@ local ElementConfigs = {
         Config = {
             Title = "loc:AirPower",
             Desc = "loc:AirPowerDesc",
+            Icon = "wind",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "Bypass",
+        Type = "Section",
+        Parent = TabHandles.Misc,
+        Config = {
+            Title = "loc:Bypass",
+            Desc = "loc:BypassDesc",
             Icon = "wind",
             Box = true,
             BoxBorder = true,
@@ -2559,7 +2574,50 @@ task.spawn(function()
     end
 end)
 
+local greenbeanBypassEnabled = true 
 
+MyUIElements.Bypass:Toggle({
+    Title = "Bypass Greenbean",
+    Desc = "Giả mạo nhân vật thành Greenbean để mua Seed độc quyền",
+    Flag = "GreenbeanBypass",
+    Value = true,
+    Callback = function(state) 
+        greenbeanBypassEnabled = state
+        if not state and playerCharacter then
+            playerCharacter:SetAttribute("AppliedGreenbean", nil)
+        end
+    end
+})
+
+MyUIElements.Bypass:Toggle({
+    Title = "Anti-AFK Bypass",
+    Desc = "Hack giới hạn thời gian AFK lên vô hạn",
+    Flag = "AntiAfkOverride",
+    Value = true,
+    Callback = function(state) 
+        if state then
+            localPlayer:SetAttribute("AntiAfkIdleOverride", 999999999)
+        else
+            localPlayer:SetAttribute("AntiAfkIdleOverride", nil)
+        end
+    end
+})
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if greenbeanBypassEnabled and playerCharacter then
+            if not playerCharacter:GetAttribute("AppliedGreenbean") then
+                playerCharacter:SetAttribute("AppliedGreenbean", true)
+            end
+        end
+    end
+end)
+
+localPlayer.Idled:Connect(function()
+    VirtualUser:Button2Down(Vector2.new(0,0), Camera.CFrame)
+    task.wait(1)
+    VirtualUser:Button2Up(Vector2.new(0,0), Camera.CFrame)
+end)
 
 MyUIElements.SettingsManager.MySubTabs.Languages:Paragraph({
     Title = "loc:Language",
