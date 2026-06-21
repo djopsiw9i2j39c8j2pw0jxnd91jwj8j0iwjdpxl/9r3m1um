@@ -335,6 +335,8 @@ WindUI:Localization({
             AutoPlantDesc = "Automatically plants the selected plant.",
             Plant = "Plant",
             PlantSections = "General settings for planting features.",
+            AntiRagdoll = "Anti Ragdoll",
+            AntiRagdollDesc = "Prevents your character from entering the ragdoll state.",
         },
         vi = {
             HubTitle = "Hutao Hub",
@@ -558,6 +560,8 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             AutoPlantDesc = "Tự động trồng loại cây đã chọn.",
             Plant = "Trồng cây",
             PlantSections = "Cài đặt chung cho các tính năng trồng cây.",
+            AntiRagdoll = "Chống gục ngã",
+            AntiRagdollDesc = "Ngăn nhân vật của bạn rơi vào trạng thái gục ngã.",
         }
     }
 })
@@ -2822,7 +2826,6 @@ MyUIElements.FixLag:Button({
 local greenbeanBypassEnabled = true 
 local antiRagdollEnabled = false 
 
--- [1] NÚT GREENBEAN
 MyUIElements.Bypass:Toggle({
     Title = "loc:GreenbeanSeed",
     Desc = "loc:GreenbeanSeedDesc",
@@ -2836,7 +2839,6 @@ MyUIElements.Bypass:Toggle({
     end
 })
 
--- [2] NÚT ANTI-AFK
 MyUIElements.Bypass:Toggle({
     Title = "loc:AntiAFK",
     Desc = "loc:AntiAFKDesc",
@@ -2851,10 +2853,9 @@ MyUIElements.Bypass:Toggle({
     end
 })
 
--- [3] NÚT ANTI-RAGDOLL (ĐÃ NÂNG CẤP ANTI-KNOCKBACK)
 MyUIElements.Bypass:Toggle({
-    Title = "Anti-Ragdoll",
-    Desc = "Chống té ngã & Chống đẩy lùi",
+    Title = "loc:AntiRagdoll",
+    Desc = "loc:AntiRagdollDesc",
     Flag = "AntiRagdollBypass",
     Value = false,
     Callback = function(state) 
