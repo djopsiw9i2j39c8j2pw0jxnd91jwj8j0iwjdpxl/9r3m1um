@@ -337,6 +337,16 @@ WindUI:Localization({
             PlantSections = "General settings for planting features.",
             AntiRagdoll = "Anti Ragdoll",
             AntiRagdollDesc = "Prevents your character from entering the ragdoll state.",
+            AuraRange = "Attack Range",
+            AuraRangeDesc = "Adjusts the maximum distance for attacking targets.",
+            AttackCooldown = "Attack Cooldown",
+            AttackCooldownDesc = "Adjusts the delay between consecutive attacks.",
+            AutoAimbot = "Auto Aimbot",
+            AutoAimbotDesc = "Automatically aims at the nearest target.",
+            SilentAttack = "Silent Attack",
+            SilentAttackDesc = "Automatically attacks enemies using skills without aiming directly.",
+            ShovelPower = "Shovel Power",
+            ShovelPowerDesc = "Configure automatic attack features for nearby players.",
         },
         vi = {
             HubTitle = "Hutao Hub",
@@ -562,6 +572,16 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             PlantSections = "Cài đặt chung cho các tính năng trồng cây.",
             AntiRagdoll = "Chống gục ngã",
             AntiRagdollDesc = "Ngăn nhân vật của bạn rơi vào trạng thái gục ngã.",
+            AuraRange = "Phạm vi tấn công",
+            AuraRangeDesc = "Điều chỉnh khoảng cách tối đa để tấn công mục tiêu.",
+            AttackCooldown = "Thời gian hồi đánh",
+            AttackCooldownDesc = "Điều chỉnh khoảng thời gian giữa các đòn tấn công liên tiếp.",
+            AutoAimbot = "Tự động ngắm",
+            AutoAimbotDesc = "Tự động ngắm vào mục tiêu gần nhất.",
+            SilentAttack = "Tấn công im lặng",
+            SilentAttackDesc = "Tự động sử dụng kỹ năng tấn công kẻ địch mà không cần ngắm trực tiếp.",
+            ShovelPower = "Sức mạnh xẻng",
+            ShovelPowerDesc = "Điều chỉnh các tính năng tự động tấn công người chơi ở gần.",
         }
     }
 })
@@ -611,7 +631,6 @@ local Window = WindUI:CreateWindow({
 
 Window:SetToggleKey(Enum.KeyCode.V)
 
--- [ NÚT BẬT/TẮT ĐỘ TRONG SUỐT ] --
 pcall(function()
     Window:CreateTopbarButton("TransparencyToggle", "eye", function()
         if getgenv().TransparencyEnabled then
@@ -655,7 +674,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.1.1", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.1.3", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -916,6 +935,21 @@ local ElementConfigs = {
         Config = {
             Title = "loc:AirPower",
             Desc = "loc:AirPowerDesc",
+            Icon = "wind",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "ShovelPower",
+        Type = "Section",
+        Parent = TabHandles.Player,
+        Config = {
+            Title = "loc:ShovelPower",
+            Desc = "loc:ShovelPowerDesc",
             Icon = "wind",
             Box = true,
             BoxBorder = true,
@@ -2359,9 +2393,6 @@ MyUIElements.SellFruit:Input({
     end
 })
 
--- ==========================================
--- HỆ THỐNG CHẶN ÂM THANH THEO ID
--- ==========================================
 local function muteTargetSound(inst)
     if inst:IsA("Sound") and string.find(tostring(inst.SoundId), "550209561") then
         inst.Volume = 0
@@ -2381,7 +2412,6 @@ for _, service in ipairs(targetServices) do
         pcall(muteTargetSound, v)
     end)
 end
--- ==========================================
 
 local ShopConfig = {
     Net = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking")),
@@ -2766,6 +2796,109 @@ RunService.Heartbeat:Connect(function()
         end
     end
 end)
+
+_G.Aura = {
+    Enabled = false,
+    AutoAim = true, -- Thêm biến quản lý Auto Aim
+    Range = 12, 
+    Cooldown = 0.65, 
+    Cache = {}, 
+    
+    Net = require(ReplicatedStorage:FindFirstChild("SharedModules") and ReplicatedStorage.SharedModules:FindFirstChild("Networking"))
+}
+
+_G.Aura.Swing = _G.Aura.Net and _G.Aura.Net.Shovel and _G.Aura.Net.Shovel.SwingShovel
+_G.Aura.Hit = _G.Aura.Net and _G.Aura.Net.Shovel and _G.Aura.Net.Shovel.HitPlayer
+
+if not _G.Aura.Swing or not _G.Aura.Hit then
+    warn("[AURA] Không tìm thấy module tín hiệu Shovel!")
+end
+
+_G.Aura.ProcessAttack = function(targetPlayer)
+    if not _G.Aura.Swing or not _G.Aura.Hit or targetPlayer == localPlayer or not targetPlayer.Character then return end
+    
+    local myRoot = playerCharacter and playerCharacter:FindFirstChild("HumanoidRootPart") 
+    local currentTool = playerCharacter and playerCharacter:FindFirstChild("Shovel")
+    if not myRoot or not currentTool then return end 
+    
+    local targetRoot = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return end
+    
+    if (targetRoot.Position - myRoot.Position).Magnitude > _G.Aura.Range then return end 
+    
+    local now = os.clock()
+    if _G.Aura.Cache[targetPlayer] and (now - _G.Aura.Cache[targetPlayer]) < _G.Aura.Cooldown then return end
+    _G.Aura.Cache[targetPlayer] = now
+    
+    -- KIỂM TRA AUTO AIM TRƯỚC KHI XOAY MẶT
+    if _G.Aura.AutoAim then
+        local targetPosition = Vector3.new(targetRoot.Position.X, myRoot.Position.Y, targetRoot.Position.Z)
+        myRoot.CFrame = CFrame.lookAt(myRoot.Position, targetPosition)
+    end
+    
+    _G.Aura.Swing:Fire()
+    RunService.RenderStepped:Wait() 
+    _G.Aura.Hit:Fire(targetPlayer.UserId)
+end
+
+Players.PlayerRemoving:Connect(function(plr)
+    _G.Aura.Cache[plr] = nil
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not _G.Aura.Enabled then return end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        _G.Aura.ProcessAttack(plr)
+    end
+end)
+
+MyUIElements.ShovelPower:Input({
+    Title = "loc:AuraRange",
+    Desc = "loc:AuraRangeDesc",
+    Flag = "AuraRange",
+    Placeholder = "12",
+    Value = "12",
+    Callback = function(val)
+        local newVal = tonumber(val) or 12
+        if newVal > 12 then newVal = 12 end 
+        _G.Aura.Range = newVal
+    end,
+})
+
+MyUIElements.ShovelPower:Slider({
+    Title = "loc:AttackCooldown",
+    Desc = "loc:AttackCooldownDesc",
+    Flag = "AttackCooldown",
+    Value = { Default = 0.65, Min = 0.65, Max = 2 },
+    Step = 0.05,
+    IsTooltip = true,
+    Callback = function(val)
+        _G.Aura.Cooldown = val
+    end,
+})
+
+MyUIElements.ShovelPower:Toggle({
+    Title = "loc:AutoAimbot",
+    Desc = "loc:AutoAimbotDesc",
+    Flag = "AutoAimbot",
+    Value = true,
+    Callback = function(val)
+        _G.Aura.AutoAim = val
+    end,
+})
+
+MyUIElements.ShovelPower:Toggle({
+    Title = "loc:SilentAttack",
+    Desc = "loc:SilentAttackDesc",
+    Flag = "SilentAttack",
+    Value = false,
+    Callback = function(val)
+        _G.Aura.Enabled = val
+        if not val then
+            table.clear(_G.Aura.Cache) 
+        end
+    end,
+})
 
 -- Fix Lag
 
