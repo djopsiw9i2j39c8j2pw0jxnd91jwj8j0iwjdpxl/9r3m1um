@@ -18,6 +18,7 @@ PathfindingService = game:GetService("PathfindingService")
 LocalizationService = game:GetService("LocalizationService")
 Debris = game:GetService("Debris")
 ServerScriptService = game:GetService("ServerScriptService")
+CollectionService = game:GetService("CollectionService")
 
 localPlayer = Players.LocalPlayer
 PlayerGui = localPlayer:WaitForChild("PlayerGui", 10)
@@ -328,6 +329,12 @@ WindUI:Localization({
             Rejoin_To_Fix_Lag_Desc = "Press to activate the server lag reduction function.",
             FixLag = "Fix Lag",
             FixLagDesc = "Enhanced the user experience with smoother performance.",
+            SelectPlant = "Select Plant",
+            SelectPlantDesc = "Select the plant to use.",
+            AutoPlant = "Auto Plant",
+            AutoPlantDesc = "Automatically plants the selected plant.",
+            Plant = "Plant",
+            PlantSections = "General settings for planting features.",
         },
         vi = {
             HubTitle = "Hutao Hub",
@@ -545,6 +552,12 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             Rejoin_To_Fix_Lag_Desc = "Nhấn để kích hoạt tính năng giảm lag máy chủ.",
             FixLag = "Giảm giật",
             FixLagDesc = "Nâng cao trải nghiệm người dùng với hiệu năng mượt mà hơn.",
+            SelectPlant = "Chọn cây trồng",
+            SelectPlantDesc = "Chọn loại cây sẽ sử dụng.",
+            AutoPlant = "Tự động trồng cây",
+            AutoPlantDesc = "Tự động trồng loại cây đã chọn.",
+            Plant = "Trồng cây",
+            PlantSections = "Cài đặt chung cho các tính năng trồng cây.",
         }
     }
 })
@@ -638,7 +651,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.1.0", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.1.1", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -773,13 +786,13 @@ local ElementConfigs = {
     },
     
     {
-        ID = "AutoPlant",
+        ID = "Plant",
         Type = "Section",
         Parent = TabHandles.Main,
         Config = {
-            Title = "loc:AutoPlant",
-            Desc = "loc:AutoPlantSections",
-            Icon = "wrench",
+            Title = "loc:Plant",
+            Desc = "loc:PlantSections",
+            Icon = "sprout",
             Box = true,
             BoxBorder = true,
             Opened = false,
@@ -1911,134 +1924,125 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
--- ==========================================
--- 1. KHAI BÁO MODULE & SERVICE CÒN THIẾU
--- ==========================================
--- (Giữ lại CollectionService vì trong list chung chưa có)
-local CollectionService = game:GetService("CollectionService")
 local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 
--- ==========================================
--- 2. CẤU HÌNH TRẠNG THÁI (CONFIG)
--- ==========================================
 local AutoPlantConfig = {
-	SelectedSeed = "Carrot", -- Giá trị mặc định
-	AutoPlant = false
+	AutoPlant = false,
+	ParsedSeeds = {} 
 }
 
--- ==========================================
--- 3. LOGIC AUTO TRỒNG CÂY
--- ==========================================
+local Cache = {
+	PlotId = nil,
+	Grid = {}
+}
+
+local function updateSeedList(rawSelection)
+	table.clear(AutoPlantConfig.ParsedSeeds)
+	if type(rawSelection) == "table" then
+		for k, v in pairs(rawSelection) do
+			if type(k) == "string" and v then table.insert(AutoPlantConfig.ParsedSeeds, k) 
+			elseif type(v) == "string" then table.insert(AutoPlantConfig.ParsedSeeds, v) end
+		end
+	elseif type(rawSelection) == "string" and rawSelection ~= "" then
+		table.insert(AutoPlantConfig.ParsedSeeds, rawSelection)
+	end
+end
+
+-- Bộ nhớ đệm Grid (Dùng CollectionService Global & localPlayer Global)
+local function getCachedGrid(plot)
+	local currentId = localPlayer:GetAttribute("PlotId")
+	if Cache.PlotId == currentId and #Cache.Grid > 0 then return Cache.Grid end
+	
+	Cache.PlotId = currentId
+	table.clear(Cache.Grid)
+	
+	local areas = {}
+	for _, p in ipairs(CollectionService:GetTagged("PlantArea")) do
+		if p:IsDescendantOf(plot) and p.Size.X * p.Size.Z > 400 then table.insert(areas, p) end
+	end
+	if #areas == 0 then 
+		local ref = plot:FindFirstChild("PlotSizeReference")
+		if ref then table.insert(areas, ref) end 
+	end
+
+	for i = 1, #areas do
+		local cf, sz = areas[i].CFrame, areas[i].Size
+		local hx, hz = sz.X/2 - 3, sz.Z/2 - 3
+		local topY = areas[i].Position.Y + sz.Y/2 + 0.3
+		
+		for ix = 0, math.floor((2*hx)/6) do 
+			for iz = 0, math.floor((2*hz)/6) do
+				local w = (cf * CFrame.new(-hx + ix*6, 0, -hz + iz*6)).Position
+				table.insert(Cache.Grid, Vector3.new(w.X, topY, w.Z)) 
+			end 
+		end
+	end
+	return Cache.Grid
+end
+
+-- Hash Map O(1) check đất trống
+local function getFreePositions(plot, grid)
+	local occ = {}
+	local plants = plot:FindFirstChild("Plants")
+	
+	if plants then 
+		for _, pl in ipairs(plants:GetChildren()) do 
+			local p = pl:GetPivot().Position
+			occ[math.floor(p.X/6 + 0.5) .. "_" .. math.floor(p.Z/6 + 0.5)] = true 
+		end 
+	end
+	
+	local free = {}
+	for i = 1, #grid do
+		local pos = grid[i]
+		if not occ[math.floor(pos.X/6 + 0.5) .. "_" .. math.floor(pos.Z/6 + 0.5)] then
+			table.insert(free, pos)
+		end
+	end
+	return free
+end
+
+-- Vòng lặp chính (Dùng Workspace Global & localPlayer Global)
 local function autoPlantLoop()
 	while AutoPlantConfig.AutoPlant do
-		task.wait(0.5) -- Chu kỳ check
-		
-		local targetSeed = AutoPlantConfig.SelectedSeed
-		if not targetSeed or targetSeed == "" then continue end
+		task.wait(1.2)
+		if #AutoPlantConfig.ParsedSeeds == 0 then continue end
 
-		-- Sử dụng trực tiếp biến localPlayer và playerCharacter từ list chung của bro
-		local char = localPlayer.Character or playerCharacter
-		local hum = char and char:FindFirstChild("Humanoid")
-		local backpack = localPlayer:FindFirstChildOfClass("Backpack")
-		
-		local seedTool = nil
-		
-		-- Tìm tool trong Character và Backpack
-		if char then
-			for _, t in ipairs(char:GetChildren()) do
-				if t:IsA("Tool") and t:GetAttribute("SeedTool") == targetSeed then
-					seedTool = t; break
-				end
-			end
-		end
-		if not seedTool and backpack then
-			for _, t in ipairs(backpack:GetChildren()) do
-				if t:IsA("Tool") and t:GetAttribute("SeedTool") == targetSeed then
-					seedTool = t; break
-				end
-			end
-		end
-		
-		if not seedTool then continue end -- Hết hạt thì bỏ qua vòng lặp này
-		
-		-- Ép buộc tự động cầm hạt giống lên tay để vượt Server Check
-		if seedTool.Parent ~= char and hum then
-			hum:EquipTool(seedTool)
-			task.wait(0.2)
-		end
-
-		-- Định vị khu vườn của mình (Workspace đã có sẵn ở file chung)
 		local plotId = localPlayer:GetAttribute("PlotId")
 		if not plotId then continue end
+		
 		local gardens = Workspace:FindFirstChild("Gardens")
 		local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
 		if not myPlot then continue end
 		
-		local plantsFolder = myPlot:FindFirstChild("Plants")
-		local allPlantAreas = CollectionService:GetTagged("PlantArea")
+		local freePos = getFreePositions(myPlot, getCachedGrid(myPlot))
+		local count = math.min(#freePos, 40)
 		
-		-- Hàm check khoảng cách với các cây mọc rồi (yêu cầu Magnitude > 1)
-		local function isPositionOccupied(worldPos)
-			if not plantsFolder then return false end
-			for _, plant in ipairs(plantsFolder:GetChildren()) do
-				local pPos = plant:GetPivot().Position
-				if (Vector2.new(pPos.X, pPos.Z) - Vector2.new(worldPos.X, worldPos.Z)).Magnitude <= 1.1 then
-					return true
-				end
-			end
-			return false
-		end
-		
-		for _, area in ipairs(allPlantAreas) do
+		for i = 1, count do
 			if not AutoPlantConfig.AutoPlant then break end
-			
-			if area:IsDescendantOf(myPlot) then
-				local size = area.Size
-				local cframe = area.CFrame
-				local spacing = 1.3 -- Rải cách nhau 1.3 stud
-				
-				-- Tính toán lưới toạ độ (Grid) trên bề mặt của phần đất
-				local startX = -size.X/2 + (spacing/2)
-				local endX = size.X/2 - (spacing/2)
-				local startZ = -size.Z/2 + (spacing/2)
-				local endZ = size.Z/2 - (spacing/2)
-				
-				for x = startX, endX, spacing do
-					if not AutoPlantConfig.AutoPlant then break end
-					for z = startZ, endZ, spacing do
-						if not AutoPlantConfig.AutoPlant then break end
-						
-						-- Tính toạ độ nằm trên bề mặt Part (Y = top)
-						local localPos = Vector3.new(x, size.Y/2, z)
-						local worldPos = cframe * localPos
-						
-						if not isPositionOccupied(worldPos) then
-							Networking.Plant.PlantSeed:Fire(worldPos, targetSeed, seedTool)
-							task.wait(0.05) -- Delay nhẹ chống sập server/bị kick
-						end
-					end
-				end
-			end
+			local seedToPlant = AutoPlantConfig.ParsedSeeds[((i - 1) % #AutoPlantConfig.ParsedSeeds) + 1]
+			Networking.Plant.PlantSeed:Fire(freePos[i], seedToPlant, myPlot)
+			task.wait(0.14) 
 		end
 	end
 end
 
-MyUIElements.AutoPlant:Dropdown({
-    Title = "Chọn hạt giống",
-    Desc = "Chọn loại hạt giống bạn muốn trồng tự động",
+MyUIElements.Plant:Dropdown({
+    Title = "loc:SelectPlant",
+    Desc = "loc:SelectPlantDesc",
     Flag = "SelectPlantSeed",
     Values = getgenv().SeedList,
-    Value = AutoPlantConfig.SelectedSeed,
+    Value = {},
     Multi = true,
     AllowNone = false,
     Callback = function(val) 
-        AutoPlantConfig.SelectedSeed = val 
+        updateSeedList(val)
     end
 })
 
-MyUIElements.AutoPlant:Toggle({
-    Title = "Auto Trồng Cây",
-    Desc = "Tự động rải hạt giống thành hàng trên khu đất của bạn",
+MyUIElements.Plant:Toggle({
+    Title = "loc:AutoPlant",
+    Desc = "loc:AutoPlantDesc",
     Flag = "AutoPlantToggle",
     Callback = function(state) 
         AutoPlantConfig.AutoPlant = state 
@@ -2047,7 +2051,6 @@ MyUIElements.AutoPlant:Toggle({
         end
     end
 })
-
 
 local KeepUIOpen = {
     GearShop = false,
