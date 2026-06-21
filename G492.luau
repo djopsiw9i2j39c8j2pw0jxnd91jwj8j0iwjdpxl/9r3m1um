@@ -674,7 +674,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.1.3", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.1.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -2417,6 +2417,8 @@ local ShopConfig = {
     Net = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking")),
     PlayerReplica = require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("PlayerStateClient")):WaitForLocalReplica(30),
     
+    RestockCycle = 1, -- TRICK: Biến đồng bộ chu kỳ Restock chung cho toàn bộ Shop
+    
     Seed = {
         AutoBuy = false,
         All = {},
@@ -2517,9 +2519,35 @@ local function GetMoney()
     return (ShopConfig.PlayerReplica and ShopConfig.PlayerReplica.Data) and (ShopConfig.PlayerReplica.Data.Sheckles or 0) or 0
 end
 
+local lastPurchasedTotal = 0 -- Bộ nhớ theo dõi số lượng đồ đã mua để so sánh
+
+-- Vòng lặp Auto Buy Seed (Kèm trách nhiệm "Báo thức" Restock)
 task.spawn(function()
     while true do
         task.wait(ShopConfig.Seed.SpeedDelay) 
+        
+        -- TRICK: HỎI NGƯỜI ANH EM SEED
+        -- Gom tổng số lượng các món đã mua trong đợt này
+        local currentTotal = 0
+        if ShopConfig.PlayerReplica and ShopConfig.PlayerReplica.Data and ShopConfig.PlayerReplica.Data.PurchasedThisRestock then
+            for _, amt in pairs(ShopConfig.PlayerReplica.Data.PurchasedThisRestock.Seeds or {}) do
+                currentTotal = currentTotal + amt
+            end
+            for _, amt in pairs(ShopConfig.PlayerReplica.Data.PurchasedThisRestock.Gears or {}) do
+                currentTotal = currentTotal + amt
+            end
+            for _, amt in pairs(ShopConfig.PlayerReplica.Data.PurchasedThisRestock.Gear or {}) do
+                currentTotal = currentTotal + amt
+            end
+        end
+        
+        -- Nếu server reset mảng PurchasedThisRestock => Số lượng tụt thê thảm => Đã Restock!
+        if currentTotal < lastPurchasedTotal then
+            ShopConfig.RestockCycle = ShopConfig.RestockCycle + 1
+        end
+        lastPurchasedTotal = currentTotal
+        
+        -- Logic mua Seed như cũ
         if ShopConfig.Seed.AutoBuy then
             local currentMoney = GetMoney()
             for _, itemName in ipairs(ShopConfig.Seed.Selected) do
@@ -2528,27 +2556,20 @@ task.spawn(function()
                 
                 local stockItem = ShopConfig.Seed.Stock:FindFirstChild(itemName)
                 if stockItem then
-                    -- Lấy tổng số lượng trên kệ (Max Stock) của đợt refresh này
                     local maxStock = stockItem.Value
-                    
-                    -- Check trong dữ liệu người chơi xem đợt này đã mua bao nhiêu cái rồi
                     local purchased = 0
                     if ShopConfig.PlayerReplica and ShopConfig.PlayerReplica.Data and ShopConfig.PlayerReplica.Data.PurchasedThisRestock and ShopConfig.PlayerReplica.Data.PurchasedThisRestock.Seeds then
                         purchased = ShopConfig.PlayerReplica.Data.PurchasedThisRestock.Seeds[itemName] or 0
                     end
                     
-                    -- Tính toán số lượng hàng thực tế còn lại (giống hệt code gốc của game)
                     local remainingStock = math.max(maxStock - purchased, 0)
                     
-                    -- Lặp đúng số lần bằng số lượng hàng còn lại
                     for i = 1, remainingStock do
-                        -- Check lại tiền và trạng thái AutoBuy trước khi fire từng cái một
                         if currentMoney >= price and ShopConfig.Seed.AutoBuy then
                             pcall(function() ShopConfig.Net.SeedShop.PurchaseSeed:Fire(itemName) end)
                             currentMoney = currentMoney - price
-                            task.wait(0.1) -- Delay nhỏ để server không kick vì spam
+                            task.wait(0.1)
                         else
-                            -- Nếu giữa chừng mà hết tiền hoặc bị tắt AutoBuy thì break vòng lặp luôn
                             break 
                         end
                     end
@@ -2558,10 +2579,15 @@ task.spawn(function()
     end
 end)
 
+-- Vòng lặp Auto Buy Gear (Chỉ động đậy khi nhận được tín hiệu Cycle mới)
 task.spawn(function()
+    local myGearCycle = 0 -- Khởi tạo ban đầu luôn thấp hơn RestockCycle để nó mua luôn lần đầu bật
+    
     while true do
         task.wait(ShopConfig.Gear.SpeedDelay)
-        if ShopConfig.Gear.AutoBuy then
+        
+        -- Chỉ chạy logic mua nếu AutoBuy bật VÀ thấy Cycle mới từ người anh em Seed
+        if ShopConfig.Gear.AutoBuy and ShopConfig.RestockCycle > myGearCycle then
             local ownedGears = {}
             pcall(function()
                 local state = ShopConfig.Net.GearShop.RequestEquippableState:Fire()
@@ -2573,18 +2599,30 @@ task.spawn(function()
             local currentMoney = GetMoney()
             for _, itemName in ipairs(ShopConfig.Gear.Selected) do
                 if not ShopConfig.Gear.AutoBuy then break end
+                
                 if not ownedGears[itemName] then
                     local price = ShopConfig.Gear.Prices[itemName] or 0
-                    if currentMoney >= price then
-                        local stockItem = ShopConfig.Gear.Stock:FindFirstChild(itemName)
-                        if stockItem and stockItem.Value > 0 then
-                            pcall(function() ShopConfig.Net.GearShop.PurchaseGear:Fire(itemName) end)
-                            currentMoney = currentMoney - price
-                            task.wait(0.2)
+                    local stockItem = ShopConfig.Gear.Stock:FindFirstChild(itemName)
+                    
+                    -- Lấy đúng Value max của đợt đó để xả đạn
+                    if stockItem and stockItem.Value > 0 then
+                        local stockToBuy = stockItem.Value 
+                        
+                        for i = 1, stockToBuy do
+                            if currentMoney >= price and ShopConfig.Gear.AutoBuy then
+                                pcall(function() ShopConfig.Net.GearShop.PurchaseGear:Fire(itemName) end)
+                                currentMoney = currentMoney - price
+                                task.wait(0.2) 
+                            else
+                                break
+                            end
                         end
                     end
                 end
             end
+            
+            -- Xả đạn xong thì đồng bộ Cycle của mình với Cycle chung để ngồi "ngủ" chờ đợt sau
+            myGearCycle = ShopConfig.RestockCycle
         end
     end
 end)
