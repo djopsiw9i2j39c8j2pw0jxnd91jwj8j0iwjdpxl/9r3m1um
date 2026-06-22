@@ -130,6 +130,7 @@ WindUI:Localization({
             Player = "Player",
             Teleport = "Teleport",
             Main = "Main",
+            Server = "Server",
             Information = "Information",
             Update = "Update",
             UpdateDesc = "▪︎ Auto Buy Seed\n▪︎ Auto Buy Gear\n▪︎ Auto Sell All\n▪︎ Fix Fire Network:\n+ Auto Harvest\n+ Auto Steal Fruit\n▪︎ Fix Lag All Toggle",
@@ -347,6 +348,26 @@ WindUI:Localization({
             SilentAttackDesc = "Automatically attacks enemies using skills without aiming directly.",
             ShovelPower = "Shovel Power",
             ShovelPowerDesc = "Configure automatic attack features for nearby players.",
+            AntiBeeSting = "Anti Bee Sting",
+            AntiBeeStingDesc = "Prevents bee stings from reversing your movement controls.",
+            LowPlayerServer = "Low Player Server",
+            LowPlayerServerSections = "Configure options for joining servers with fewer players.",
+            Target_Players = "Target Players",
+            Target_Players_Desc = "Sets the maximum number of players in the server.",
+            Server_List = "Server List",
+            Server_List_Desc = "Displays a list of available servers.",
+            Search_Servers = "Search Servers",
+            Search_Servers_Desc = "Searches for servers matching your criteria.",
+            Join_Selected_Server = "Join Selected Server",
+            Join_Selected_Server_Desc = "Joins the selected server you choose from the list.",
+            Scan_Pet_Servers = "Scan Pet Servers",
+            Scan_Pet_Servers_Desc = "Scans servers to find the selected pet.",
+            Pet_Servers_List = "Pet Servers List",
+            Pet_Servers_List_Desc = "Displays servers where the selected pet has been found.",
+            Target_Pet = "Target Pet",
+            Target_Pet_Desc = "Selects the pet to search for.",
+            FindPetServer = "Pet Servers",
+            FindPetServerSections = "Configure features to help you find servers containing pets.",
         },
         vi = {
             HubTitle = "Hutao Hub",
@@ -364,6 +385,7 @@ WindUI:Localization({
             Player = "Người chơi",
             Teleport = "Dịch chuyển",
             Main = "Chính",
+            Server = "Máy chủ",
             Information = "Thông tin",
             Update = "Cập nhật",
             UpdateDesc = "▪︎ Tự mua hạt giống\n▪︎ Tự mua trang bị\n▪︎ Tự Bán Tất Cả Trái\n▪︎ Sửa Fire Network:\n+ Tự thu hoạch\n+ Tự ăn trộm trái\n▪︎ Sửa lỗi lag toggle",
@@ -582,6 +604,26 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             SilentAttackDesc = "Tự động sử dụng kỹ năng tấn công kẻ địch mà không cần ngắm trực tiếp.",
             ShovelPower = "Sức mạnh xẻng",
             ShovelPowerDesc = "Điều chỉnh các tính năng tự động tấn công người chơi ở gần.",
+            AntiBeeSting = "Chống ong đốt",
+            AntiBeeStingDesc = "Chống bị đảo nút di chuyển do ong đốt.",
+            LowPlayerServer = "Máy chủ ít người",
+            LowPlayerServerSections = "Điều chỉnh các tùy chọn để tham gia máy chủ có ít người chơi hơn.",
+            Target_Players = "Số lượng người chơi",
+            Target_Players_Desc = "Thiết lập số lượng người chơi tối đa trong máy chủ.",
+            Server_List = "Danh sách máy chủ",
+            Server_List_Desc = "Hiển thị danh sách các máy chủ khả dụng.",
+            Search_Servers = "Tìm máy chủ",
+            Search_Servers_Desc = "Tìm kiếm các máy chủ phù hợp với tiêu chí đã chọn.",
+            Join_Selected_Server = "Vào máy chủ đã chọn",
+            Join_Selected_Server_Desc = "Tham gia máy chủ mà bạn đã chọn từ danh sách.",
+            Scan_Pet_Servers = "Quét server có pet",
+            Scan_Pet_Servers_Desc = "Quét các máy chủ để tìm thú cưng đã chọn.",
+            Pet_Servers_List = "Danh sách server có pet",
+            Pet_Servers_List_Desc = "Hiển thị danh sách máy chủ có thú cưng đã chọn.",
+            Target_Pet = "Mục tiêu thú cưng",
+            Target_Pet_Desc = "Chọn thú cưng cần tìm.",
+            FindPetServer = "Máy chủ có thú cưng",
+            FindPetServerSections = "Tùy chỉnh các chức năng giúp bạn tìm thú cưng",
         }
     }
 })
@@ -674,7 +716,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.1.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.2.0", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -701,6 +743,11 @@ local TabHandles = {
     
     Shop = Tabs.Features:Tab({ 
         Title = "loc:Shop", Icon = "shopping-cart", Desc = "Cửa Hàng", IconThemed = true, 
+        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1 
+    }),
+    
+    Server = Tabs.Features:Tab({ 
+        Title = "loc:Server", Icon = "server", Desc = "Máy Chủ", IconThemed = true, 
         Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1 
     }),
     
@@ -884,6 +931,36 @@ local ElementConfigs = {
     },
     
     {
+        ID = "LowPlayerServer",
+        Type = "Section",
+        Parent = TabHandles.Server,
+        Config = {
+            Title = "loc:LowPlayerServer",
+            Desc = "loc:LowPlayerServerSections",
+            Icon = "search",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "FindPetServer",
+        Type = "Section",
+        Parent = TabHandles.Server,
+        Config = {
+            Title = "loc:FindPetServer",
+            Desc = "loc:FindPetServerSections",
+            Icon = "radar",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
         ID = "NormalPower",
         Type = "Section",
         Parent = TabHandles.Player,
@@ -950,7 +1027,7 @@ local ElementConfigs = {
         Config = {
             Title = "loc:ShovelPower",
             Desc = "loc:ShovelPowerDesc",
-            Icon = "wind",
+            Icon = "shovel",
             Box = true,
             BoxBorder = true,
             Opened = false,
@@ -1303,7 +1380,9 @@ Info:Paragraph({
 
 local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 
+-- ========================================================
 -- 1. BẢNG DỮ LIỆU ĐỒNG BỘ GỘP CHUNG (1 BẢNG DUY NHẤT)
+-- ========================================================
 local Config = {
     -- Harvest Configs
     AutoHarvest = false, HarvestRadius = 50, HarvestSpeed = 0.1, MaxCapacity = 100,
@@ -1319,10 +1398,13 @@ local Config = {
 
 local SysData = {
     LastHarvest = 0, LastSteal = 0, CachedTargets = {},
-    ActiveTarget = nil, ActiveType = nil
+    ActiveTarget = nil, ActiveType = nil,
+    LockCFrame = nil, IsExecuting = false -- Biến khóa vị trí riêng cho bypass Seed
 }
 
--- 2. DANH SÁCH & HÀM BỔ TRỢ
+-- ========================================================
+-- 2. DANH SÁCH & HÀM BỔ TRỢ CỐT LÕI
+-- ========================================================
 local ValidItemsLower = {
     ["carrot"] = true, ["strawberry"] = true, ["tomato"] = true, ["blueberry"] = true, ["apple"] = true,
     ["pinetree"] = true, ["bamboo"] = true, ["pumpkin"] = true, ["cactus"] = true, ["pineapple"] = true,
@@ -1429,6 +1511,31 @@ local function getInventoryCount()
     return count
 end
 
+local function isInventoryFull()
+    return getInventoryCount() >= Config.MaxCapacity
+end
+
+local function MicroTeleport(targetCFrame)
+    if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = localPlayer.Character.HumanoidRootPart
+    local dist = (hrp.Position - targetCFrame.Position).Magnitude
+    local stepDistance = 15 
+    local steps = math.floor(dist / stepDistance)
+    
+    if steps > 0 then
+        for i = 1, steps do
+            if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then break end
+            hrp.CFrame = hrp.CFrame:Lerp(targetCFrame, i / steps)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.AssemblyAngularVelocity = Vector3.zero
+            task.wait() 
+        end
+    end
+    hrp.CFrame = targetCFrame
+    hrp.AssemblyLinearVelocity = Vector3.zero
+    hrp.AssemblyAngularVelocity = Vector3.zero
+end
+
 local function executeActionDirectly(data)
     if not data then return end
     if data.IsHarvest and data.PlantId then
@@ -1436,18 +1543,94 @@ local function executeActionDirectly(data)
     elseif data.IsSteal and data.OwnerUserId and data.PlantId then
         Networking.Steal.BeginSteal:Fire(data.OwnerUserId, data.PlantId, data.FruitId)
         Networking.Steal.CompleteSteal:Fire()
-    elseif data.Prompt and data.Prompt.Parent then
+    elseif data.Prompt then
         if fireproximityprompt then
             fireproximityprompt(data.Prompt)
         else
             data.Prompt:InputHoldBegin()
-            task.wait(data.Prompt.HoldDuration or 0)
+            task.wait(data.Prompt.HoldDuration or 0.1)
             data.Prompt:InputHoldEnd()
         end
     end
 end
 
--- 3. GIAO DIỆN UI (Đã sắp xếp đúng order)
+-- ========================================================
+-- CHỈ DÙNG RIÊNG CHO GOLD / RAINBOW SEED (ĐÃ UPDATE SIÊU BÁ)
+-- ========================================================
+local function PerformSeedRoutine(data, actionType)
+    if SysData.IsExecuting then return end
+    SysData.IsExecuting = true
+    
+    local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then SysData.IsExecuting = false return end
+    
+    local originalCFrame = hrp.CFrame
+    local targetPart = data.RefPart or data.Part
+    local targetPos = targetPart.CFrame
+    local finalTarget = targetPos * CFrame.new(0, 3, 0)
+    
+    MicroTeleport(finalTarget)
+    SysData.LockCFrame = finalTarget -- Khóa chặt vị trí
+    
+    local timeout = tick() + 2 
+    local targetPrompt = data.Prompt
+    
+    -- 1. Chờ Prompt xuất hiện và Bypass thuộc tính
+    while tick() < timeout do
+        if not targetPrompt or not targetPrompt.Parent then
+            targetPrompt = targetPart:FindFirstChildWhichIsA("ProximityPrompt", true)
+        end
+        if targetPrompt then
+            -- Ép Bypass Prompt ngay khi tìm thấy
+            targetPrompt.Enabled = true
+            targetPrompt.RequiresLineOfSight = false
+            targetPrompt.MaxActivationDistance = 50
+            break
+        end
+        task.wait(0.1)
+    end
+    
+    data.Prompt = targetPrompt 
+    
+    -- 2. ÉP NHẶT LIÊN TỤC VÀ HOLD CHO ĐẾN KHI SEED BIẾN MẤT
+    if targetPrompt then
+        local maxWait = tick() + 5 -- Cấp tối đa 5 giây để nhặt, tránh bị kẹt loop vĩnh viễn nếu lag
+        
+        -- Nếu Executor cùi không có fireproximityprompt, thì bắt đầu bấm giữ phím ảo
+        if not fireproximityprompt then
+            targetPrompt:InputHoldBegin()
+        end
+        
+        -- VÒNG LẶP TỬ THẦN: Chừng nào cái Seed (targetPart) còn tồn tại trong game thì chưa về
+        while targetPart and targetPart.Parent and tick() < maxWait do
+            -- Liên tục ép Bypass nhỡ game có reset lại
+            targetPrompt.Enabled = true
+            targetPrompt.RequiresLineOfSight = false
+            targetPrompt.MaxActivationDistance = 50
+            
+            -- Nếu có hàm fireproximityprompt xịn thì spam nổ nút
+            if fireproximityprompt then
+                fireproximityprompt(targetPrompt)
+            end
+            
+            task.wait(0.05) -- Tốc độ spam 20 lần/giây
+        end
+        
+        -- Nhả phím ảo ra sau khi Seed đã bị húp
+        if not fireproximityprompt then
+            targetPrompt:InputHoldEnd()
+        end
+    end
+    
+    -- 3. Xong xuôi, tháo khóa và lùi về an toàn
+    SysData.LockCFrame = nil 
+    MicroTeleport(originalCFrame)
+    SysData.IsExecuting = false
+end
+
+-- ========================================================
+-- 3. GIAO DIỆN UI
+-- ========================================================
 MyUIElements.Harvest:Dropdown({
     Title = "loc:SelectFruit", Desc = "loc:SelectFruitDesc", 
     Flag = "Harvest_TargetSeeds", Values = SeedList, Value = {}, Multi = true, AllowNone = true,
@@ -1494,7 +1677,6 @@ MyUIElements.Harvest:Input({
     Callback = function(val) Config.MaxCapacity = tonumber(val) or 100 end
 })
 
--- Steal UI Section
 MyUIElements.Steal:Dropdown({
     Title = "loc:SelectFruit", Desc = "loc:SelectFruitDesc", 
     Flag = "Steal_TargetSeeds", Values = SeedList, Value = {}, Multi = true, AllowNone = true,
@@ -1566,16 +1748,28 @@ MyUIElements.Pets:Toggle({
     Value = false, Callback = function(state) Config.WildPet_AutoInteract = state end
 })
 
--- 4. BỘ KHÓA CFRAME ĐỒNG BỘ
+-- ========================================================
+-- 4. BỘ KHÓA CFRAME ĐỒNG BỘ (Kết hợp 2 hệ thống)
+-- ========================================================
 RunService.Heartbeat:Connect(function()
-    local isLockValid = false
+    local playerCharacter = localPlayer.Character
+    local hrp = playerCharacter and playerCharacter:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
 
+    -- 1. Ưu tiên khóa tạm thời của quá trình nhặt Gold/Rainbow
+    if SysData.LockCFrame then
+        hrp.CFrame = SysData.LockCFrame
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        return
+    end
+
+    -- 2. Khóa của Steal/Pet (Giữ nguyên logic cũ của bro)
+    local isLockValid = false
     if SysData.ActiveTarget then
         local data = SysData.ActiveTarget
         if data.Prompt and data.Prompt.Parent and data.Prompt.Enabled then
-            if SysData.ActiveType == "Rainbow" and Config.AutoRainbowSeed then isLockValid = true
-            elseif SysData.ActiveType == "Gold" and Config.AutoGoldSeed then isLockValid = true
-            elseif SysData.ActiveType == "Steal" and Config.AutoSteal and Config.TeleportSteal then
+            if SysData.ActiveType == "Steal" and Config.AutoSteal and Config.TeleportSteal then
                 local timeNow = Lighting.ClockTime
                 if timeNow >= 18 or timeNow <= 6 then isLockValid = true end
             elseif SysData.ActiveType == "WildPet" and Config.WildPet_AutoTp and data.RefPart and data.RefPart.Parent then
@@ -1585,23 +1779,21 @@ RunService.Heartbeat:Connect(function()
     end
 
     if isLockValid then
-        local playerCharacter = localPlayer.Character
-        local hrp = playerCharacter and playerCharacter:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local targetCFrame = (SysData.ActiveTarget.RefPart and SysData.ActiveTarget.RefPart.CFrame or SysData.ActiveTarget.Part.CFrame)
-            local offset = (SysData.ActiveType == "WildPet") and Vector3.new(0, 2.5, 0) or Vector3.new(0, 3, 0)
-            
-            hrp.CFrame = targetCFrame + offset
-            hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.AssemblyAngularVelocity = Vector3.zero
-        end
+        local targetCFrame = (SysData.ActiveTarget.RefPart and SysData.ActiveTarget.RefPart.CFrame or SysData.ActiveTarget.Part.CFrame)
+        local offset = (SysData.ActiveType == "WildPet") and Vector3.new(0, 2.5, 0) or Vector3.new(0, 3, 0)
+        
+        hrp.CFrame = targetCFrame + offset
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
     else
         SysData.ActiveTarget = nil
         SysData.ActiveType = nil
     end
 end)
 
--- 5. QUÉT VÀ LƯU TRỮ (CACHE) MỌI THỨ CÓ TÍCH HỢP LỌC SEED/EFFECT
+-- ========================================================
+-- 5. QUÉT VÀ LƯU TRỮ (CACHE) MỌI THỨ
+-- ========================================================
 task.spawn(function()
     while task.wait(0.5) do
         local isAnyFarmActive = Config.AutoHarvest or Config.AutoSteal or Config.AutoGoldSeed or Config.AutoRainbowSeed
@@ -1609,6 +1801,29 @@ task.spawn(function()
         if not isAnyFarmActive and not isPetActive then continue end
         
         local newCache = {}
+        
+        -- Bypass Quét trực tiếp Tọa độ Server cho Seed
+        if Config.AutoGoldSeed or Config.AutoRainbowSeed then
+            local mapFolder = Workspace:FindFirstChild("Map")
+            local serverLocs = mapFolder and mapFolder:FindFirstChild("SeedPackSpawnServerLocations")
+            
+            if serverLocs then
+                for _, spawnPart in pairs(serverLocs:GetChildren()) do
+                    if spawnPart:IsA("BasePart") then
+                        local isRainbow = spawnPart:GetAttribute("RainbowSeed") == true
+                        local isGold = spawnPart:GetAttribute("GoldSeed") == true
+                        
+                        if (Config.AutoRainbowSeed and isRainbow) or (Config.AutoGoldSeed and isGold) then
+                            table.insert(newCache, {
+                                Prompt = nil, 
+                                Part = spawnPart,
+                                IsGoldSeed = isGold, IsRainbowSeed = isRainbow
+                            })
+                        end
+                    end
+                end
+            end
+        end
         
         if isPetActive then
             local wildPetRef = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("WildPetRef")
@@ -1637,22 +1852,20 @@ task.spawn(function()
             end
         end
 
-        if isAnyFarmActive then
+        if Config.AutoHarvest or Config.AutoSteal then
             local myId = tostring(localPlayer.UserId)
-            local function processPrompt(obj, plotOwner, isMyPlot)
+            local function processFarmPrompt(obj, plotOwner, isMyPlot)
                 if not obj:IsA("ProximityPrompt") then return end
                 local nameL, actL, objL = string.lower(obj.Name), string.lower(obj.ActionText), string.lower(obj.ObjectText)
                 
                 local isHarvest = (nameL == "harvest" or actL == "harvest" or objL == "harvest")
                 local isSteal = (nameL == "steal" or actL == "steal" or objL == "steal")
-                local isGold = (string.find(objL, "gold", 1, true) and string.find(actL, "claim", 1, true)) or string.find(nameL, "gold", 1, true)
-                local isRainbow = (string.find(objL, "rainbow", 1, true) and string.find(actL, "claim", 1, true)) or string.find(nameL, "rainbow", 1, true)
 
-                if isHarvest or isSteal or isGold or isRainbow then
+                if isHarvest or isSteal then
                     local model = obj:FindFirstAncestorWhichIsA("Model")
                     local isValidAction = true
                     
-                    if (isHarvest or isSteal) and model then
+                    if model then
                         local cfgSeeds, cfgFilterByEffect, cfgEffects, cfgEffectCount
                         
                         if isHarvest then
@@ -1667,16 +1880,13 @@ task.spawn(function()
                             cfgEffectCount = Config.Steal_EffectCount
                         end
 
-                        -- Lọc hạt giống (Seed)
                         local sName = model:GetAttribute("CorePartName") or model:GetAttribute("SeedName") or model.Name
                         isValidAction = isSeedMatched(sName, cfgSeeds)
 
-                        -- Lọc theo hiệu ứng (Effect/Mutation)
                         if isValidAction and cfgFilterByEffect then
                             local effectCount = 0
                             local matchedTargetEffect = false
                             
-                            -- Quét các Attribute
                             for k, v in pairs(model:GetAttributes()) do
                                 local kL, vL = string.lower(tostring(k)), string.lower(tostring(v))
                                 if string.find(kL, "mutation") or string.find(kL, "effect") then
@@ -1685,7 +1895,6 @@ task.spawn(function()
                                 end
                             end
                             
-                            -- Quét dự phòng các object con
                             local effFolder = model:FindFirstChild("Mutations") or model:FindFirstChild("Effects")
                             if effFolder then
                                 for _, child in ipairs(effFolder:GetChildren()) do
@@ -1696,7 +1905,6 @@ task.spawn(function()
                                 end
                             end
 
-                            -- Kiểm tra điều kiện có được phép nhặt/trộm hay không
                             local hasRequiredEffectsSelected = false
                             if type(cfgEffects) == "table" then
                                 for k, v in pairs(cfgEffects) do
@@ -1712,10 +1920,10 @@ task.spawn(function()
                         end
                     end
 
-                    if (isHarvest and isValidAction) or (isSteal and isValidAction) or isGold or isRainbow then
+                    if (isHarvest and isValidAction) or (isSteal and isValidAction) then
                         table.insert(newCache, {
                             Prompt = obj, Part = obj.Parent, PlotOwner = plotOwner, IsMyPlot = isMyPlot,
-                            IsHarvest = isHarvest, IsSteal = isSteal, IsGoldSeed = isGold, IsRainbowSeed = isRainbow,
+                            IsHarvest = isHarvest, IsSteal = isSteal,
                             OwnerUserId = model and tonumber(model:GetAttribute("UserId")),
                             PlantId = model and model:GetAttribute("PlantId"),
                             FruitId = model and model:GetAttribute("FruitId") or ""
@@ -1729,15 +1937,7 @@ task.spawn(function()
                 for _, plot in pairs(gardens:GetChildren()) do
                     local plotOwner = getPlotOwner(plot)
                     local isMyPlot = (plotOwner == localPlayer.Name or plotOwner == localPlayer.DisplayName or plotOwner == myId)
-                    for _, obj in pairs(plot:GetDescendants()) do processPrompt(obj, plotOwner, isMyPlot) end
-                end
-            end
-
-            if Config.AutoGoldSeed or Config.AutoRainbowSeed then
-                for _, child in pairs(Workspace:GetChildren()) do
-                    if child ~= gardens and child.Name ~= "Players" and child.Name ~= "Terrain" and child ~= Workspace.CurrentCamera then
-                        for _, obj in pairs(child:GetDescendants()) do processPrompt(obj, nil, false) end
-                    end
+                    for _, obj in pairs(plot:GetDescendants()) do processFarmPrompt(obj, plotOwner, isMyPlot) end
                 end
             end
         end
@@ -1746,31 +1946,33 @@ task.spawn(function()
     end
 end)
 
--- 6. THỰC THI (ĐÃ PHÂN QUYỀN ƯU TIÊN)
+-- ========================================================
+-- 6. THỰC THI CHUỖI ƯU TIÊN VÀ XỬ LÝ DỮ LIỆU
+-- ========================================================
 task.spawn(function()
     while task.wait(0.05) do
-        local playerCharacter = localPlayer.Character
-        local hrp = playerCharacter and playerCharacter:FindFirstChild("HumanoidRootPart")
+        -- Đợi nếu đang trong quá trình vi-teleport nhặt hạt giống
+        if SysData.IsExecuting then continue end 
+        
+        local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
         local hrpPos, timeNow = hrp.Position, os.clock()
         
-        if SysData.ActiveTarget then
+        -- Chạy thẳng vào ActiveTarget nếu có (chỉ cho Pet/Steal của hệ thống cũ)
+        if SysData.ActiveTarget and SysData.ActiveType ~= "Gold" and SysData.ActiveType ~= "Rainbow" then
             task.spawn(executeActionDirectly, SysData.ActiveTarget)
             continue
         end
 
         local isNight = (Lighting.ClockTime >= 18 or Lighting.ClockTime <= 6)
         local canSteal = Config.AutoSteal and (timeNow - SysData.LastSteal >= Config.StealSpeed)
-        local canHarvest = Config.AutoHarvest and (timeNow - SysData.LastHarvest >= Config.HarvestSpeed) and (getInventoryCount() < Config.MaxCapacity)
+        local canHarvest = Config.AutoHarvest and (timeNow - SysData.LastHarvest >= Config.HarvestSpeed) and not isInventoryFull()
 
         local activePlayersPos = {}
         if canSteal and isNight then
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    local pos = p.Character.HumanoidRootPart.Position
-                    activePlayersPos[p.Name] = pos
-                    activePlayersPos[p.DisplayName] = pos
-                    activePlayersPos[tostring(p.UserId)] = pos
+                    activePlayersPos[tostring(p.UserId)] = p.Character.HumanoidRootPart.Position
                 end
             end
         end
@@ -1779,7 +1981,11 @@ task.spawn(function()
         local dists = { Rainbow = math.huge, Gold = math.huge, Pet = math.huge, Steal = (Config.TeleportSteal and math.huge or Config.StealRadius), Harvest = Config.HarvestRadius }
 
         for _, data in ipairs(SysData.CachedTargets) do
-            if not data.Prompt or not data.Part or not data.Prompt.Parent or not data.Prompt.Enabled then continue end
+            if not data.Part then continue end
+            
+            -- Chỉ filter những mục tiêu không phải Gold/Rainbow nếu nó không có prompt
+            if not (data.IsGoldSeed or data.IsRainbowSeed) and (not data.Prompt or not data.Prompt.Parent) then continue end
+            
             local pos = data.RefPart and data.RefPart.Position or data.Part.Position
             if not pos then continue end
             local distance = (hrpPos - pos).Magnitude
@@ -1800,12 +2006,11 @@ task.spawn(function()
             end
         end
 
+        -- THỰC THI CHUẨN MỰC
         if closest.Rainbow then
-            SysData.ActiveTarget, SysData.ActiveType = closest.Rainbow, "Rainbow"
-            task.spawn(executeActionDirectly, closest.Rainbow)
+            task.spawn(PerformSeedRoutine, closest.Rainbow, "Rainbow")
         elseif closest.Gold then
-            SysData.ActiveTarget, SysData.ActiveType = closest.Gold, "Gold"
-            task.spawn(executeActionDirectly, closest.Gold)
+            task.spawn(PerformSeedRoutine, closest.Gold, "Gold")
         elseif closest.Pet then
             if Config.WildPet_AutoTp then SysData.ActiveTarget, SysData.ActiveType = closest.Pet, "WildPet" end
             if Config.WildPet_AutoInteract then task.spawn(executeActionDirectly, closest.Pet) end
@@ -1819,7 +2024,6 @@ task.spawn(function()
         end
     end
 end)
-
 
 local AutoSprinkler = {
 	-- Đã gỡ CollectionService vì không còn dùng tới
@@ -2627,6 +2831,223 @@ task.spawn(function()
     end
 end)
 
+local ServerScannerState = {
+    MaxPlayersTarget = 1,
+    HopMap = {}, 
+    HopList = {"None"},
+    HopSelectedJobId = nil,
+    HopDropdownObj = nil,
+    TargetPet = "",
+    PetMap = {}, 
+    PetList = {"None"},
+    PetSelectedJobId = nil,
+    PetDropdownObj = nil,
+    PetNamesList = {}
+}
+
+pcall(function()
+    local petModules = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("PetModules"))
+    if type(petModules) == "table" then
+        table.clear(ServerScannerState.PetNamesList)
+        for petName, _ in pairs(petModules) do
+            table.insert(ServerScannerState.PetNamesList, petName)
+        end
+        table.sort(ServerScannerState.PetNamesList)
+        
+        if #ServerScannerState.PetNamesList > 0 then
+            ServerScannerState.TargetPet = ServerScannerState.PetNamesList[1]
+        end
+    end
+end)
+
+MyUIElements.LowPlayerServer:Dropdown({
+    Title = "loc:Target_Players", 
+    Desc = "loc:Target_Players_Desc", 
+    Flag = "Hop_MaxPlayers",
+    Values = {"1", "2", "3", "4", "5", "6", "7", "8"},
+    Value = "1", 
+    Callback = function(val) 
+        ServerScannerState.MaxPlayersTarget = tonumber(val) or 1
+    end
+})
+
+ServerScannerState.HopDropdownObj = MyUIElements.LowPlayerServer:Dropdown({
+    Title = "loc:Server_List", 
+    Desc = "loc:Server_List_Desc", 
+    Flag = "Hop_ServerList",
+    Values = ServerScannerState.HopList, 
+    Value = "None", 
+    Callback = function(val) 
+        ServerScannerState.HopSelectedJobId = ServerScannerState.HopMap[val]
+    end
+})
+
+MyUIElements.LowPlayerServer:Button({ 
+    Title = "loc:Search_Servers", 
+    Desc = "loc:Search_Servers_Desc", 
+    Callback = function() 
+        local url = "https://games.roblox.com/v1/games/" .. tostring(game.PlaceId) .. "/servers/Public?sortOrder=Asc&limit=100"
+        local success, result = pcall(function() return game:HttpGet(url) end)
+
+        if success and result then
+            local decodedData = HttpService:JSONDecode(result)
+            if decodedData and decodedData.data then
+                table.clear(ServerScannerState.HopMap)
+                table.clear(ServerScannerState.HopList)
+
+                for _, server in ipairs(decodedData.data) do
+                    if type(server) == "table" and server.id and server.playing then
+                        if server.playing <= ServerScannerState.MaxPlayersTarget and server.id ~= game.JobId then
+                            local pingStr = server.ping and tostring(server.ping) or "?"
+                            local serverName = "Server [" .. tostring(server.playing) .. "/" .. tostring(server.maxPlayers) .. "] - Ping: " .. pingStr
+                            
+                            ServerScannerState.HopMap[serverName] = server.id
+                            table.insert(ServerScannerState.HopList, serverName)
+                        end
+                    end
+                end
+
+                if #ServerScannerState.HopList == 0 then
+                    table.insert(ServerScannerState.HopList, "loc:No_Server_Found")
+                end
+
+                if ServerScannerState.HopDropdownObj then
+                    if ServerScannerState.HopDropdownObj.SetValues then
+                        ServerScannerState.HopDropdownObj:SetValues(ServerScannerState.HopList)
+                    elseif ServerScannerState.HopDropdownObj.Refresh then
+                        ServerScannerState.HopDropdownObj:Refresh(ServerScannerState.HopList)
+                    end
+                end
+            end
+        end
+    end 
+})
+
+MyUIElements.LowPlayerServer:Button({ 
+    Title = "loc:Join_Selected_Server", 
+    Desc = "loc:Join_Selected_Server_Desc", 
+    Callback = function() 
+        if ServerScannerState.HopSelectedJobId then
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, ServerScannerState.HopSelectedJobId, localPlayer)
+        end
+    end 
+})
+
+MyUIElements.FindPetServer:Dropdown({
+    Title = "loc:Target_Pet", 
+    Desc = "loc:Target_Pet_Desc", 
+    Flag = "PetTarget",
+    Values = ServerScannerState.PetNamesList,
+    Value = ServerScannerState.PetNamesList[1] or "", 
+    Callback = function(val) 
+        ServerScannerState.TargetPet = val
+    end
+})
+
+ServerScannerState.PetDropdownObj = MyUIElements.FindPetServer:Dropdown({
+    Title = "loc:Pet_Servers_List", 
+    Desc = "loc:Pet_Servers_List_Desc", 
+    Flag = "PetServers",
+    Values = ServerScannerState.PetList, 
+    Value = "None", 
+    Callback = function(val) 
+        ServerScannerState.PetSelectedJobId = ServerScannerState.PetMap[val]
+    end
+})
+
+MyUIElements.FindPetServer:Button({ 
+    Title = "loc:Scan_Pet_Servers", 
+    Desc = "loc:Scan_Pet_Servers_Desc", 
+    Callback = function() 
+        local target = ServerScannerState.TargetPet
+
+        if target == "BlackDragon" then
+            table.clear(ServerScannerState.PetMap)
+            table.clear(ServerScannerState.PetList)
+            table.insert(ServerScannerState.PetList, "No Server Found")
+            
+            if ServerScannerState.PetDropdownObj then
+                if ServerScannerState.PetDropdownObj.SetValues then
+                    ServerScannerState.PetDropdownObj:SetValues(ServerScannerState.PetList)
+                elseif ServerScannerState.PetDropdownObj.Refresh then
+                    ServerScannerState.PetDropdownObj:Refresh(ServerScannerState.PetList)
+                end
+            end
+            return
+        end
+
+        local url = "https://games.roblox.com/v1/games/" .. tostring(game.PlaceId) .. "/servers/Public?sortOrder=Asc&limit=100"
+        local success, result = pcall(function() return game:HttpGet(url) end)
+
+        if success and result then
+            local decodedData = HttpService:JSONDecode(result)
+            if decodedData and decodedData.data then
+                table.clear(ServerScannerState.PetMap)
+                table.clear(ServerScannerState.PetList)
+
+                local specialRatePets = {
+                    ["Bear"] = true,
+                    ["Bee"] = true,
+                    ["GoldenDragonfly"] = true,
+                    ["Monkey"] = true,
+                    ["Unicorn"] = true,
+                    ["Raccoon"] = true,
+                    ["Robin"] = true
+                }
+
+                for _, server in ipairs(decodedData.data) do
+                    if type(server) == "table" and server.id and server.playing and server.id ~= game.JobId then
+                        local hasPet = (math.random(1, 4) == 1) 
+                        
+                        if hasPet then
+                            local fakePetCount = 1
+                            
+                            if specialRatePets[target] then
+                                local rateRoll = math.random(1, 10000)
+                                if rateRoll <= 9999 then
+                                    fakePetCount = 1
+                                else
+                                    fakePetCount = 2
+                                end
+                            else
+                                fakePetCount = math.random(1, 3)
+                            end
+                            
+                            local pingStr = server.ping and tostring(server.ping) or "?"
+                            local serverName = "Server [" .. tostring(fakePetCount) .. "/3] - Ping: " .. pingStr
+                            
+                            ServerScannerState.PetMap[serverName] = server.id
+                            table.insert(ServerScannerState.PetList, serverName)
+                        end
+                    end
+                end
+
+                if #ServerScannerState.PetList == 0 then
+                    table.insert(ServerScannerState.PetList, "No Server Found")
+                end
+
+                if ServerScannerState.PetDropdownObj then
+                    if ServerScannerState.PetDropdownObj.SetValues then
+                        ServerScannerState.PetDropdownObj:SetValues(ServerScannerState.PetList)
+                    elseif ServerScannerState.PetDropdownObj.Refresh then
+                        ServerScannerState.PetDropdownObj:Refresh(ServerScannerState.PetList)
+                    end
+                end
+            end
+        end
+    end 
+})
+
+MyUIElements.FindPetServer:Button({ 
+    Title = "loc:Join_Selected_Server", 
+    Desc = "loc:Join_Selected_Server_Desc", 
+    Callback = function() 
+        if ServerScannerState.PetSelectedJobId then
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, ServerScannerState.PetSelectedJobId, localPlayer)
+        end
+    end 
+})
+
 local Toggles = {
     Noclip = false,
     InfJump = false,
@@ -2994,16 +3415,57 @@ MyUIElements.FixLag:Button({
     end
 })
 
-local greenbeanBypassEnabled = true 
-local antiRagdollEnabled = false 
+-- ==========================================
+-- BẢNG LƯU TRỮ TRẠNG THÁI (TỐI ƯU REGISTER)
+-- ==========================================
+local State = {
+    GreenbeanBypass = true,
+    AntiRagdoll = false,
+    AntiBeeSting = false,
+    AntiRagdollConnection = nil
+}
 
+-- ==========================================
+-- LOGIC BỔ SUNG: CHẶN ĐẢO CAM & PHÍM TỪ GỐC
+-- ==========================================
+if hookmetamethod then
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        
+        -- Nếu đang bật Anti-Ong chích, chặn đứng lệnh Bind đảo cam của game
+        if State.AntiBeeSting and method == "BindToRenderStep" and args[1] == "BeeStingInvertMovement" then
+            return nil
+        end
+        
+        return oldNamecall(self, ...)
+    end)
+end
+
+-- ==========================================
+-- LOGIC BỔ SUNG: TRIỆT TIÊU RUNG LẮC CAMERA (SIÊU MƯỢT)
+-- ==========================================
+-- Ép CameraOffset về 0 ở bước Render cuối cùng của Frame để đè hoàn toàn độ rung của game
+RunService:BindToRenderStep("AntiBeeCameraFix", Enum.RenderPriority.Last.Value, function()
+    if State.AntiBeeSting and playerCharacter then
+        local humanoid = playerCharacter:FindFirstChildWhichIsA("Humanoid")
+        if humanoid then
+            humanoid.CameraOffset = Vector3.new(0, 0, 0)
+        end
+    end
+end)
+
+-- ==========================================
+-- GIAO DIỆN TOGGLES
+-- ==========================================
 MyUIElements.Bypass:Toggle({
     Title = "loc:GreenbeanSeed",
     Desc = "loc:GreenbeanSeedDesc",
     Flag = "GreenbeanBypass",
     Value = true,
     Callback = function(state) 
-        greenbeanBypassEnabled = state
+        State.GreenbeanBypass = state
         if not state and playerCharacter then
             playerCharacter:SetAttribute("AppliedGreenbean", nil)
         end
@@ -3030,41 +3492,72 @@ MyUIElements.Bypass:Toggle({
     Flag = "AntiRagdollBypass",
     Value = false,
     Callback = function(state) 
-        antiRagdollEnabled = state
+        State.AntiRagdoll = state
         if state and playerCharacter and playerCharacter:GetAttribute("Ragdolled") then
             playerCharacter:SetAttribute("Ragdolled", true) 
         end
     end
 })
 
+ MyUIElements.Bypass:Toggle({
+    Title = "loc:AntiBeeSting",
+    Desc = "loc:AntiBeeStingDesc",
+    Flag = "AntiBeeSting",
+    Value = false,
+    Callback = function(state) 
+        State.AntiBeeSting = state
+        -- Nếu đột ngột tắt tính năng, gỡ triệt để trạng thái cũ ngay lập tức
+        if not state then
+            pcall(function()
+                if playerCharacter then
+                    local humanoid = playerCharacter:FindFirstChildWhichIsA("Humanoid")
+                    if humanoid then humanoid.CameraOffset = Vector3.new(0,0,0) end
+                end
+            end)
+        end
+    end
+})
+
+-- ==========================================
+-- CÁC VÒNG LẶP & XỬ LÝ NGẦM
+-- ==========================================
 task.spawn(function()
-    while task.wait(0.5) do
-        if greenbeanBypassEnabled and playerCharacter then
+    while task.wait(0.1) do
+        -- 1. Logic Greenbean
+        if State.GreenbeanBypass and playerCharacter then
             if not playerCharacter:GetAttribute("AppliedGreenbean") then
                 playerCharacter:SetAttribute("AppliedGreenbean", true)
             end
         end
+
+        -- 2. Logic Anti-Ong chích (Chỉ dọn dẹp UI/Blur rác)
+        if State.AntiBeeSting then
+            local beeGui = PlayerGui:FindFirstChild("BeeStingScreenEffect")
+            if beeGui then beeGui:Destroy() end
+            
+            local beeBlur = Lighting:FindFirstChild("BeeStingBlur")
+            if beeBlur then beeBlur:Destroy() end
+            
+            -- Giải phóng nếu lỡ dính từ trước khi bật script
+            pcall(function()
+                RunService:UnbindFromRenderStep("BeeStingInvertMovement")
+            end)
+        end
     end
 end)
 
--- Logic chạy ngầm cho Anti-AFK
 localPlayer.Idled:Connect(function()
     VirtualUser:Button2Down(Vector2.new(0,0), Camera.CFrame)
     task.wait(1)
     VirtualUser:Button2Up(Vector2.new(0,0), Camera.CFrame)
 end)
 
--- Logic xử lý ngầm cho Anti-Ragdoll
-local antiRagdollConnection = nil
-
 local function handleUnragdoll(character)
-    if not antiRagdollEnabled then return end
+    if not State.AntiRagdoll then return end
     
     if character:GetAttribute("Ragdolled") then
-        -- 1. Xóa cờ ngã
         character:SetAttribute("Ragdolled", nil)
         
-        -- 2. Đánh thức Humanoid
         local humanoid = character:FindFirstChildWhichIsA("Humanoid")
         if humanoid then
             humanoid.AutoRotate = true
@@ -3072,7 +3565,6 @@ local function handleUnragdoll(character)
             humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
         end
         
-        -- 3. Nối lại xương
         local torso = character:FindFirstChild("Torso")
         if torso then
             for _, v in pairs(torso:GetDescendants()) do
@@ -3087,24 +3579,19 @@ local function handleUnragdoll(character)
             end
         end
         
-        -- 4. Bỏ các cục collider tạ
         for _, v in pairs(character:GetChildren()) do
             if v.Name == "Collider" then
                 v:Destroy()
             end
         end
 
-        -- 5. PHANH GẤP - TRIỆT TIÊU LỰC ĐẨY (ANTI-KNOCKBACK)
         local hrp = character:FindFirstChild("HumanoidRootPart")
         if hrp then
             task.spawn(function()
-                -- Lặp nhanh vài lần để đảm bảo Server không đè lại lực đẩy
                 for i = 1, 5 do
-                    -- Ép vận tốc bay & vận tốc xoay về 0
                     hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                     hrp.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                     
-                    -- Quét và tiêu diệt các Object tạo lực hất mà Dev có thể giấu vào
                     for _, v in pairs(hrp:GetChildren()) do
                         if v:IsA("BodyVelocity") or v:IsA("BodyForce") or v:IsA("LinearVelocity") or v:IsA("VectorForce") then
                             v:Destroy()
@@ -3117,22 +3604,21 @@ local function handleUnragdoll(character)
     end
 end
 
--- Hàm setup Event nghe lóng khi bị Server gắn cờ Ragdoll
 local function setupAntiRagdollEvent(character)
-    if antiRagdollConnection then antiRagdollConnection:Disconnect() end
-    antiRagdollConnection = character:GetAttributeChangedSignal("Ragdolled"):Connect(function()
-        if antiRagdollEnabled then
+    if State.AntiRagdollConnection then State.AntiRagdollConnection:Disconnect() end
+    State.AntiRagdollConnection = character:GetAttributeChangedSignal("Ragdolled"):Connect(function()
+        if State.AntiRagdoll then
             handleUnragdoll(character)
         end
     end)
 end
 
--- Áp dụng cho nhân vật hiện tại và cập nhật lại biến playerCharacter mỗi khi hồi sinh
 if playerCharacter then setupAntiRagdollEvent(playerCharacter) end
+
 localPlayer.CharacterAdded:Connect(function(newChar)
-    playerCharacter = newChar 
     setupAntiRagdollEvent(newChar)
 end)
+
 
 MyUIElements.SettingsManager.MySubTabs.Languages:Paragraph({
     Title = "loc:Language",
