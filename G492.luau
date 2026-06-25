@@ -386,6 +386,10 @@ WindUI:Localization({
             AutoBuyCrateDesc = "Automatically purchases the selected crate.",
             BuyCrateSpeed = "Buy Crate Speed",
             BuyCrateSpeedDesc = "Adjusts the purchase speed for Auto Buy Crate.",
+            ShowCrateShop = "Show props shop",
+            ShowCrateShopDesc = "Displays the props shop interface.",
+            View_Sell_Prices = "View Sell Prices",
+            View_Sell_Prices_Desc = "Displays the selling prices of available items.",
         },
         vi = {
             HubTitle = "Hutao Hub",
@@ -659,6 +663,10 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             AutoBuyCrateDesc = "Tự động mua loại thùng đã chọn đang bán.",
             BuyCrateSpeed = "Tốc độ mua thùng",
             BuyCrateSpeedDesc = "Điều chỉnh tốc độ mua các thùng đã chọn.",
+            ShowCrateShop = "Hiển thị cửa hàng đạo cụ",
+            ShowCrateShopDesc = "Hiển thị giao diện cửa hàng đạo cụ.",
+            View_Sell_Prices = "Xem giá bán",
+            View_Sell_Prices_Desc = "Hiển thị giá bán của các vật phẩm hiện có.",
         }
     }
 })
@@ -2436,11 +2444,6 @@ MyUIElements.Plant:Toggle({
     end
 })
 
-local KeepUIOpen = {
-    GearShop = false,
-    SeedShop = false
-}
-
 local SellSettings = {
     AutoSellAll = false,
     AutoSellNormal = false,
@@ -2451,29 +2454,6 @@ local SellSettings = {
 local Networking = nil
 pcall(function()
     Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
-end)
-
-task.spawn(function()
-    -- Gắn biến UI bên ngoài vòng lặp để tránh FindFirstChild hàng chục lần 1 giây
-    local gearShopUI = PlayerGui:WaitForChild("GearShop", 5)
-    local seedShopUI = PlayerGui:WaitForChild("SeedShop", 5)
-
-    while task.wait(0.5) do
-        -- 1. Ghim Gear Shop
-        if KeepUIOpen.GearShop and gearShopUI then
-            -- Chỉ gán bằng true nếu nó đang false (tránh bắt máy tính set liên tục)
-            if not gearShopUI.Enabled then gearShopUI.Enabled = true end
-            local frame = gearShopUI:FindFirstChildWhichIsA("Frame")
-            if frame and not frame.Visible then frame.Visible = true end
-        end
-        
-        -- 2. Ghim Seed Shop
-        if KeepUIOpen.SeedShop and seedShopUI then
-            if not seedShopUI.Enabled then seedShopUI.Enabled = true end
-            local frame = seedShopUI:FindFirstChildWhichIsA("Frame")
-            if frame and not frame.Visible then frame.Visible = true end
-        end
-    end
 end)
 
 task.spawn(function()
@@ -2520,31 +2500,51 @@ task.spawn(function()
     end
 end)
 
-MyUIElements.Shop:Toggle({
-    Title = "loc:ShowGearShop", 
-    Desc = "loc:ShowGearShopDesc", 
-    Flag = "Toggle_GearShop",
-    Value = false, 
-    Callback = function(val) 
-        KeepUIOpen.GearShop = val
-        if not val then
-            local ui = PlayerGui:FindFirstChild("GearShop")
-            if ui then ui.Enabled = false end
+-- Hàm bổ trợ quét và gọi GuiController của game để mở UI chuẩn chỉ
+local function openGameUI(uiName)
+    local playerScripts = localPlayer:WaitForChild("PlayerScripts", 5)
+    local guiControllerModule = (playerScripts and playerScripts:FindFirstChild("GuiController", true)) 
+        or ReplicatedStorage:FindFirstChild("GuiController", true)
+
+    if guiControllerModule and guiControllerModule:IsA("ModuleScript") then
+        local guiController = require(guiControllerModule)
+        if guiController and guiController.Open then
+            pcall(function()
+                guiController:Open(uiName)
+            end)
         end
+    end
+end
+
+MyUIElements.Shop:Button({ 
+    Title = "loc:View_Sell_Prices", 
+    Desc = "loc:View_Sell_Prices_Desc", 
+    Callback = function()
+        openGameUI("FruitStockPrice")
     end 
 })
 
-MyUIElements.Shop:Toggle({
+MyUIElements.Shop:Button({
+    Title = "loc:ShowGearShop", 
+    Desc = "loc:ShowGearShopDesc", 
+    Callback = function()
+        openGameUI("GearShop")
+    end 
+})
+
+MyUIElements.Shop:Button({
     Title = "loc:ShowSeedShop", 
     Desc = "loc:ShowSeedShopDesc", 
-    Flag = "Toggle_SeedShop",
-    Value = false, 
-    Callback = function(val) 
-        KeepUIOpen.SeedShop = val
-        if not val then
-            local ui = PlayerGui:FindFirstChild("SeedShop")
-            if ui then ui.Enabled = false end
-        end
+    Callback = function()
+        openGameUI("SeedShop")
+    end 
+})
+
+MyUIElements.Shop:Button({
+    Title = "loc:ShowCrateShop", 
+    Desc = "loc:ShowCrateShopDesc", 
+    Callback = function()
+        openGameUI("CrateShop")
     end 
 })
 
@@ -2593,6 +2593,8 @@ MyUIElements.SellFruit:Input({
         end
     end
 })
+
+-- Auto Buy
 
 local function muteTargetSound(inst)
     if inst:IsA("Sound") and string.find(tostring(inst.SoundId), "550209561") then
