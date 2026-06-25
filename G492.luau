@@ -153,6 +153,8 @@ WindUI:Localization({
             BuySeedSections = "Manage seed purchasing features and automation.",
             BuyGear = "Buy Gear",
             BuyGearSections = "Manage gear purchasing features and automation.",
+            BuyCrate = "Buy Crate",
+            BuyCrateSections = "Manage crate purchasing features and automation.",
             Power = "Character Powers",
             PowerDesc = "Adjust your character's enhanced movement and special abilities.",
             SettingsManager = "Settings Manager",
@@ -378,6 +380,12 @@ WindUI:Localization({
             SuperFastSpeedDesc = "Adjusts the speed of Super Fast harvesting.",
             SuperFastBatchSize = "Super Fast Batch Size",
             SuperFastBatchSizeDesc = "Sets how many plants are harvested in each batch.",
+            SelectCrate = "Select Crate",
+            SelectCrateDesc = "Selects the crate to purchase.",
+            AutoBuyCrate = "Auto Buy Crate",
+            AutoBuyCrateDesc = "Automatically purchases the selected crate.",
+            BuyCrateSpeed = "Buy Crate Speed",
+            BuyCrateSpeedDesc = "Adjusts the purchase speed for Auto Buy Crate.",
         },
         vi = {
             HubTitle = "Hutao Hub",
@@ -418,6 +426,8 @@ WindUI:Localization({
             BuySeedSections = "Quản lý các tính năng và tự động hóa mua hạt giống.",
             BuyGear = "Mua trang bị",
             BuyGearSections = "Quản lý các tính năng và tự động hóa mua trang bị.",
+            BuyCrate = "Mua thùng",
+            BuyCrateSections = "Quản lý các tính năng và tự động hóa mua các thùng",
             Power = "Sức mạnh nhân vật",
             PowerDesc = "Điều chỉnh khả năng di chuyển nâng cao và các kỹ năng đặc biệt của nhân vật.",
             SettingsManager = "Quản lý cài đặt",
@@ -643,6 +653,12 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             SuperFastSpeedDesc = "Điều chỉnh tốc độ của chế độ Super Fast.",
             SuperFastBatchSize = "Số lượng xử lý siêu nhanh",
             SuperFastBatchSizeDesc = "Thiết lập số lượng cây được thu hoạch trong mỗi đợt.",
+            SelectCrate = "Chọn thùng",
+            SelectCrateDesc = "Chọn loại thùng để mua.",
+            AutoBuyCrate = "Tự mua thùng",
+            AutoBuyCrateDesc = "Tự động mua loại thùng đã chọn đang bán.",
+            BuyCrateSpeed = "Tốc độ mua thùng",
+            BuyCrateSpeedDesc = "Điều chỉnh tốc độ mua các thùng đã chọn.",
         }
     }
 })
@@ -735,7 +751,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.2.6", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.2.7", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -941,6 +957,21 @@ local ElementConfigs = {
         Config = {
             Title = "loc:BuyGear",
             Desc = "loc:BuyGearSections",
+            Icon = "briefcase",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "CrateShop",
+        Type = "Section",
+        Parent = TabHandles.Shop,
+        Config = {
+            Title = "loc:BuyCrate",
+            Desc = "loc:BuyCrateSections",
             Icon = "briefcase",
             Box = true,
             BoxBorder = true,
@@ -2605,6 +2636,16 @@ local ShopConfig = {
         Prices = {}, 
         SpeedDelay = 2,
         Stock = ReplicatedStorage:WaitForChild("StockValues"):WaitForChild("GearShop"):WaitForChild("Items")
+    },
+
+    -- UPDATE: Thêm Cấu hình lưu trữ dữ liệu Auto Buy Crate
+    Crate = {
+        AutoBuy = false,
+        All = {},
+        Selected = {},
+        Prices = {}, 
+        SpeedDelay = 2,
+        Stock = ReplicatedStorage:WaitForChild("StockValues"):WaitForChild("CrateShop"):WaitForChild("Items")
     }
 }
 
@@ -2622,6 +2663,12 @@ for _, v in ipairs(require(ReplicatedStorage:WaitForChild("SharedModules"):WaitF
         table.insert(ShopConfig.Gear.Selected, v.ItemName)
         ShopConfig.Gear.Prices[v.ItemName] = v.PurchasePrice or v.Price or 0 
     end
+end
+
+-- UPDATE: Tự động quét và lấy danh sách các loại Crate đang có trong kho game
+for _, v in ipairs(ShopConfig.Crate.Stock:GetChildren()) do
+    table.insert(ShopConfig.Crate.All, v.Name)
+    table.insert(ShopConfig.Crate.Selected, v.Name)
 end
 
 MyUIElements.BuySeed:Dropdown({
@@ -2682,6 +2729,37 @@ MyUIElements.GearShop:Input({
     Callback = function(val)
         local num = tonumber(val)
         if num and num >= 0 then ShopConfig.Gear.SpeedDelay = num end
+    end
+})
+
+-- UPDATE: Khởi tạo các phần tử UI cho Crate Shop (Dropdown, Toggle, Input)
+MyUIElements.CrateShop:Dropdown({
+    Title = "loc:SelectCrate",
+    Desc = "loc:SelectCrateDesc",
+    Flag = "SelectCrate",
+    Values = ShopConfig.Crate.All,
+    Value = ShopConfig.Crate.Selected,
+    Multi = true,
+    AllowNone = true,
+    Callback = function(val) ShopConfig.Crate.Selected = val end
+})
+
+MyUIElements.CrateShop:Toggle({
+    Title = "loc:AutoBuyCrate",
+    Desc = "loc:AutoBuyCrateDesc",
+    Flag = "AutoBuyCrate",
+    Callback = function(state) ShopConfig.Crate.AutoBuy = state end
+})
+
+MyUIElements.CrateShop:Input({
+    Title = "loc:BuyCrateSpeed",
+    Desc = "loc:BuyCrateSpeedDesc",
+    Flag = "BuyCrate_Speed",
+    Value = tostring(ShopConfig.Crate.SpeedDelay),
+    ClearTextOnFocus = false,
+    Callback = function(val)
+        local num = tonumber(val)
+        if num and num >= 0 then ShopConfig.Crate.SpeedDelay = num end
     end
 })
 
@@ -2793,6 +2871,41 @@ task.spawn(function()
             
             -- Xả đạn xong thì đồng bộ Cycle của mình với Cycle chung để ngồi "ngủ" chờ đợt sau
             myGearCycle = ShopConfig.RestockCycle
+        end
+    end
+end)
+
+-- UPDATE: Vòng lặp Auto Buy Crate (Đồng bộ chu kỳ Restock chung giống y hệt Gear)
+task.spawn(function()
+    local myCrateCycle = 0
+    
+    while true do
+        task.wait(ShopConfig.Crate.SpeedDelay)
+        
+        -- Chỉ kích hoạt khi AutoBuy bật VÀ phát hiện có đợt RestockCycle mới từ luồng Seed báo về
+        if ShopConfig.Crate.AutoBuy and ShopConfig.RestockCycle > myCrateCycle then
+            for _, itemName in ipairs(ShopConfig.Crate.Selected) do
+                if not ShopConfig.Crate.AutoBuy then break end
+                
+                local stockItem = ShopConfig.Crate.Stock:FindFirstChild(itemName)
+                
+                -- Kiểm tra xem Crate đó có trong kho và số lượng còn lớn hơn 0 không
+                if stockItem and stockItem.Value > 0 then
+                    local stockToBuy = stockItem.Value
+                    
+                    for i = 1, stockToBuy do
+                        if ShopConfig.Crate.AutoBuy then
+                            -- Bắn RemoteEvent mua Crate tương tự logic gốc của script
+                            pcall(function() ShopConfig.Net.CrateShop.PurchaseCrate:Fire(itemName) end)
+                            task.wait(0.1) -- Nhịp nghỉ nhỏ tránh spam
+                        else
+                            break
+                        end
+                    end
+                end
+            end
+            -- Đồng bộ hóa Cycle cá nhân để ngủ cho tới đợt restock tiếp theo
+            myCrateCycle = ShopConfig.RestockCycle
         end
     end
 end)
