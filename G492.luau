@@ -368,6 +368,16 @@ WindUI:Localization({
             Target_Pet_Desc = "Selects the pet to search for.",
             FindPetServer = "Pet Servers",
             FindPetServerSections = "Configure features to help you find servers containing pets.",
+            Weather = "Weather",
+            WeatherDesc = "Set up the next weather forecast feature in the game.",
+            TPzone = "Teleport to zone",
+            TPzoneDesc = "The buttons will take you to your desired location.",
+            HarvestMode = "Harvest Mode",
+            HarvestModeDesc = "Selects the harvesting mode.",
+            SuperFastSpeed = "Super Fast Speed",
+            SuperFastSpeedDesc = "Adjusts the speed of Super Fast harvesting.",
+            SuperFastBatchSize = "Super Fast Batch Size",
+            SuperFastBatchSizeDesc = "Sets how many plants are harvested in each batch.",
         },
         vi = {
             HubTitle = "Hutao Hub",
@@ -415,7 +425,6 @@ WindUI:Localization({
             Update_Info = "Thông tin cập nhật",
             Update_Info_Desc = "Dùng để cập nhật thông tin Discord.",
             Update_Notify = "Đã cập nhật!",
-            Update_Notify_Content = "Đã làm mới thống kê",
             Update_Notify_Content = "Đã làm mới thống kê",
             Copy_Discord_Invite = "Sao chép lời mời Discord",
             Copy_Discord_Invite_Desc = "Dùng để sao chép liên kết nhóm Discord.",
@@ -624,6 +633,16 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             Target_Pet_Desc = "Chọn thú cưng cần tìm.",
             FindPetServer = "Máy chủ có thú cưng",
             FindPetServerSections = "Tùy chỉnh các chức năng giúp bạn tìm thú cưng",
+            Weather = "Thời Tiết",
+            WeatherDesc = "Cài đặt chức năng dự đoán thời tiết tiếp theo trong trò chơi",
+            TPzone = "Dịch chuyển đến khu vực",
+            TPzoneDesc = "Các nút dịch chuyển bạn đến địa điểm bạn muốn",
+            HarvestMode = "Chế dộ thu hoạch",
+            HarvestModeDesc = "Chọn chế độ thu hoạch.",
+            SuperFastSpeed = "Tốc độ super fast",
+            SuperFastSpeedDesc = "Điều chỉnh tốc độ của chế độ Super Fast.",
+            SuperFastBatchSize = "Số lượng xử lý siêu nhanh",
+            SuperFastBatchSizeDesc = "Thiết lập số lượng cây được thu hoạch trong mỗi đợt.",
         }
     }
 })
@@ -716,7 +735,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.2.0", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.2.6", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -756,14 +775,14 @@ local TabHandles = {
         Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 2 
     }),
     
-    Teleport = Tabs.Gameplay:Tab({ 
-        Title = "loc:Teleport", Icon = "map", Desc = "Dịch Chuyển", IconThemed = true, 
-        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1 
-    }),
-    
     Visual = Tabs.Gameplay:Tab({ 
         Title = "loc:Visual", Icon = "eye", Desc = "Thị Giác", IconThemed = true, 
         Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 3 
+    }),
+    
+    TP = Tabs.Gameplay:Tab({ 
+        Title = "loc:Teleport", Icon = "map", Desc = "Dịch Chuyển", IconThemed = true, 
+        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1 
     }),
     
     Misc = Tabs.System:Tab({ 
@@ -1036,6 +1055,21 @@ local ElementConfigs = {
     },
     
     {
+        ID = "TPzone",
+        Type = "Section",
+        Parent = TabHandles.TP,
+        Config = {
+            Title = "loc:TPzone",
+            Desc = "loc:TPzoneDesc",
+            Icon = "map-pinned",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
         ID = "FixLag",
         Type = "Section",
         Parent = TabHandles.Misc,
@@ -1043,6 +1077,21 @@ local ElementConfigs = {
             Title = "loc:FixLag",
             Desc = "loc:FixLagDesc",
             Icon = "microchip",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "Weather",
+        Type = "Section",
+        Parent = TabHandles.Misc,
+        Config = {
+            Title = "loc:Weather",
+            Desc = "loc:WeatherDesc",
+            Icon = "cloud-sun",
             Box = true,
             BoxBorder = true,
             Opened = false,
@@ -1381,11 +1430,17 @@ Info:Paragraph({
 local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 
 -- ========================================================
--- 1. BẢNG DỮ LIỆU ĐỒNG BỘ GỘP CHUNG (1 BẢNG DUY NHẤT)
+-- 1. BẢNG DỮ LIỆU ĐỒNG BỘ GỘP CHUNG
 -- ========================================================
 local Config = {
     -- Harvest Configs
-    AutoHarvest = false, HarvestRadius = 50, HarvestSpeed = 0.1, MaxCapacity = 100,
+    AutoHarvest = false, 
+    HarvestMode = "Normal (Slow)", 
+    HarvestRadius = 50, 
+    HarvestSpeed = 0.1, 
+    SuperFastSpeed = 0, 
+    SuperFastBatchSize = 10, -- [MỚI] Số lượng hạt gom nhặt cùng lúc trong 1 chu kỳ
+    MaxCapacity = 100,
     TargetSeeds = {}, TargetEffects = {}, EffectCount = 1, FilterByEffect = false,
     -- Steal Configs
     AutoSteal = false, TeleportSteal = false, StealRadius = 50, StealSpeed = 0.2, 
@@ -1399,7 +1454,7 @@ local Config = {
 local SysData = {
     LastHarvest = 0, LastSteal = 0, CachedTargets = {},
     ActiveTarget = nil, ActiveType = nil,
-    LockCFrame = nil, IsExecuting = false -- Biến khóa vị trí riêng cho bypass Seed
+    LockCFrame = nil, IsExecuting = false
 }
 
 -- ========================================================
@@ -1528,7 +1583,7 @@ local function MicroTeleport(targetCFrame)
             hrp.CFrame = hrp.CFrame:Lerp(targetCFrame, i / steps)
             hrp.AssemblyLinearVelocity = Vector3.zero
             hrp.AssemblyAngularVelocity = Vector3.zero
-            task.wait() 
+            RunService.Heartbeat:Wait() 
         end
     end
     hrp.CFrame = targetCFrame
@@ -1554,9 +1609,6 @@ local function executeActionDirectly(data)
     end
 end
 
--- ========================================================
--- CHỈ DÙNG RIÊNG CHO GOLD / RAINBOW SEED (ĐÃ UPDATE SIÊU BÁ)
--- ========================================================
 local function PerformSeedRoutine(data, actionType)
     if SysData.IsExecuting then return end
     SysData.IsExecuting = true
@@ -1570,18 +1622,16 @@ local function PerformSeedRoutine(data, actionType)
     local finalTarget = targetPos * CFrame.new(0, 3, 0)
     
     MicroTeleport(finalTarget)
-    SysData.LockCFrame = finalTarget -- Khóa chặt vị trí
+    SysData.LockCFrame = finalTarget 
     
     local timeout = tick() + 2 
     local targetPrompt = data.Prompt
     
-    -- 1. Chờ Prompt xuất hiện và Bypass thuộc tính
     while tick() < timeout do
         if not targetPrompt or not targetPrompt.Parent then
             targetPrompt = targetPart:FindFirstChildWhichIsA("ProximityPrompt", true)
         end
         if targetPrompt then
-            -- Ép Bypass Prompt ngay khi tìm thấy
             targetPrompt.Enabled = true
             targetPrompt.RequiresLineOfSight = false
             targetPrompt.MaxActivationDistance = 50
@@ -1592,171 +1642,194 @@ local function PerformSeedRoutine(data, actionType)
     
     data.Prompt = targetPrompt 
     
-    -- 2. ÉP NHẶT LIÊN TỤC VÀ HOLD CHO ĐẾN KHI SEED BIẾN MẤT
     if targetPrompt then
-        local maxWait = tick() + 5 -- Cấp tối đa 5 giây để nhặt, tránh bị kẹt loop vĩnh viễn nếu lag
+        local maxWait = tick() + 5 
+        if not fireproximityprompt then targetPrompt:InputHoldBegin() end
         
-        -- Nếu Executor cùi không có fireproximityprompt, thì bắt đầu bấm giữ phím ảo
-        if not fireproximityprompt then
-            targetPrompt:InputHoldBegin()
-        end
-        
-        -- VÒNG LẶP TỬ THẦN: Chừng nào cái Seed (targetPart) còn tồn tại trong game thì chưa về
         while targetPart and targetPart.Parent and tick() < maxWait do
-            -- Liên tục ép Bypass nhỡ game có reset lại
             targetPrompt.Enabled = true
             targetPrompt.RequiresLineOfSight = false
             targetPrompt.MaxActivationDistance = 50
             
-            -- Nếu có hàm fireproximityprompt xịn thì spam nổ nút
-            if fireproximityprompt then
-                fireproximityprompt(targetPrompt)
-            end
-            
-            task.wait(0.05) -- Tốc độ spam 20 lần/giây
+            if fireproximityprompt then fireproximityprompt(targetPrompt) end
+            task.wait(0.05)
         end
         
-        -- Nhả phím ảo ra sau khi Seed đã bị húp
-        if not fireproximityprompt then
-            targetPrompt:InputHoldEnd()
-        end
+        if not fireproximityprompt then targetPrompt:InputHoldEnd() end
     end
     
-    -- 3. Xong xuôi, tháo khóa và lùi về an toàn
     SysData.LockCFrame = nil 
     MicroTeleport(originalCFrame)
     SysData.IsExecuting = false
 end
 
+if MyUIElements then
+    local superFastInput 
+    local superFastBatchInput
+
+    MyUIElements.Harvest:Dropdown({
+        Title = "loc:HarvestMode", Desc = "loc:HarvestModeDesc", 
+        Flag = "Harvest_Mode", Values = {"Normal (Slow)", "Super Fast (Batch)"}, Value = "Normal (Slow)", 
+        Callback = function(val) 
+            Config.HarvestMode = val 
+            local isSlowMode = (val == "Normal (Slow)")
+            
+            if superFastInput then
+                if isSlowMode then
+                    if superFastInput.Lock then superFastInput:Lock() else superFastInput.Locked = true end
+                else
+                    if superFastInput.Unlock then superFastInput:Unlock() else superFastInput.Locked = false end
+                end
+            end
+            if superFastBatchInput then
+                if isSlowMode then
+                    if superFastBatchInput.Lock then superFastBatchInput:Lock() else superFastBatchInput.Locked = true end
+                else
+                    if superFastBatchInput.Unlock then superFastBatchInput:Unlock() else superFastBatchInput.Locked = false end
+                end
+            end
+        end
+    })
+
+    MyUIElements.Harvest:Dropdown({
+        Title = "loc:SelectFruit", Desc = "loc:SelectFruitDesc", 
+        Flag = "Harvest_TargetSeeds", Values = SeedList, Value = {}, Multi = true, AllowNone = true,
+        Callback = function(val) Config.TargetSeeds = val end
+    })
+
+    MyUIElements.Harvest:Dropdown({
+        Title = "loc:SelectMutations", Desc = "loc:SelectMutationsDesc", 
+        Flag = "Harvest_TargetEffects", Values = EffectList, Value = {}, Multi = true, AllowNone = true,
+        Callback = function(val) Config.TargetEffects = val end
+    })
+
+    superFastInput = MyUIElements.Harvest:Input({
+        Title = "loc:SuperFastSpeed", Desc = "loc:SuperFastSpeedDesc", 
+        Flag = "Super_Fast_Speed", Locked = true, Value = "0", 
+        Callback = function(val) Config.SuperFastSpeed = tonumber(val) or 0 end
+    })
+
+    superFastBatchInput = MyUIElements.Harvest:Input({
+        Title = "loc:SuperFastBatchSize", Desc = "loc:SuperFastBatchSizeDesc", 
+        Flag = "Super_Fast_Batch_Size", Locked = true, Value = "10", 
+        Callback = function(val) Config.SuperFastBatchSize = tonumber(val) or 10 end
+    })
+
+    -- Các thành phần UI còn lại giữ nguyên vị trí cũ
+    MyUIElements.Harvest:Input({
+        Title = "loc:Countofmutations", Desc = "loc:CountofmutationsDesc", 
+        Flag = "Harvest_EffectCount", Value = "1", 
+        Callback = function(val) Config.EffectCount = tonumber(val) or 1 end
+    })
+
+    MyUIElements.Harvest:Toggle({
+        Title = "loc:Auto_Harvest", Desc = "loc:Auto_Harvest_Desc", Flag = "Auto Harvest v2",
+        Value = false, Callback = function(val) Config.AutoHarvest = val end
+    })
+
+    MyUIElements.Harvest:Toggle({
+        Title = "loc:OnlyHarvestMutations", Desc = "loc:OnlyHarvestMutationsDesc", Flag = "Harvest_EffectFilter",
+        Value = false, Callback = function(val) Config.FilterByEffect = val end
+    })
+
+    MyUIElements.Harvest:Input({
+        Title = "loc:Harvest_Radius", Desc = "loc:Harvest_Radius_Desc", Flag = "Harvest Radius Config",
+        Placeholder = "Enter harvest radius", Value = "50", 
+        Callback = function(val) Config.HarvestRadius = tonumber(val) or 50 end
+    })
+
+    MyUIElements.Harvest:Input({
+        Title = "loc:Harvest_Speed", Desc = "loc:Harvest_Speed_Desc", Flag = "Harvest Speed Config",
+        Placeholder = "Delay between harvests (Normal Mode)", Value = "0.1", 
+        Callback = function(val) Config.HarvestSpeed = tonumber(val) or 0.1 end
+    })
+
+    MyUIElements.Harvest:Input({
+        Title = "loc:Max_Inventory_Capacity", Desc = "loc:Max_Inventory_Capacity_Desc", Flag = "Max Capacity Config",
+        Placeholder = "Default: 100", Value = "100", 
+        Callback = function(val) Config.MaxCapacity = tonumber(val) or 100 end
+    })
+
+    MyUIElements.Steal:Dropdown({
+        Title = "loc:SelectFruit", Desc = "loc:SelectFruitDesc", 
+        Flag = "Steal_TargetSeeds", Values = SeedList, Value = {}, Multi = true, AllowNone = true,
+        Callback = function(val) Config.Steal_TargetSeeds = val end
+    })
+
+    MyUIElements.Steal:Dropdown({
+        Title = "loc:SelectMutations", Desc = "loc:SelectMutationsDesc", 
+        Flag = "Steal_TargetEffects", Values = EffectList, Value = {}, Multi = true, AllowNone = true,
+        Callback = function(val) Config.Steal_TargetEffects = val end
+    })
+
+    MyUIElements.Steal:Input({
+        Title = "loc:Countofmutations", Desc = "loc:CountofmutationsDesc", 
+        Flag = "Steal_EffectCount", Value = "1", 
+        Callback = function(val) Config.Steal_EffectCount = tonumber(val) or 1 end
+    })
+
+    MyUIElements.Steal:Toggle({
+        Title = "loc:Auto_Steal", Desc = "loc:Auto_Steal_Desc", Flag = "Auto Steal v2",
+        Value = false, Callback = function(val) Config.AutoSteal = val end
+    })
+
+    MyUIElements.Steal:Toggle({
+        Title = "loc:OnlyStealMutations", Desc = "loc:OnlyStealMutationsDesc", Flag = "Steal_EffectFilter",
+        Value = false, Callback = function(val) Config.Steal_FilterByEffect = val end
+    })
+
+    MyUIElements.Steal:Toggle({
+        Title = "loc:Teleport_to_Steal", Desc = "loc:Teleport_to_Steal_Desc", Flag = "Teleport Steal Config",
+        Value = false, Callback = function(val) Config.TeleportSteal = val end
+    })
+
+    MyUIElements.Steal:Input({
+        Title = "loc:Steal_Radius", Desc = "loc:Steal_Radius_Desc", Flag = "Steal Radius Config",
+        Placeholder = "Enter steal radius", Value = "50", 
+        Callback = function(val) Config.StealRadius = tonumber(val) or 50 end
+    })
+
+    MyUIElements.Steal:Input({
+        Title = "loc:Steal_Speed", Desc = "loc:Steal_Speed_Desc", Flag = "Steal Speed Config",
+        Placeholder = "Delay between steals", Value = "0.2", 
+        Callback = function(val) Config.StealSpeed = tonumber(val) or 0.2 end
+    })
+
+    MyUIElements.Seed:Toggle({
+        Title = "loc:AutoClaimGoldSeed", Desc = "loc:AutoClaimGoldSeedDesc", Flag = "Auto Gold Seed Config",
+        Value = false, Callback = function(val) Config.AutoGoldSeed = val end
+    })
+
+    MyUIElements.Seed:Toggle({
+        Title = "loc:AutoClaimRainbowSeed", Desc = "loc:AutoClaimRainbowSeedDesc", Flag = "Auto Rainbow Seed Config",
+        Value = false, Callback = function(val) Config.AutoRainbowSeed = val end
+    })
+
+    MyUIElements.Pets:Dropdown({
+        Title = "loc:SelectPets", Desc = "loc:SelectPetsDesc", Flag = "WildPet_Select",
+        Values = allPets, Value = {}, Multi = true, AllowNone = true,
+        Callback = function(val) Config.WildPet_TargetPets = val end
+    })
+
+    MyUIElements.Pets:Toggle({
+        Title = "loc:TeleportToPets", Desc = "loc:TeleportToPetsDesc", Flag = "WildPet_AutoTp",
+        Value = false, Callback = function(state) Config.WildPet_AutoTp = state end
+    })
+
+    MyUIElements.Pets:Toggle({
+        Title = "loc:AutoBuyPets", Desc = "loc:AutoBuyPetsDesc", Flag = "WildPet_AutoInteract",
+        Value = false, Callback = function(state) Config.WildPet_AutoInteract = state end
+    })
+end
+
 -- ========================================================
--- 3. GIAO DIỆN UI
--- ========================================================
-MyUIElements.Harvest:Dropdown({
-    Title = "loc:SelectFruit", Desc = "loc:SelectFruitDesc", 
-    Flag = "Harvest_TargetSeeds", Values = SeedList, Value = {}, Multi = true, AllowNone = true,
-    Callback = function(val) Config.TargetSeeds = val end
-})
-
-MyUIElements.Harvest:Dropdown({
-    Title = "loc:SelectMutations", Desc = "loc:SelectMutationsDesc", 
-    Flag = "Harvest_TargetEffects", Values = EffectList, Value = {}, Multi = true, AllowNone = true,
-    Callback = function(val) Config.TargetEffects = val end
-})
-
-MyUIElements.Harvest:Input({
-    Title = "loc:Countofmutations", Desc = "loc:CountofmutationsDesc", 
-    Flag = "Harvest_EffectCount", Value = "1", 
-    Callback = function(val) Config.EffectCount = tonumber(val) or 1 end
-})
-
-MyUIElements.Harvest:Toggle({
-    Title = "loc:Auto_Harvest", Desc = "loc:Auto_Harvest_Desc", Flag = "Auto Harvest v2",
-    Value = false, Callback = function(val) Config.AutoHarvest = val end
-})
-
-MyUIElements.Harvest:Toggle({
-    Title = "loc:OnlyHarvestMutations", Desc = "loc:OnlyHarvestMutationsDesc", Flag = "Harvest_EffectFilter",
-    Value = false, Callback = function(val) Config.FilterByEffect = val end
-})
-
-MyUIElements.Harvest:Input({
-    Title = "loc:Harvest_Radius", Desc = "loc:Harvest_Radius_Desc", Flag = "Harvest Radius Config",
-    Placeholder = "Enter harvest radius", Value = "50", 
-    Callback = function(val) Config.HarvestRadius = tonumber(val) or 50 end
-})
-
-MyUIElements.Harvest:Input({
-    Title = "loc:Harvest_Speed", Desc = "loc:Harvest_Speed_Desc", Flag = "Harvest Speed Config",
-    Placeholder = "Delay between harvests", Value = "0.1", 
-    Callback = function(val) Config.HarvestSpeed = tonumber(val) or 0.1 end
-})
-
-MyUIElements.Harvest:Input({
-    Title = "loc:Max_Inventory_Capacity", Desc = "loc:Max_Inventory_Capacity_Desc", Flag = "Max Capacity Config",
-    Placeholder = "Default: 100", Value = "100", 
-    Callback = function(val) Config.MaxCapacity = tonumber(val) or 100 end
-})
-
-MyUIElements.Steal:Dropdown({
-    Title = "loc:SelectFruit", Desc = "loc:SelectFruitDesc", 
-    Flag = "Steal_TargetSeeds", Values = SeedList, Value = {}, Multi = true, AllowNone = true,
-    Callback = function(val) Config.Steal_TargetSeeds = val end
-})
-
-MyUIElements.Steal:Dropdown({
-    Title = "loc:SelectMutations", Desc = "loc:SelectMutationsDesc", 
-    Flag = "Steal_TargetEffects", Values = EffectList, Value = {}, Multi = true, AllowNone = true,
-    Callback = function(val) Config.Steal_TargetEffects = val end
-})
-
-MyUIElements.Steal:Input({
-    Title = "loc:Countofmutations", Desc = "loc:CountofmutationsDesc", 
-    Flag = "Steal_EffectCount", Value = "1", 
-    Callback = function(val) Config.Steal_EffectCount = tonumber(val) or 1 end
-})
-
-MyUIElements.Steal:Toggle({
-    Title = "loc:Auto_Steal", Desc = "loc:Auto_Steal_Desc", Flag = "Auto Steal v2",
-    Value = false, Callback = function(val) Config.AutoSteal = val end
-})
-
-MyUIElements.Steal:Toggle({
-    Title = "loc:OnlyStealMutations", Desc = "loc:OnlyStealMutationsDesc", Flag = "Steal_EffectFilter",
-    Value = false, Callback = function(val) Config.Steal_FilterByEffect = val end
-})
-
-MyUIElements.Steal:Toggle({
-    Title = "loc:Teleport_to_Steal", Desc = "loc:Teleport_to_Steal_Desc", Flag = "Teleport Steal Config",
-    Value = false, Callback = function(val) Config.TeleportSteal = val end
-})
-
-MyUIElements.Steal:Input({
-    Title = "loc:Steal_Radius", Desc = "loc:Steal_Radius_Desc", Flag = "Steal Radius Config",
-    Placeholder = "Enter steal radius", Value = "50", 
-    Callback = function(val) Config.StealRadius = tonumber(val) or 50 end
-})
-
-MyUIElements.Steal:Input({
-    Title = "loc:Steal_Speed", Desc = "loc:Steal_Speed_Desc", Flag = "Steal Speed Config",
-    Placeholder = "Delay between steals", Value = "0.2", 
-    Callback = function(val) Config.StealSpeed = tonumber(val) or 0.2 end
-})
-
-MyUIElements.Seed:Toggle({
-    Title = "loc:AutoClaimGoldSeed", Desc = "loc:AutoClaimGoldSeedDesc", Flag = "Auto Gold Seed Config",
-    Value = false, Callback = function(val) Config.AutoGoldSeed = val end
-})
-
-MyUIElements.Seed:Toggle({
-    Title = "loc:AutoClaimRainbowSeed", Desc = "loc:AutoClaimRainbowSeedDesc", Flag = "Auto Rainbow Seed Config",
-    Value = false, Callback = function(val) Config.AutoRainbowSeed = val end
-})
-
-MyUIElements.Pets:Dropdown({
-    Title = "loc:SelectPets", Desc = "loc:SelectPetsDesc", Flag = "WildPet_Select",
-    Values = allPets, Value = {}, Multi = true, AllowNone = true,
-    Callback = function(val) Config.WildPet_TargetPets = val end
-})
-
-MyUIElements.Pets:Toggle({
-    Title = "loc:TeleportToPets", Desc = "loc:TeleportToPetsDesc", Flag = "WildPet_AutoTp",
-    Value = false, Callback = function(state) Config.WildPet_AutoTp = state end
-})
-
-MyUIElements.Pets:Toggle({
-    Title = "loc:AutoBuyPets", Desc = "loc:AutoBuyPetsDesc", Flag = "WildPet_AutoInteract",
-    Value = false, Callback = function(state) Config.WildPet_AutoInteract = state end
-})
-
--- ========================================================
--- 4. BỘ KHÓA CFRAME ĐỒNG BỘ (Kết hợp 2 hệ thống)
+-- 4. BỘ KHÓA CFRAME ĐỒNG BỘ 
 -- ========================================================
 RunService.Heartbeat:Connect(function()
     local playerCharacter = localPlayer.Character
     local hrp = playerCharacter and playerCharacter:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    -- 1. Ưu tiên khóa tạm thời của quá trình nhặt Gold/Rainbow
     if SysData.LockCFrame then
         hrp.CFrame = SysData.LockCFrame
         hrp.AssemblyLinearVelocity = Vector3.zero
@@ -1764,7 +1837,6 @@ RunService.Heartbeat:Connect(function()
         return
     end
 
-    -- 2. Khóa của Steal/Pet (Giữ nguyên logic cũ của bro)
     local isLockValid = false
     if SysData.ActiveTarget then
         local data = SysData.ActiveTarget
@@ -1792,7 +1864,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ========================================================
--- 5. QUÉT VÀ LƯU TRỮ (CACHE) MỌI THỨ
+-- 5. QUÉT VÀ LƯU TRỮ CACHE (TỐI ƯU HÓA SIÊU NHẸ)
 -- ========================================================
 task.spawn(function()
     while task.wait(0.5) do
@@ -1802,23 +1874,18 @@ task.spawn(function()
         
         local newCache = {}
         
-        -- Bypass Quét trực tiếp Tọa độ Server cho Seed
         if Config.AutoGoldSeed or Config.AutoRainbowSeed then
             local mapFolder = Workspace:FindFirstChild("Map")
             local serverLocs = mapFolder and mapFolder:FindFirstChild("SeedPackSpawnServerLocations")
             
             if serverLocs then
-                for _, spawnPart in pairs(serverLocs:GetChildren()) do
+                for _, spawnPart in ipairs(serverLocs:GetChildren()) do
                     if spawnPart:IsA("BasePart") then
                         local isRainbow = spawnPart:GetAttribute("RainbowSeed") == true
                         local isGold = spawnPart:GetAttribute("GoldSeed") == true
                         
                         if (Config.AutoRainbowSeed and isRainbow) or (Config.AutoGoldSeed and isGold) then
-                            table.insert(newCache, {
-                                Prompt = nil, 
-                                Part = spawnPart,
-                                IsGoldSeed = isGold, IsRainbowSeed = isRainbow
-                            })
+                            table.insert(newCache, { Prompt = nil, Part = spawnPart, IsGoldSeed = isGold, IsRainbowSeed = isRainbow })
                         end
                     end
                 end
@@ -1830,12 +1897,12 @@ task.spawn(function()
             local wildPetSpawns = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("WildPetSpawns")
             
             if wildPetRef and wildPetSpawns then
-                for _, refPart in pairs(wildPetRef:GetChildren()) do
+                for _, refPart in ipairs(wildPetRef:GetChildren()) do
                     if refPart:IsA("BasePart") then
                         local petName = refPart:GetAttribute("PetName")
                         local ownerId = refPart:GetAttribute("OwnerUserId")
                         if (not ownerId or ownerId == 0 or ownerId == localPlayer.UserId) and isTargetPet(petName) then
-                            for _, petModel in pairs(wildPetSpawns:GetChildren()) do
+                            for _, petModel in ipairs(wildPetSpawns:GetChildren()) do
                                 if petModel:IsA("Model") and petModel:GetAttribute("PetName") == petName then
                                     local primary = petModel.PrimaryPart
                                     if primary and (primary.Position - refPart.Position).Magnitude < 10 then
@@ -1854,90 +1921,102 @@ task.spawn(function()
 
         if Config.AutoHarvest or Config.AutoSteal then
             local myId = tostring(localPlayer.UserId)
-            local function processFarmPrompt(obj, plotOwner, isMyPlot)
-                if not obj:IsA("ProximityPrompt") then return end
-                local nameL, actL, objL = string.lower(obj.Name), string.lower(obj.ActionText), string.lower(obj.ObjectText)
+            
+            local function processFarmPrompt(obj, isHarvest, isSteal, plotOwner)
+                local model = obj:FindFirstAncestorWhichIsA("Model")
+                local isValidAction = true
                 
-                local isHarvest = (nameL == "harvest" or actL == "harvest" or objL == "harvest")
-                local isSteal = (nameL == "steal" or actL == "steal" or objL == "steal")
+                if model then
+                    local cfgSeeds = isHarvest and Config.TargetSeeds or Config.Steal_TargetSeeds
+                    local cfgFilterByEffect = isHarvest and Config.FilterByEffect or Config.Steal_FilterByEffect
+                    local cfgEffects = isHarvest and Config.TargetEffects or Config.Steal_TargetEffects
+                    local cfgEffectCount = isHarvest and Config.EffectCount or Config.Steal_EffectCount
 
-                if isHarvest or isSteal then
-                    local model = obj:FindFirstAncestorWhichIsA("Model")
-                    local isValidAction = true
-                    
-                    if model then
-                        local cfgSeeds, cfgFilterByEffect, cfgEffects, cfgEffectCount
+                    local sName = model:GetAttribute("CorePartName") or model:GetAttribute("SeedName") or model.Name
+                    isValidAction = isSeedMatched(sName, cfgSeeds)
+
+                    if isValidAction and cfgFilterByEffect then
+                        local effectCount = 0
+                        local matchedTargetEffect = false
                         
-                        if isHarvest then
-                            cfgSeeds = Config.TargetSeeds
-                            cfgFilterByEffect = Config.FilterByEffect
-                            cfgEffects = Config.TargetEffects
-                            cfgEffectCount = Config.EffectCount
-                        elseif isSteal then
-                            cfgSeeds = Config.Steal_TargetSeeds
-                            cfgFilterByEffect = Config.Steal_FilterByEffect
-                            cfgEffects = Config.Steal_TargetEffects
-                            cfgEffectCount = Config.Steal_EffectCount
-                        end
-
-                        local sName = model:GetAttribute("CorePartName") or model:GetAttribute("SeedName") or model.Name
-                        isValidAction = isSeedMatched(sName, cfgSeeds)
-
-                        if isValidAction and cfgFilterByEffect then
-                            local effectCount = 0
-                            local matchedTargetEffect = false
-                            
-                            for k, v in pairs(model:GetAttributes()) do
-                                local kL, vL = string.lower(tostring(k)), string.lower(tostring(v))
-                                if string.find(kL, "mutation") or string.find(kL, "effect") then
-                                    effectCount = effectCount + 1
-                                    if isEffectMatched(vL, cfgEffects) or isEffectMatched(kL, cfgEffects) then matchedTargetEffect = true end
-                                end
-                            end
-                            
-                            local effFolder = model:FindFirstChild("Mutations") or model:FindFirstChild("Effects")
-                            if effFolder then
-                                for _, child in ipairs(effFolder:GetChildren()) do
-                                    effectCount = effectCount + 1
-                                    if isEffectMatched(child.Name, cfgEffects) or (child:IsA("StringValue") and isEffectMatched(child.Value, cfgEffects)) then
-                                        matchedTargetEffect = true
-                                    end
-                                end
-                            end
-
-                            local hasRequiredEffectsSelected = false
-                            if type(cfgEffects) == "table" then
-                                for k, v in pairs(cfgEffects) do
-                                    if (type(k) == "string" and v) or (type(k) == "number") then hasRequiredEffectsSelected = true break end
-                                end
-                            end
-
-                            if effectCount < cfgEffectCount then
-                                isValidAction = false
-                            elseif hasRequiredEffectsSelected and not matchedTargetEffect then
-                                isValidAction = false
+                        for k, v in pairs(model:GetAttributes()) do
+                            local kL, vL = string.lower(tostring(k)), string.lower(tostring(v))
+                            if string.find(kL, "mutation") or string.find(kL, "effect") then
+                                effectCount = effectCount + 1
+                                if isEffectMatched(vL, cfgEffects) or isEffectMatched(kL, cfgEffects) then matchedTargetEffect = true end
                             end
                         end
-                    end
+                        
+                        local effFolder = model:FindFirstChild("Mutations") or model:FindFirstChild("Effects")
+                        if effFolder then
+                            for _, child in ipairs(effFolder:GetChildren()) do
+                                effectCount = effectCount + 1
+                                if isEffectMatched(child.Name, cfgEffects) or (child:IsA("StringValue") and isEffectMatched(child.Value, cfgEffects)) then
+                                    matchedTargetEffect = true
+                                end
+                            end
+                        end
 
-                    if (isHarvest and isValidAction) or (isSteal and isValidAction) then
-                        table.insert(newCache, {
-                            Prompt = obj, Part = obj.Parent, PlotOwner = plotOwner, IsMyPlot = isMyPlot,
-                            IsHarvest = isHarvest, IsSteal = isSteal,
-                            OwnerUserId = model and tonumber(model:GetAttribute("UserId")),
-                            PlantId = model and model:GetAttribute("PlantId"),
-                            FruitId = model and model:GetAttribute("FruitId") or ""
-                        })
+                        local hasRequiredEffectsSelected = false
+                        if type(cfgEffects) == "table" then
+                            for k, v in pairs(cfgEffects) do
+                                if (type(k) == "string" and v) or (type(k) == "number") then hasRequiredEffectsSelected = true break end
+                            end
+                        end
+
+                        if effectCount < cfgEffectCount then
+                            isValidAction = false
+                        elseif hasRequiredEffectsSelected and not matchedTargetEffect then
+                            isValidAction = false
+                        end
                     end
+                end
+
+                if isValidAction then
+                    table.insert(newCache, {
+                        Prompt = obj, Part = obj.Parent, PlotOwner = plotOwner,
+                        IsHarvest = isHarvest, IsSteal = isSteal,
+                        OwnerUserId = model and tonumber(model:GetAttribute("UserId")),
+                        PlantId = model and model:GetAttribute("PlantId"),
+                        FruitId = model and model:GetAttribute("FruitId") or ""
+                    })
                 end
             end
 
             local gardens = Workspace:FindFirstChild("Gardens")
             if gardens then
-                for _, plot in pairs(gardens:GetChildren()) do
-                    local plotOwner = getPlotOwner(plot)
-                    local isMyPlot = (plotOwner == localPlayer.Name or plotOwner == localPlayer.DisplayName or plotOwner == myId)
-                    for _, obj in pairs(plot:GetDescendants()) do processFarmPrompt(obj, plotOwner, isMyPlot) end
+                for _, plot in ipairs(gardens:GetChildren()) do
+                    local scanTarget = plot:FindFirstChild("Plants") or plot
+                    
+                    local plotOwnerCache = nil
+                    local isMyPlotCache = nil
+
+                    local function getIsMyPlot()
+                        if isMyPlotCache == nil then
+                            plotOwnerCache = getPlotOwner(plot)
+                            isMyPlotCache = (plotOwnerCache == localPlayer.Name or plotOwnerCache == localPlayer.DisplayName or plotOwnerCache == myId)
+                        end
+                        return isMyPlotCache, plotOwnerCache
+                    end
+
+                    for _, obj in ipairs(scanTarget:GetDescendants()) do 
+                        if obj:IsA("ProximityPrompt") then
+                            local nameL, actL, objL = string.lower(obj.Name), string.lower(obj.ActionText), string.lower(obj.ObjectText)
+                            
+                            local isHarvest = (string.find(nameL, "harvest") or string.find(actL, "harvest") or string.find(objL, "harvest"))
+                            local isSteal = (string.find(nameL, "steal") or string.find(actL, "steal") or string.find(objL, "steal"))
+
+                            if isHarvest and Config.AutoHarvest then
+                                processFarmPrompt(obj, true, false, nil) 
+                                
+                            elseif isSteal and Config.AutoSteal then
+                                local isMyPlot, owner = getIsMyPlot()
+                                if not isMyPlot then
+                                    processFarmPrompt(obj, false, true, owner)
+                                end
+                            end
+                        end
+                    end
                 end
             end
         end
@@ -1947,18 +2026,16 @@ task.spawn(function()
 end)
 
 -- ========================================================
--- 6. THỰC THI CHUỖI ƯU TIÊN VÀ XỬ LÝ DỮ LIỆU
+-- 6. THỰC THI GỘP LOGIC CỦA CẢ 2 MODE (SLOW VÀ SUPER FAST)
 -- ========================================================
 task.spawn(function()
     while task.wait(0.05) do
-        -- Đợi nếu đang trong quá trình vi-teleport nhặt hạt giống
         if SysData.IsExecuting then continue end 
         
         local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
         local hrpPos, timeNow = hrp.Position, os.clock()
         
-        -- Chạy thẳng vào ActiveTarget nếu có (chỉ cho Pet/Steal của hệ thống cũ)
         if SysData.ActiveTarget and SysData.ActiveType ~= "Gold" and SysData.ActiveType ~= "Rainbow" then
             task.spawn(executeActionDirectly, SysData.ActiveTarget)
             continue
@@ -1971,19 +2048,21 @@ task.spawn(function()
         local activePlayersPos = {}
         if canSteal and isNight then
             for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= localPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    activePlayersPos[tostring(p.UserId)] = p.Character.HumanoidRootPart.Position
+                if p ~= localPlayer and p.Character then
+                    local otherHrp = p.Character:FindFirstChild("HumanoidRootPart")
+                    if otherHrp then
+                        activePlayersPos[tostring(p.UserId)] = otherHrp.Position
+                    end
                 end
             end
         end
 
         local closest = { Rainbow = nil, Gold = nil, Pet = nil, Steal = nil, Harvest = nil }
+        local batchHarvest = {} 
         local dists = { Rainbow = math.huge, Gold = math.huge, Pet = math.huge, Steal = (Config.TeleportSteal and math.huge or Config.StealRadius), Harvest = Config.HarvestRadius }
 
         for _, data in ipairs(SysData.CachedTargets) do
             if not data.Part then continue end
-            
-            -- Chỉ filter những mục tiêu không phải Gold/Rainbow nếu nó không có prompt
             if not (data.IsGoldSeed or data.IsRainbowSeed) and (not data.Prompt or not data.Prompt.Parent) then continue end
             
             local pos = data.RefPart and data.RefPart.Position or data.Part.Position
@@ -1996,17 +2075,25 @@ task.spawn(function()
                 closest.Gold = data; dists.Gold = distance
             elseif (Config.WildPet_AutoTp or Config.WildPet_AutoInteract) and data.IsWildPet and distance < dists.Pet then 
                 closest.Pet = data; dists.Pet = distance
-            elseif canSteal and data.IsSteal and not data.IsMyPlot and distance < dists.Steal and isNight then
+            elseif canSteal and data.IsSteal and distance < dists.Steal and isNight then
                 local ownerPos = data.PlotOwner and activePlayersPos[data.PlotOwner]
                 if not ownerPos or (ownerPos - pos).Magnitude > 50 then
                     closest.Steal = data; dists.Steal = distance
                 end
-            elseif canHarvest and data.IsHarvest and data.IsMyPlot and distance < dists.Harvest then 
-                closest.Harvest = data; dists.Harvest = distance
+            elseif canHarvest and data.IsHarvest and not data.JustHarvested then 
+                if Config.HarvestMode == "Super Fast (Batch)" then
+                    if distance < Config.HarvestRadius then
+                        table.insert(batchHarvest, data)
+                    end
+                else 
+                    if distance < dists.Harvest then
+                        closest.Harvest = data
+                        dists.Harvest = distance
+                    end
+                end
             end
         end
 
-        -- THỰC THI CHUẨN MỰC
         if closest.Rainbow then
             task.spawn(PerformSeedRoutine, closest.Rainbow, "Rainbow")
         elseif closest.Gold then
@@ -2019,8 +2106,32 @@ task.spawn(function()
             task.spawn(executeActionDirectly, closest.Steal); SysData.LastSteal = timeNow
         elseif closest.Steal and not Config.TeleportSteal then
             task.spawn(executeActionDirectly, closest.Steal); SysData.LastSteal = timeNow
-        elseif closest.Harvest then
-            task.spawn(executeActionDirectly, closest.Harvest); SysData.LastHarvest = timeNow
+        
+        elseif closest.Harvest and Config.HarvestMode == "Normal (Slow)" then
+            closest.Harvest.JustHarvested = true
+            task.spawn(executeActionDirectly, closest.Harvest)
+            SysData.LastHarvest = timeNow
+            
+        -- [LOGIC CHẾ ĐỘ SUPER FAST: ĐÃ ÁP DỤNG BATCH SIZE]
+        elseif #batchHarvest > 0 and Config.HarvestMode == "Super Fast (Batch)" then
+            task.spawn(function()
+                -- Giới hạn vòng lặp theo số lượng cấu hình từ Input mới
+                local maxBatch = math.min(#batchHarvest, Config.SuperFastBatchSize)
+                
+                for index = 1, maxBatch do
+                    local hData = batchHarvest[index]
+                    if isInventoryFull() then break end
+                    hData.JustHarvested = true 
+                    executeActionDirectly(hData)
+                    
+                    if Config.SuperFastSpeed > 0 then
+                        task.wait(Config.SuperFastSpeed)
+                    elseif index % 2 == 0 then
+                        RunService.Heartbeat:Wait() 
+                    end
+                end
+            end)
+            SysData.LastHarvest = timeNow
         end
     end
 end)
@@ -2296,8 +2407,7 @@ MyUIElements.Plant:Toggle({
 
 local KeepUIOpen = {
     GearShop = false,
-    SeedShop = false,
-    WeatherUI = false
+    SeedShop = false
 }
 
 local SellSettings = {
@@ -2312,45 +2422,10 @@ pcall(function()
     Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 end)
 
-local cachedWeatherData = nil
-
-local function getLiveWeatherData()
-    if cachedWeatherData then return cachedWeatherData end -- Trả về luôn nếu đã tìm thấy trước đó
-    
-    local weatherModule = ReplicatedStorage:FindFirstChild("WeatherData", true)
-    
-    if weatherModule and weatherModule:IsA("ModuleScript") then
-        local success, result = pcall(require, weatherModule)
-        if success and type(result) == "table" then
-            if result.Data then
-                cachedWeatherData = result.Data
-            elseif type(result[1]) == "table" then
-                cachedWeatherData = result
-            end
-        end
-    end
-    
-    return cachedWeatherData
-end
-
--- Hàm chuyển đổi số giây sang định dạng thời gian trực quan (MM:SS hoặc HH:MM:SS)
-local function formatTime(seconds)
-    if seconds <= 0 then return "00:00" end
-    local h = math.floor(seconds / 3600)
-    local m = math.floor((seconds % 3600) / 60)
-    local s = seconds % 60
-    if h > 0 then
-        return string.format("%02d:%02d:%02d", h, m, s)
-    else
-        return string.format("%02d:%02d", m, s)
-    end
-end
-
 task.spawn(function()
     -- Gắn biến UI bên ngoài vòng lặp để tránh FindFirstChild hàng chục lần 1 giây
     local gearShopUI = PlayerGui:WaitForChild("GearShop", 5)
     local seedShopUI = PlayerGui:WaitForChild("SeedShop", 5)
-    local weatherUI = PlayerGui:WaitForChild("WeatherUI", 5)
 
     while task.wait(0.5) do
         -- 1. Ghim Gear Shop
@@ -2366,88 +2441,6 @@ task.spawn(function()
             if not seedShopUI.Enabled then seedShopUI.Enabled = true end
             local frame = seedShopUI:FindFirstChildWhichIsA("Frame")
             if frame and not frame.Visible then frame.Visible = true end
-        end
-        
-        -- 3. Ghim Weather UI & ÉP CHẠY TIME
-        if KeepUIOpen.WeatherUI and weatherUI then
-            if not weatherUI.Enabled then weatherUI.Enabled = true end
-            local frame = weatherUI:FindFirstChild("Frame")
-            
-            if frame then
-                if not frame.Visible then frame.Visible = true end
-                
-                local weatherDataList = getLiveWeatherData()
-                
-                for _, child in pairs(frame:GetChildren()) do
-                    local timeLabel = child:FindFirstChild("Time")
-                    if timeLabel and timeLabel:IsA("TextLabel") then
-                        -- Check trạng thái Visible trước khi gán
-                        if not timeLabel.Visible then timeLabel.Visible = true end
-                        if not child.Visible then child.Visible = true end
-                        if not timeLabel.TextScaled then timeLabel.TextScaled = true end
-                        
-                        local matchedData = nil
-                        
-                        if weatherDataList then
-                            local childNameLower = string.lower(child.Name)
-                            
-                            -- Cách 1: Đối chiếu tên
-                            for _, wData in ipairs(weatherDataList) do
-                                if string.find(childNameLower, string.lower(wData.Name)) then
-                                    matchedData = wData
-                                    break
-                                end
-                            end
-                            
-                            -- Cách 2: TỐI ƯU HÓA - Thay GetDescendants bằng GetChildren để quét mượt hơn
-                            if not matchedData then
-                                for _, desc in pairs(child:GetChildren()) do
-                                    if desc:IsA("TextLabel") and desc.Name ~= "Time" then
-                                        local textLower = string.lower(desc.Text)
-                                        for _, wData in ipairs(weatherDataList) do
-                                            local wNameLower = string.lower(wData.Name)
-                                            if string.find(textLower, wNameLower) or textLower == wNameLower then
-                                                matchedData = wData
-                                                break
-                                            end
-                                        end
-                                    end
-                                    if matchedData then break end
-                                end
-                            end
-                        end
-                        
-                        -- Hiển thị dữ liệu
-                        if matchedData then
-                            if matchedData.AlwaysOn then
-                                if timeLabel.Text ~= "Always Active" then
-                                    timeLabel.Text = "Always Active"
-                                    timeLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-                                end
-                            else
-                                local now = os.time()
-                                local occuranceSecs = (matchedData.Occurance or 60) * 60
-                                local durationSecs = matchedData.Last or 300
-                                local timeMod = now % occuranceSecs
-                                
-                                if timeMod < durationSecs then
-                                    local left = durationSecs - timeMod
-                                    timeLabel.Text = "Active: " .. formatTime(left)
-                                    timeLabel.TextColor3 = Color3.fromRGB(85, 255, 85)
-                                else
-                                    local left = occuranceSecs - timeMod
-                                    timeLabel.Text = formatTime(left)
-                                    timeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                                end
-                            end
-                        else
-                            local fallbackLoop = os.time() % 3600
-                            timeLabel.Text = formatTime(3600 - fallbackLoop)
-                            timeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-                        end
-                    end
-                end
-            end
         end
     end
 end)
@@ -2520,33 +2513,6 @@ MyUIElements.Shop:Toggle({
         if not val then
             local ui = PlayerGui:FindFirstChild("SeedShop")
             if ui then ui.Enabled = false end
-        end
-    end 
-})
-
-MyUIElements.Shop:Toggle({
-    Title = "loc:ShowWeatherUI", 
-    Desc = "loc:ShowWeatherUIDesc", 
-    Flag = "Toggle_WeatherUI",
-    Value = false, 
-    Callback = function(val)
-        KeepUIOpen.WeatherUI = val
-        if not val then
-            local weatherUI = PlayerGui:FindFirstChild("WeatherUI")
-            if weatherUI then
-                weatherUI.Enabled = false
-                local frame = weatherUI:FindFirstChild("Frame")
-                if frame then 
-                    frame.Visible = false 
-                    for _, child in pairs(frame:GetChildren()) do
-                        local timeLabel = child:FindFirstChild("Time")
-                        if timeLabel and timeLabel:IsA("TextLabel") then
-                            timeLabel.Visible = false
-                            child.Visible = false 
-                        end
-                    end
-                end
-            end
         end
     end 
 })
@@ -3256,6 +3222,112 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- Biến kiểm soát luồng di chuyển
+local currentTeleportThread = nil
+
+-- Hàm Teleport di chuyển với vận tốc cố định (Càng xa đi càng lâu)
+local function TeleportBypass(x, y, z)
+    -- Huỷ luồng cũ để tránh chồng chéo
+    if currentTeleportThread then
+        task.cancel(currentTeleportThread)
+    end
+
+    local character = localPlayer.Character or playerCharacter
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = character.HumanoidRootPart
+
+    local startPos = hrp.Position
+    local targetPos = Vector3.new(x, y, z)
+    local distance = (targetPos - startPos).Magnitude
+
+    -- Cấu hình vận tốc (Studs/Giây) - Điều chỉnh số này nếu vẫn bị kéo lại
+    local speed = 120 
+    local timeToReach = distance / speed 
+
+    currentTeleportThread = task.spawn(function()
+        local elapsedTime = 0
+        
+        while elapsedTime < timeToReach do
+            if not character or not hrp.Parent then break end
+            
+            local dt = RunService.Heartbeat:Wait()
+            elapsedTime += dt
+            
+            local alpha = math.clamp(elapsedTime / timeToReach, 0, 1)
+            hrp.CFrame = CFrame.new(startPos:Lerp(targetPos, alpha))
+            hrp.Velocity = Vector3.zero
+        end
+
+        -- Đồng bộ vị trí cuối
+        if hrp and hrp.Parent then
+            hrp.CFrame = CFrame.new(targetPos)
+            hrp.Velocity = Vector3.zero
+            
+            -- Giữ chân chống rubberband
+            local syncTime = os.clock()
+            while os.clock() - syncTime < 0.1 do
+                hrp.CFrame = CFrame.new(targetPos)
+                hrp.Velocity = Vector3.zero
+                RunService.Heartbeat:Wait()
+            end
+        end
+        currentTeleportThread = nil
+    end)
+end
+
+-- ==========================================
+-- UI BUTTONS
+-- ==========================================
+
+MyUIElements.TPzone:Button({ 
+    Title = "Teleport My Garden", 
+    Desc = "Dịch chuyển an toàn về Garden", 
+    Callback = function() 
+        local plotId = localPlayer:GetAttribute("PlotId")
+        if not plotId then return end
+        
+        local gardens = Workspace:FindFirstChild("Gardens")
+        local myPlot = gardens and gardens:FindFirstChild("Plot" .. tostring(plotId))
+        if not myPlot then return end
+        
+        local ref = myPlot:FindFirstChild("PlotSizeReference")
+        local targetPos = (ref and ref:IsA("BasePart") and ref.Position or myPlot:GetPivot().Position) + Vector3.new(0, 5, 0)
+        
+        TeleportBypass(targetPos.X, targetPos.Y, targetPos.Z)
+    end 
+})
+
+MyUIElements.TPzone:Button({ 
+    Title = "Teleport Seed Shop", 
+    Desc = "Dịch chuyển an toàn tới Seed Shop", 
+    Callback = function() TeleportBypass(263.94, 146.56, -145.07) end 
+})
+
+MyUIElements.TPzone:Button({ 
+    Title = "Teleport Sell Shop", 
+    Desc = "Dịch chuyển an toàn tới Sell Shop", 
+    Callback = function() TeleportBypass(269.75, 146.56, -127.07) end 
+})
+
+MyUIElements.TPzone:Button({ 
+    Title = "Teleport Gear Shop", 
+    Desc = "Dịch chuyển an toàn tới Gear Shop", 
+    Callback = function() TeleportBypass(244.44, 146.56, -144.49) end 
+})
+
+MyUIElements.TPzone:Button({ 
+    Title = "Teleport Props Shop", 
+    Desc = "Dịch chuyển an toàn tới Props Shop", 
+    Callback = function() TeleportBypass(239.42, 146.56, -125.41) end 
+})
+
+MyUIElements.TPzone:Button({ 
+    Title = "Teleport Crate Guild", 
+    Desc = "Dịch chuyển an toàn tới Crate Guild", 
+    Callback = function() TeleportBypass(255.49, 146.56, -115.06) end 
+})
+
+
 _G.Aura = {
     Enabled = false,
     AutoAim = true, -- Thêm biến quản lý Auto Aim
@@ -3415,9 +3487,228 @@ MyUIElements.FixLag:Button({
     end
 })
 
--- ==========================================
--- BẢNG LƯU TRỮ TRẠNG THÁI (TỐI ƯU REGISTER)
--- ==========================================
+-- =================================================================== --
+-- BẢNG CẤU HÌNH TẬP TRUNG (FIX LẶP LOCAL & TỐI ƯU TABLE)
+-- =================================================================== --
+local WeatherConfig = {
+    -- Trạng thái hoạt động của Tracker
+    IsActive = false,
+    LastWeather = nil,
+    SpacingX = 55,
+    BaseUrl = "https://raw.githubusercontent.com/SLK-GAMING-MOD/Open-soure/refs/heads/main/",
+    
+    -- Danh sách UI và file ảnh tương ứng
+    WeathersList = {
+        {name = "Rainbow Moon", fileName = "RainbowMoon.png"},
+        {name = "Gold Moon",    fileName = "Goldmoon.png"},
+        {name = "Blood Moon",   fileName = "BloodmoonOF.png"},
+        {name = "Sunset",       fileName = "SunsetWeather.png"},
+        {name = "Moon",         fileName = "NightWeather.png"},
+        {name = "Day",          fileName = "DayWeather.webp"}
+    },
+    
+    -- Mốc thời gian thực cố định ngoài đời (Real-Life Anchors) & Độ dài chu kỳ (Phút)
+    Anchors = {
+        ["Gold Moon"]    = { hour = 3, min = 13, cycleMin = 140, nextAnchor = 0, cycleSec = 0 },
+        ["Rainbow Moon"] = { hour = 4, min = 0,  cycleMin = 140, nextAnchor = 0, cycleSec = 0 },
+        ["Blood Moon"]   = { hour = 5, min = 0,  cycleMin = 140, nextAnchor = 0, cycleSec = 0 }
+    },
+    
+    -- Ánh xạ đồng bộ tên sự kiện từ thuộc tính game
+    EventMap = {
+        Day = "Day", Moon = "Moon", Night = "Moon", Sunset = "Sunset",
+        Bloodmoon = "Blood Moon", Goldmoon = "Gold Moon", ["Rainbow Moon"] = "Rainbow Moon"
+    },
+    
+    -- Thời lượng mặc định của các Phase trong game (để tính toán bắc cầu)
+    Durations = { Sunset = 30, Day = 450, Night = 120 },
+    
+    -- Nơi lưu trữ các UI đã được Clone và nhãn TextLabel tương ứng
+    ClonedUIs = {},
+    Labels = {}
+}
+
+-- Xác định UI mẫu (WeatherUI) từ PlayerGui sẵn có của hệ thống
+local templateUI = PlayerGui:FindFirstChild("WeatherUI") or playerGui:FindFirstChild("WeatherUI")
+if templateUI then
+    templateUI.Enabled = false
+end
+
+-- =================================================================== --
+-- CÁC HÀM XỬ LÝ LOGIC (ĐÃ ĐƯỢC THU GỌN VÀ TỐI ƯU)
+-- =================================================================== --
+local function loadGitHubImage(fileName)
+    if writefile and isfile and getcustomasset and request then
+        if not isfile(fileName) then
+            local success, response = pcall(function() 
+                return request({Url = WeatherConfig.BaseUrl .. fileName, Method = "GET"}) 
+            end)
+            if success and response.StatusCode == 200 then writefile(fileName, response.Body)
+            else return "rbxassetid://0" end
+        end
+        return getcustomasset(fileName)
+    end
+    return "rbxassetid://0"
+end
+
+local function formatTimeRealLife(totalSeconds)
+    if not totalSeconds or totalSeconds < 0 then return "00m 00s" end
+    local hours = math.floor(totalSeconds / 3600)
+    local minutes = math.floor((totalSeconds % 3600) / 60)
+    local seconds = math.floor(totalSeconds % 60)
+    if hours > 0 then return string.format("%dh %02dm %02ds", hours, minutes, seconds)
+    else return string.format("%02dm %02ds", minutes, seconds) end
+end
+
+local function initAllAnchors()
+    local now = os.time()
+    for name, data in pairs(WeatherConfig.Anchors) do
+        local d = os.date("*t", now)
+        d.hour, d.min, d.sec = data.hour, data.min, 0
+        local baseTime = os.time(d)
+        if baseTime > now then baseTime = baseTime - 86400 end
+        
+        local cycleSeconds = data.cycleMin * 60
+        local elapsed = now - baseTime
+        local cyclesPassed = math.floor(elapsed / cycleSeconds)
+        
+        data.cycleSec = cycleSeconds
+        data.nextAnchor = baseTime + ((cyclesPassed + 1) * cycleSeconds)
+    end
+end
+initAllAnchors()
+
+-- HÀM TẮT (DISABLE): Xóa sạch các clone UI, giải phóng bộ nhớ bộ lọc
+local function DisableWeatherTracker()
+    WeatherConfig.IsActive = false
+    for _, ui in ipairs(WeatherConfig.ClonedUIs) do
+        if ui then ui:Destroy() end
+    end
+    table.clear(WeatherConfig.ClonedUIs)
+    table.clear(WeatherConfig.Labels)
+end
+
+-- HÀM BẬT (ENABLE): Clone UI dựa trên cấu hình Table và kích hoạt vòng lặp
+local function EnableWeatherTracker()
+    if WeatherConfig.IsActive or not templateUI then return end
+    local baseFrame = templateUI:FindFirstChild("Frame")
+    if not baseFrame then return end
+    
+    WeatherConfig.IsActive = true
+    local currentPos = baseFrame.Position
+
+    -- 1. Tiến hành Tạo Clone UI từ danh sách cấu hình trong bảng
+    for i, data in ipairs(WeatherConfig.WeathersList) do
+        local newGui = templateUI:Clone()
+        newGui.Name = "WeatherUI_" .. string.gsub(data.name, " ", "")
+        newGui.Parent = PlayerGui or playerGui
+        newGui.Enabled = true
+        newGui.DisplayOrder = -10
+        table.insert(WeatherConfig.ClonedUIs, newGui)
+        
+        local frame = newGui:FindFirstChild("Frame")
+        if frame then
+            frame.Visible = true
+            local rain = frame:FindFirstChild("Rain")
+            if rain then
+                rain.Visible = true
+                if rain:FindFirstChild("Weather") then rain.Weather.Text = data.name; rain.Weather.Visible = true end
+                if rain:FindFirstChild("Time") then
+                    rain.Time.Text = "00m 00s"
+                    rain.Time.Visible = true
+                    WeatherConfig.Labels[data.name] = { TextLabel = rain.Time, DefaultColor = rain.Time.TextColor3 }
+                end
+                if rain:FindFirstChild("Vector") then rain.Vector.Image = loadGitHubImage(data.fileName); rain.Vector.Visible = true end
+            end
+            frame.Position = UDim2.new(currentPos.X.Scale, currentPos.X.Offset - ((i - 1) * WeatherConfig.SpacingX), currentPos.Y.Scale, currentPos.Y.Offset)
+        end
+    end
+
+    -- 2. Khởi chạy luồng xử lý cập nhật trạng thái thời gian thực
+    task.spawn(function()
+        while WeatherConfig.IsActive do
+            local currentTime = os.time()
+            local rawWeather = Workspace:GetAttribute("ActiveWeather")
+            local rawPhase = Workspace:GetAttribute("ActivePhase")
+            local phaseDuration = tonumber(Workspace:GetAttribute("PhaseDuration"))
+            
+            local currentState = rawWeather
+            if not WeatherConfig.EventMap[rawWeather] then currentState = rawPhase end
+            local currentGameWeather = WeatherConfig.EventMap[currentState]
+            
+            if not currentGameWeather then
+                local isNightObj = ReplicatedStorage:FindFirstChild("Night")
+                if isNightObj and isNightObj.Value == true then currentGameWeather = "Moon" else currentGameWeather = "Day" end
+            end
+            
+            local timeLeft = 0
+            if phaseDuration then timeLeft = math.max(0, phaseDuration - currentTime) end
+
+            -- Đồng bộ hóa vòng lặp khi sự kiện diễn ra thực tế trong Server
+            if currentGameWeather ~= WeatherConfig.LastWeather then
+                if WeatherConfig.Anchors[currentGameWeather] then
+                    WeatherConfig.Anchors[currentGameWeather].nextAnchor = currentTime + WeatherConfig.Anchors[currentGameWeather].cycleSec
+                end
+                WeatherConfig.LastWeather = currentGameWeather
+            end
+
+            -- Tự động gối chu kỳ thời gian neo (Real-Life Anchors) khi chạm mốc
+            for _, data in pairs(WeatherConfig.Anchors) do
+                if currentTime >= data.nextAnchor then 
+                    data.nextAnchor = data.nextAnchor + data.cycleSec 
+                end
+            end
+
+            -- Cập nhật thông số hiển thị lên các nhãn Text Label
+            for weatherName, config in pairs(WeatherConfig.Labels) do
+                if currentGameWeather == weatherName and timeLeft > 0 then
+                    config.TextLabel.Text = formatTimeRealLife(timeLeft)
+                    config.TextLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+                else
+                    config.TextLabel.TextColor3 = config.DefaultColor
+                    
+                    if WeatherConfig.Anchors[weatherName] then
+                        config.TextLabel.Text = formatTimeRealLife(WeatherConfig.Anchors[weatherName].nextAnchor - currentTime)
+                    elseif weatherName == "Sunset" then
+                        if currentGameWeather == "Day" then config.TextLabel.Text = formatTimeRealLife(timeLeft)
+                        elseif currentGameWeather == "Moon" or WeatherConfig.Anchors[currentGameWeather] then config.TextLabel.Text = formatTimeRealLife(timeLeft + WeatherConfig.Durations.Day)
+                        else config.TextLabel.Text = "--m --s" end
+                    elseif weatherName == "Moon" then
+                        if currentGameWeather == "Day" then config.TextLabel.Text = formatTimeRealLife(timeLeft + WeatherConfig.Durations.Sunset)
+                        elseif currentGameWeather == "Sunset" then config.TextLabel.Text = formatTimeRealLife(timeLeft)
+                        else config.TextLabel.Text = formatTimeRealLife(timeLeft + WeatherConfig.Durations.Day + WeatherConfig.Durations.Sunset) end
+                    elseif weatherName == "Day" then
+                        if currentGameWeather == "Sunset" then config.TextLabel.Text = formatTimeRealLife(timeLeft + WeatherConfig.Durations.Night)
+                        elseif currentGameWeather == "Moon" or WeatherConfig.Anchors[currentGameWeather] then config.TextLabel.Text = formatTimeRealLife(timeLeft)
+                        else config.TextLabel.Text = "--m --s" end
+                    end
+                end
+            end
+            task.wait(1)
+        end
+    end)
+end
+
+-- =================================================================== --
+-- TÍCH HỢP VÀO SỰ KIỆN TOGGLE TRONG MENU CỦA BRO
+-- =================================================================== --
+local function OnWeatherToggleChanged(state)
+    if state then
+        EnableWeatherTracker()
+    else
+        DisableWeatherTracker()
+    end
+end
+
+MyUIElements.Weather:Toggle({
+    Title = "loc:ShowWeatherUI", 
+    Desc = "loc:ShowWeatherUIDesc", 
+    Flag = "ShowWeatherUI",
+    Value = false, 
+    Callback = OnWeatherToggleChanged
+})
+
+
 local State = {
     GreenbeanBypass = true,
     AntiRagdoll = false,
