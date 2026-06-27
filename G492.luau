@@ -126,6 +126,7 @@ WindUI:Localization({
             Gameplay = "Gameplay",
             System = "System",
             Misc = "Misc",
+            Items = "Items",
             Visual = "Visual",
             Player = "Player",
             Teleport = "Teleport",
@@ -390,6 +391,24 @@ WindUI:Localization({
             ShowCrateShopDesc = "Displays the props shop interface.",
             View_Sell_Prices = "View Sell Prices",
             View_Sell_Prices_Desc = "Displays the selling prices of available items.",
+            OpenEgg = "Open Egg",
+            OpenEggDesc = "Configure settings for automatically opening eggs.",
+            OpenCrate = "Open Crate",
+            OpenCrateDesc = "Configure settings for automatically opening crates.",
+            OpenSeed = "Open Seed",
+            OpenSeedDesc = "Configure settings for automatically opening seed packs.",
+            Open_All_Eggs = "Open All Eggs",
+            Open_All_Eggs_Desc = "Instantly open all eggs in your inventory at once.",
+            Auto_Open_Eggs = "Auto Open Eggs",
+            Auto_Open_Eggs_Desc = "Automatically open eggs continuously until toggled off.",
+            Open_All_Crates = "Open All Crates",
+            Open_All_Crates_Desc = "Instantly open all crates in your inventory at once.",
+            Auto_Open_Crates = "Open All Crates",
+            Auto_Open_Crates_Desc = "Automatically open crates continuously until toggled off.",
+            Open_All_SeedPacks = "Open All Seed Packs",
+            Open_All_SeedPacks_Desc = "Instantly open all seed packs in your inventory at once.",
+            Auto_Open_SeedPacks = "Auto Open Seed Packs",
+            Auto_Open_SeedPacks_Desc = "Automatically open seed packs continuously until toggled off.",
         },
         vi = {
             HubTitle = "Hutao Hub",
@@ -403,6 +422,7 @@ WindUI:Localization({
             Gameplay = "Lối chơi",
             System = "Hệ thống",
             Misc = "Khác",
+            Items = "Vật phẩm",
             Visual = "Hiển thị",
             Player = "Người chơi",
             Teleport = "Dịch chuyển",
@@ -667,6 +687,24 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             ShowCrateShopDesc = "Hiển thị giao diện cửa hàng đạo cụ.",
             View_Sell_Prices = "Xem giá bán",
             View_Sell_Prices_Desc = "Hiển thị giá bán của các vật phẩm hiện có.",
+            OpenEgg = "Mở trứng",
+            OpenEggDesc = "Điều chỉnh các cài đặt để tự động mở trứng.",
+            OpenCrate = "Mở thùng",
+            OpenCrateDesc = "Điều chỉnh các cài đặt để tự động mở thùng.",
+            OpenSeed = "Mở hạt giống",
+            OpenSeedDesc = "Điều chỉnh các cài đặt để tự động mở gói hạt giống.",
+            Open_All_Eggs = "Mở tất cả trứng",
+            Open_All_Eggs_Desc = "Mở toàn bộ trứng có trong túi đồ ngay lập tức.",
+            Auto_Open_Eggs = "Tự động mở trứng",
+            Auto_Open_Eggs_Desc = "Tự động mở trứng liên tục cho đến khi tắt.",
+            Open_All_Crates = "Mở tất cả thùng",
+            Open_All_Crates_Desc = "Mở toàn bộ rương có trong túi đồ ngay lập tức.",
+            Auto_Open_Crates = "Tự động mở thùng",
+            Auto_Open_Crates_Desc = "Tự động mở rương liên tục cho đến khi tắt.",
+            Open_All_SeedPacks = "Mở tất cả gói hạt",
+            Open_All_SeedPacks_Desc = "Mở toàn bộ gói hạt giống có trong túi đồ ngay lập tức.",
+            Auto_Open_SeedPacks = "Tự động mở gói hạt",
+            Auto_Open_SeedPacks_Desc = "Tự động mở gói hạt giống liên tục cho đến khi tắt.",
         }
     }
 })
@@ -759,7 +797,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.2.7", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.3.2", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -794,19 +832,24 @@ local TabHandles = {
         Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1 
     }),
     
+    Items = Tabs.Gameplay:Tab({ 
+        Title = "loc:Items", Icon = "toolbox", Desc = "Vật Phẩm", IconThemed = true, 
+        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1 
+    }),
+    
     Player = Tabs.Gameplay:Tab({ 
         Title = "loc:Player", Icon = "user", Desc = "Người Chơi", IconThemed = true, 
-        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 2 
+        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1
     }),
     
     Visual = Tabs.Gameplay:Tab({ 
         Title = "loc:Visual", Icon = "eye", Desc = "Thị Giác", IconThemed = true, 
-        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 3 
+        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1
     }),
     
     TP = Tabs.Gameplay:Tab({ 
         Title = "loc:Teleport", Icon = "map", Desc = "Dịch Chuyển", IconThemed = true, 
-        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1 
+        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1
     }),
     
     Misc = Tabs.System:Tab({ 
@@ -816,7 +859,7 @@ local TabHandles = {
     
     Settings = Tabs.System:Tab({ 
         Title = "loc:Settings", Icon = "settings", Desc = "Cài Đặt", IconThemed = true, 
-        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 2 
+        Locked = false, ShowTabTitle = true, Border = true, LayoutOrder = 1
     }),
 }
 
@@ -1011,6 +1054,51 @@ local ElementConfigs = {
             Title = "loc:FindPetServer",
             Desc = "loc:FindPetServerSections",
             Icon = "radar",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "OpenEgg",
+        Type = "Section",
+        Parent = TabHandles.Items,
+        Config = {
+            Title = "loc:OpenEgg",
+            Desc = "loc:OpenEggDesc",
+            Icon = "egg",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "OpenCrate",
+        Type = "Section",
+        Parent = TabHandles.Items,
+        Config = {
+            Title = "loc:OpenCrate",
+            Desc = "loc:OpenCrateDesc",
+            Icon = "package",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
+        ID = "OpenSeed",
+        Type = "Section",
+        Parent = TabHandles.Items,
+        Config = {
+            Title = "loc:OpenSeed",
+            Desc = "loc:OpenSeedDesc",
+            Icon = "id-card",
             Box = true,
             BoxBorder = true,
             Opened = false,
@@ -3129,6 +3217,126 @@ MyUIElements.FindPetServer:Button({
     end 
 })
 
+local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
+local PSC = require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("PlayerStateClient"))
+
+local AutoFlags = {
+    AutoOpenEggs = false,
+    AutoOpenCrates = false,
+    AutoOpenSeedPacks = false
+}
+
+local function getInventoryData(invKey)
+    local ok, replica = pcall(function() return PSC:GetLocalReplica() end)
+    local data = (ok and replica) and replica.Data or nil
+    if data and data.Inventory and data.Inventory[invKey] then
+        return data.Inventory[invKey]
+    end
+    return {}
+end
+
+-- Hàm thực thi gửi tín hiệu chuẩn GAG2 (:Fire chứ không InvokeServer)
+local function fireOpenPacket(pkt, itemName)
+    pcall(function()
+        pkt:Fire(itemName)
+    end)
+end
+
+-- Hàm quét và mở tất cả
+local function openAllItems(invKey, pkt)
+    local inventory = getInventoryData(invKey)
+    if not inventory then return end
+    
+    for itemName, amount in pairs(inventory) do
+        local n = (type(amount) == "number") and amount or 1
+        for _ = 1, n do
+            task.spawn(function()
+                fireOpenPacket(pkt, itemName)
+            end)
+            task.wait(0.15) -- Delay 0.15s mỗi lần mở để tránh bị server chặn do spam
+        end
+    end
+end
+
+-- Hàm khởi tạo vòng lặp tự động (Chạy ngầm mỗi 2.5s)
+local function startAutoLoop(invKey, pkt, flagName)
+    task.spawn(function()
+        while AutoFlags[flagName] do
+            openAllItems(invKey, pkt)
+            task.wait(2.5) -- Quét và lặp lại mỗi 2.5 giây
+        end
+    end)
+end
+
+MyUIElements.OpenEgg:Button({ 
+    Title = "loc:Open_All_Eggs", 
+    Desc = "loc:Open_All_Eggs_Desc", 
+    Callback = function()
+        if Networking and Networking.Egg and Networking.Egg.OpenEgg then
+            task.spawn(function() openAllItems("Eggs", Networking.Egg.OpenEgg) end)
+        end
+    end 
+})
+
+MyUIElements.OpenEgg:Toggle({
+    Title = "loc:Auto_Open_Eggs", 
+    Desc = "loc:Auto_Open_Eggs_Desc", 
+    Flag = "Auto Open Eggs",
+    Value = false, 
+    Callback = function(state)
+        AutoFlags.AutoOpenEggs = state
+        if state and Networking and Networking.Egg and Networking.Egg.OpenEgg then
+            startAutoLoop("Eggs", Networking.Egg.OpenEgg, "AutoOpenEggs")
+        end
+    end
+})
+
+MyUIElements.OpenCrate:Button({ 
+    Title = "loc:Open_All_Crates", 
+    Desc = "loc:Open_All_Crates_Desc", 
+    Callback = function()
+        if Networking and Networking.Crate and Networking.Crate.OpenCrate then
+            task.spawn(function() openAllItems("Crates", Networking.Crate.OpenCrate) end)
+        end
+    end 
+})
+
+MyUIElements.OpenCrate:Toggle({
+    Title = "loc:Auto_Open_Crates", 
+    Desc = "loc:Auto_Open_Crates_Desc", 
+    Flag = "Auto Open Crates",
+    Value = false, 
+    Callback = function(state)
+        AutoFlags.AutoOpenCrates = state
+        if state and Networking and Networking.Crate and Networking.Crate.OpenCrate then
+            startAutoLoop("Crates", Networking.Crate.OpenCrate, "AutoOpenCrates")
+        end
+    end
+})
+
+MyUIElements.OpenSeed:Button({ 
+    Title = "loc:Open_All_SeedPacks", 
+    Desc = "loc:Open_All_SeedPacks_Desc", 
+    Callback = function()
+        if Networking and Networking.SeedPack and Networking.SeedPack.OpenSeedPack then
+            task.spawn(function() openAllItems("SeedPacks", Networking.SeedPack.OpenSeedPack) end)
+        end
+    end 
+})
+
+MyUIElements.OpenSeed:Toggle({
+    Title = "loc:Auto_Open_SeedPacks", 
+    Desc = "loc:Auto_Open_SeedPacks_Desc", 
+    Flag = "Auto Open Seed Packs",
+    Value = false, 
+    Callback = function(state)
+        AutoFlags.AutoOpenSeedPacks = state
+        if state and Networking and Networking.SeedPack and Networking.SeedPack.OpenSeedPack then
+            startAutoLoop("SeedPacks", Networking.SeedPack.OpenSeedPack, "AutoOpenSeedPacks")
+        end
+    end
+})
+
 local Toggles = {
     Noclip = false,
     InfJump = false,
@@ -3849,10 +4057,6 @@ if hookmetamethod then
     end)
 end
 
--- ==========================================
--- LOGIC BỔ SUNG: TRIỆT TIÊU RUNG LẮC CAMERA (SIÊU MƯỢT)
--- ==========================================
--- Ép CameraOffset về 0 ở bước Render cuối cùng của Frame để đè hoàn toàn độ rung của game
 RunService:BindToRenderStep("AntiBeeCameraFix", Enum.RenderPriority.Last.Value, function()
     if State.AntiBeeSting and playerCharacter then
         local humanoid = playerCharacter:FindFirstChildWhichIsA("Humanoid")
@@ -3862,9 +4066,6 @@ RunService:BindToRenderStep("AntiBeeCameraFix", Enum.RenderPriority.Last.Value, 
     end
 end)
 
--- ==========================================
--- GIAO DIỆN TOGGLES
--- ==========================================
 MyUIElements.Bypass:Toggle({
     Title = "loc:GreenbeanSeed",
     Desc = "loc:GreenbeanSeedDesc",
