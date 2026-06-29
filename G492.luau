@@ -472,6 +472,8 @@ WindUI:Localization({
             SellModeDesc = "Choose the fruit selling mode you want.",
             AutoDailySell = "Auto Daily Sell",
             AutoDailySellDesc = "Auto using daily sell helps increase the price when selling.",
+            ShowAuction = "Show Auction",
+            ShowAuctionDesc = "Display the Auction interface.",
         },
         vi = {
             HubTitle = "Hutao Hub",
@@ -772,6 +774,8 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             SellModeDesc = "Chọn chế độ bán trái bạn muốn.",
             AutoDailySell = "Tự bán hàng ngày",
             AutoDailySellDesc = "Tự động sử dụng tính năng Bán hằng ngày để giúp tăng giá bán.",
+            ShowAuction = "Hiển thị bảng đấu giá",
+            ShowAuctionDesc = "Hiển thị giao diện cửa hàng đấu giá.",
         }
     }
 })
@@ -2690,9 +2694,6 @@ local function openGameUI(uiName)
     end
 end
 
---------------------------------------------------
--- UI ELEMENTS SHOP
---------------------------------------------------
 MyUIElements.Shop:Button({ 
     Title = "loc:View_Sell_Prices", 
     Desc = "loc:View_Sell_Prices_Desc", 
@@ -2725,9 +2726,13 @@ MyUIElements.Shop:Button({
     end 
 })
 
---------------------------------------------------
--- UI ELEMENTS SELL FRUIT
---------------------------------------------------
+MyUIElements.Shop:Button({
+    Title = "loc:ShowAuction", 
+    Desc = "loc:ShowAuctionDesc", 
+    Callback = function()
+        openGameUI("Auction")
+    end 
+})
 
 MyUIElements.SellFruit:Dropdown({
     Title = "loc:SellMode", 
