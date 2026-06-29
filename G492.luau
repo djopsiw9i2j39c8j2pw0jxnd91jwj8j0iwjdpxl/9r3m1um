@@ -33,6 +33,65 @@ Camera = Workspace.CurrentCamera
 getgenv().SprinklerList = {"Common Sprinkler", "Uncommon Sprinkler", "Rare Sprinkler", "Legendary Sprinkler", "Super Sprinkler" }
 getgenv().SeedList = {"Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo", "Corn", "Cactus", "Pineapple", "Mushroom", "Green Bean", "Banana", "Grape", "Coconut", "Mango", "Dragon Fruit", "Acorn", "Cherry", "Sunflower", "Venus Fly Trap", "Pomegranate", "Poison Apple", "Venom Spitter", "Moon Bloom", "Dragon's Breath", "Ghost Pepper", "Poison Ivy", "Baby Cactus", "Glow Mushroom", "Romanesco", "Horned Melon", "Gold", "Rainbow", "Hypnobloom" }
 
+local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
+
+getgenv().turtleCapacityBonus = 0
+
+local function updateTurtleBonus()
+    local success, result = pcall(function()
+        return Networking.Pets.GetEquippedPets:Fire()
+    end)
+
+    if success and type(result) == "table" then
+        local turtleCount = 0
+        for _, petData in pairs(result) do
+            if type(petData) == "table" and petData.Name == "Turtle" then
+                turtleCount = turtleCount + 1
+            end
+        end
+        getgenv().turtleCapacityBonus = turtleCount * 10
+    end
+end
+
+task.spawn(updateTurtleBonus)
+
+Networking.Pets.PetEquipped.OnClientEvent:Connect(function()
+    task.wait(0.1)
+    updateTurtleBonus()
+end)
+
+Networking.Pets.PetUnequipped.OnClientEvent:Connect(function()
+    task.wait(0.1)
+    updateTurtleBonus()
+end)
+
+getgenv().isInventoryFull = function()
+    local success, isFull = pcall(function()
+        local baseCapacity = Config and Config.MaxCapacity or 100 
+        local maxCapacity = baseCapacity + (getgenv().turtleCapacityBonus or 0)
+
+        local currentCount = 0
+        local function countValid(folder)
+            if not folder then return end
+            for _, item in ipairs(folder:GetChildren()) do
+                local itemNameLower = string.lower(item.Name)
+                
+                if string.find(itemNameLower, "%d+%.?%d* *kg") then
+                    local amtNode = item:FindFirstChild("Amount") or item:FindFirstChild("Quantity") or item:FindFirstChild("Value")
+                    currentCount = currentCount + (amtNode and (amtNode:IsA("IntValue") or amtNode:IsA("NumberValue")) and amtNode.Value or 1)
+                end
+            end
+        end
+        
+        countValid(localPlayer:FindFirstChildOfClass("Backpack"))
+        countValid(localPlayer.Character)
+
+        return currentCount >= maxCapacity
+    end)
+    
+    return success and isFull
+end
+
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-GAMING-MOD/WindUI-Mod/refs/heads/main/WindUI-Mod.luau"))()
 
 WindUI:AddTheme({
@@ -409,6 +468,10 @@ WindUI:Localization({
             Open_All_SeedPacks_Desc = "Instantly open all seed packs in your inventory at once.",
             Auto_Open_SeedPacks = "Auto Open Seed Packs",
             Auto_Open_SeedPacks_Desc = "Automatically open seed packs continuously until toggled off.",
+            SellMode = "Sell Mode",
+            SellModeDesc = "Choose the fruit selling mode you want.",
+            AutoDailySell = "Auto Daily Sell",
+            AutoDailySellDesc = "Auto using daily sell helps increase the price when selling.",
         },
         vi = {
             HubTitle = "Hutao Hub",
@@ -705,6 +768,10 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             Open_All_SeedPacks_Desc = "Mở toàn bộ gói hạt giống có trong túi đồ ngay lập tức.",
             Auto_Open_SeedPacks = "Tự động mở gói hạt",
             Auto_Open_SeedPacks_Desc = "Tự động mở gói hạt giống liên tục cho đến khi tắt.",
+            SellMode = "Chế độ bán",
+            SellModeDesc = "Chọn chế độ bán trái bạn muốn.",
+            AutoDailySell = "Tự bán hàng ngày",
+            AutoDailySellDesc = "Tự động sử dụng tính năng Bán hằng ngày để giúp tăng giá bán.",
         }
     }
 })
@@ -797,7 +864,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.3.2", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.3.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -1566,8 +1633,7 @@ local Config = {
     HarvestRadius = 50, 
     HarvestSpeed = 0.1, 
     SuperFastSpeed = 0, 
-    SuperFastBatchSize = 10, -- [MỚI] Số lượng hạt gom nhặt cùng lúc trong 1 chu kỳ
-    MaxCapacity = 100,
+    SuperFastBatchSize = 10, 
     TargetSeeds = {}, TargetEffects = {}, EffectCount = 1, FilterByEffect = false,
     -- Steal Configs
     AutoSteal = false, TeleportSteal = false, StealRadius = 50, StealSpeed = 0.2, 
@@ -1673,28 +1739,12 @@ local function getPlotOwner(plot)
     return nil
 end
 
-local function getInventoryCount()
-    local count = 0
-    local function countValid(folder)
-        if not folder then return end
-        for _, item in ipairs(folder:GetChildren()) do
-            local itemNameLower = string.lower(item.Name)
-            for validNameLower, _ in pairs(ValidItemsLower) do
-                if string.find(itemNameLower, validNameLower, 1, true) then
-                    local amtNode = item:FindFirstChild("Amount") or item:FindFirstChild("Quantity") or item:FindFirstChild("Value")
-                    count = count + (amtNode and (amtNode:IsA("IntValue") or amtNode:IsA("NumberValue")) and amtNode.Value or 1)
-                    break
-                end
-            end
-        end
+-- Dùng trực tiếp hàm ở getgenv() bro cung cấp
+local function isInventoryFullSafe()
+    if type(getgenv().isInventoryFull) == "function" then
+        return getgenv().isInventoryFull()
     end
-    countValid(localPlayer:FindFirstChildOfClass("Backpack"))
-    countValid(localPlayer.Character)
-    return count
-end
-
-local function isInventoryFull()
-    return getInventoryCount() >= Config.MaxCapacity
+    return false
 end
 
 local function MicroTeleport(targetCFrame)
@@ -1842,7 +1892,6 @@ if MyUIElements then
         Callback = function(val) Config.SuperFastBatchSize = tonumber(val) or 10 end
     })
 
-    -- Các thành phần UI còn lại giữ nguyên vị trí cũ
     MyUIElements.Harvest:Input({
         Title = "loc:Countofmutations", Desc = "loc:CountofmutationsDesc", 
         Flag = "Harvest_EffectCount", Value = "1", 
@@ -1869,12 +1918,6 @@ if MyUIElements then
         Title = "loc:Harvest_Speed", Desc = "loc:Harvest_Speed_Desc", Flag = "Harvest Speed Config",
         Placeholder = "Delay between harvests (Normal Mode)", Value = "0.1", 
         Callback = function(val) Config.HarvestSpeed = tonumber(val) or 0.1 end
-    })
-
-    MyUIElements.Harvest:Input({
-        Title = "loc:Max_Inventory_Capacity", Desc = "loc:Max_Inventory_Capacity_Desc", Flag = "Max Capacity Config",
-        Placeholder = "Default: 100", Value = "100", 
-        Callback = function(val) Config.MaxCapacity = tonumber(val) or 100 end
     })
 
     MyUIElements.Steal:Dropdown({
@@ -2170,7 +2213,9 @@ task.spawn(function()
 
         local isNight = (Lighting.ClockTime >= 18 or Lighting.ClockTime <= 6)
         local canSteal = Config.AutoSteal and (timeNow - SysData.LastSteal >= Config.StealSpeed)
-        local canHarvest = Config.AutoHarvest and (timeNow - SysData.LastHarvest >= Config.HarvestSpeed) and not isInventoryFull()
+        
+        -- SỬ DỤNG HÀM CHECK TỪ GETGENV() Ở ĐÂY
+        local canHarvest = Config.AutoHarvest and (timeNow - SysData.LastHarvest >= Config.HarvestSpeed) and not isInventoryFullSafe()
 
         local activePlayersPos = {}
         if canSteal and isNight then
@@ -2239,15 +2284,16 @@ task.spawn(function()
             task.spawn(executeActionDirectly, closest.Harvest)
             SysData.LastHarvest = timeNow
             
-        -- [LOGIC CHẾ ĐỘ SUPER FAST: ĐÃ ÁP DỤNG BATCH SIZE]
+        -- [LOGIC CHẾ ĐỘ SUPER FAST: ĐÃ ÁP DỤNG BATCH SIZE VÀ DỪNG KHI FULL TÚI]
         elseif #batchHarvest > 0 and Config.HarvestMode == "Super Fast (Batch)" then
             task.spawn(function()
-                -- Giới hạn vòng lặp theo số lượng cấu hình từ Input mới
                 local maxBatch = math.min(#batchHarvest, Config.SuperFastBatchSize)
                 
                 for index = 1, maxBatch do
                     local hData = batchHarvest[index]
-                    if isInventoryFull() then break end
+                    -- CHECK LẠI DỪNG HARVEST KHI ĐẦY TÚI Ở TRONG VÒNG LẶP BATCH
+                    if isInventoryFullSafe() then break end
+                    
                     hData.JustHarvested = true 
                     executeActionDirectly(hData)
                     
@@ -2532,11 +2578,16 @@ MyUIElements.Plant:Toggle({
     end
 })
 
+--------------------------------------------------
+-- SELL SETTINGS & NETWORKING
+--------------------------------------------------
 local SellSettings = {
     AutoSellAll = false,
     AutoSellNormal = false,
     SellAllSpeed = 1.0,     
-    SellNormalSpeed = 1.0   
+    SellNormalSpeed = 1.0,
+    SellMode = 1,
+    DailySell = false
 }
 
 local Networking = nil
@@ -2544,23 +2595,55 @@ pcall(function()
     Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 end)
 
+-- Khai báo biến DailySellToggle TRƯỚC để UI logic có thể tương tác
+local DailySellToggle 
+
+--------------------------------------------------
+-- CORE LOOPS
+--------------------------------------------------
+-- Vòng lặp Auto Sell All 
 task.spawn(function()
     while true do
         if SellSettings.AutoSellAll and Networking then
-            pcall(function()
-                Networking.NPCS.SellAll:Fire()
-            end)
-            task.wait(SellSettings.SellAllSpeed)
+            local canSell = false
+            
+            if SellSettings.SellMode == 1 then
+                canSell = true
+            elseif SellSettings.SellMode == 2 then
+                -- GỌI HÀM TỪ GLOBAL ENVIRONMENT TẠI ĐÂY
+                canSell = getgenv().isInventoryFull()
+            end
+
+            if canSell then
+                pcall(function()
+                    if SellSettings.SellMode == 2 and SellSettings.DailySell then
+                        local dailyDealData = Networking.NPCS.CheckDailyDeal:Fire()
+                        
+                        if dailyDealData and dailyDealData.Available then
+                            Networking.NPCS.UseDailyDealAll:Fire()
+                        else
+                            Networking.NPCS.SellAll:Fire()
+                        end
+                    else
+                        Networking.NPCS.SellAll:Fire()
+                    end
+                end)
+                task.wait(SellSettings.SellAllSpeed)
+            else
+                task.wait(0.5)
+            end
         else
             task.wait(0.5) 
         end
     end
 end)
 
+-- Vòng lặp Auto Sell Normal
 task.spawn(function()
     while true do
         if SellSettings.AutoSellNormal and Networking then
             pcall(function()
+                local playerCharacter = localPlayer.Character
                 if playerCharacter then
                     local tool = playerCharacter:FindFirstChildOfClass("Tool")
                     if tool then
@@ -2588,7 +2671,10 @@ task.spawn(function()
     end
 end)
 
--- Hàm bổ trợ quét và gọi GuiController của game để mở UI chuẩn chỉ
+--------------------------------------------------
+-- UI CONTROLLER UTILITY
+--------------------------------------------------
+-- Hàm bổ trợ quét và gọi GuiController
 local function openGameUI(uiName)
     local playerScripts = localPlayer:WaitForChild("PlayerScripts", 5)
     local guiControllerModule = (playerScripts and playerScripts:FindFirstChild("GuiController", true)) 
@@ -2604,6 +2690,9 @@ local function openGameUI(uiName)
     end
 end
 
+--------------------------------------------------
+-- UI ELEMENTS SHOP
+--------------------------------------------------
 MyUIElements.Shop:Button({ 
     Title = "loc:View_Sell_Prices", 
     Desc = "loc:View_Sell_Prices_Desc", 
@@ -2633,6 +2722,57 @@ MyUIElements.Shop:Button({
     Desc = "loc:ShowCrateShopDesc", 
     Callback = function()
         openGameUI("CrateShop")
+    end 
+})
+
+--------------------------------------------------
+-- UI ELEMENTS SELL FRUIT
+--------------------------------------------------
+
+MyUIElements.SellFruit:Dropdown({
+    Title = "loc:SellMode", 
+    Desc = "loc:SellModeDesc", 
+    Flag = "Dropdown_SellMode",
+    Values = {"Auto Sell All", "Sell When Full"}, 
+    Value = "Auto Sell Backpack", 
+    Callback = function(val)
+        if val == "Auto Sell All" then
+            SellSettings.SellMode = 1
+            if DailySellToggle then
+                if DailySellToggle.SetValue then 
+                    pcall(function() DailySellToggle:SetValue(false) end) 
+                else 
+                    DailySellToggle.Value = false 
+                end
+                SellSettings.DailySell = false
+                
+                if DailySellToggle.Lock then 
+                    pcall(function() DailySellToggle:Lock() end) 
+                else 
+                    DailySellToggle.Locked = true 
+                end
+            end
+        elseif val == "Sell When Full" then
+            SellSettings.SellMode = 2
+            if DailySellToggle then
+                if DailySellToggle.Unlock then 
+                    pcall(function() DailySellToggle:Unlock() end) 
+                else 
+                    DailySellToggle.Locked = false 
+                end
+            end
+        end
+    end
+})
+
+DailySellToggle = MyUIElements.SellFruit:Toggle({
+    Title = "loc:AutoDailySell", 
+    Desc = "loc:AutoDailySellDesc", 
+    Flag = "Toggle_DailySell",
+    Locked = true,
+    Value = false, 
+    Callback = function(val) 
+        SellSettings.DailySell = val
     end 
 })
 
