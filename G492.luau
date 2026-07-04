@@ -868,7 +868,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.4.2", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.4.3", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -2037,20 +2037,17 @@ RunService.Heartbeat:Connect(function()
         SysData.ActiveType = nil
     end
 end)
-
 -- ========================================================
 -- 5. QUÉT VÀ LƯU TRỮ CACHE (TỐI ƯU HÓA SIÊU NHẸ)
 -- ========================================================
 task.spawn(function()
     while task.wait(0.5) do
-        -- Đã thêm AutoMegaSeed vào điều kiện Farm Active
         local isAnyFarmActive = Config.AutoHarvest or Config.AutoSteal or Config.AutoGoldSeed or Config.AutoRainbowSeed or Config.AutoMegaSeed
         local isPetActive = Config.WildPet_AutoTp or Config.WildPet_AutoInteract
         if not isAnyFarmActive and not isPetActive then continue end
         
         local newCache = {}
         
-        -- Thêm check AutoMegaSeed
         if Config.AutoGoldSeed or Config.AutoRainbowSeed or Config.AutoMegaSeed then
             local mapFolder = Workspace:FindFirstChild("Map")
             local serverLocs = mapFolder and mapFolder:FindFirstChild("SeedPackSpawnServerLocations")
@@ -2105,44 +2102,61 @@ task.spawn(function()
                 local isValidAction = true
                 
                 if model then
-                    local cfgSeeds = isHarvest and Config.TargetSeeds or Config.Steal_TargetSeeds
-                    local cfgFilterByEffect = isHarvest and Config.FilterByEffect or Config.Steal_FilterByEffect
-                    local cfgEffects = isHarvest and Config.TargetEffects or Config.Steal_TargetEffects
-                    local cfgEffectCount = isHarvest and Config.EffectCount or Config.Steal_EffectCount
+                    -- ==============================================
+                    -- LOGIC ĐÃ FIX: Tách biệt rõ ràng biến cho Harvest & Steal
+                    -- ==============================================
+                    local targetSeeds, targetEffects, effectCountReq, filterByEffect
+
+                    if isHarvest then
+                        targetSeeds = Config.TargetSeeds
+                        targetEffects = Config.TargetEffects
+                        effectCountReq = Config.EffectCount
+                        filterByEffect = Config.FilterByEffect
+                    elseif isSteal then
+                        targetSeeds = Config.Steal_TargetSeeds
+                        targetEffects = Config.Steal_TargetEffects
+                        effectCountReq = Config.Steal_EffectCount
+                        filterByEffect = Config.Steal_FilterByEffect
+                    end
 
                     local sName = model:GetAttribute("CorePartName") or model:GetAttribute("SeedName") or model.Name
-                    isValidAction = isSeedMatched(sName, cfgSeeds)
+                    isValidAction = isSeedMatched(sName, targetSeeds)
 
-                    if isValidAction and cfgFilterByEffect then
-                        local effectCount = 0
+                    -- Chỉ check hiệu ứng NẾU cái chế độ tương ứng (Harvest/Steal) BẬT TÍNH NĂNG ĐÓ
+                    if isValidAction and filterByEffect then
+                        local currentEffectCount = 0
                         local matchedTargetEffect = false
                         
+                        -- Đếm số lượng và tìm xem có hiệu ứng trùng khớp mục tiêu không
                         for k, v in pairs(model:GetAttributes()) do
                             local kL, vL = string.lower(tostring(k)), string.lower(tostring(v))
                             if string.find(kL, "mutation") or string.find(kL, "effect") then
-                                effectCount = effectCount + 1
-                                if isEffectMatched(vL, cfgEffects) or isEffectMatched(kL, cfgEffects) then matchedTargetEffect = true end
+                                currentEffectCount = currentEffectCount + 1
+                                if isEffectMatched(vL, targetEffects) or isEffectMatched(kL, targetEffects) then 
+                                    matchedTargetEffect = true 
+                                end
                             end
                         end
                         
                         local effFolder = model:FindFirstChild("Mutations") or model:FindFirstChild("Effects")
                         if effFolder then
                             for _, child in ipairs(effFolder:GetChildren()) do
-                                effectCount = effectCount + 1
-                                if isEffectMatched(child.Name, cfgEffects) or (child:IsA("StringValue") and isEffectMatched(child.Value, cfgEffects)) then
+                                currentEffectCount = currentEffectCount + 1
+                                if isEffectMatched(child.Name, targetEffects) or (child:IsA("StringValue") and isEffectMatched(child.Value, targetEffects)) then
                                     matchedTargetEffect = true
                                 end
                             end
                         end
 
                         local hasRequiredEffectsSelected = false
-                        if type(cfgEffects) == "table" then
-                            for k, v in pairs(cfgEffects) do
+                        if type(targetEffects) == "table" then
+                            for k, v in pairs(targetEffects) do
                                 if (type(k) == "string" and v) or (type(k) == "number") then hasRequiredEffectsSelected = true break end
                             end
                         end
 
-                        if effectCount < cfgEffectCount then
+                        -- Chốt hạ kết quả theo điều kiện của RIÊNG chế độ này
+                        if currentEffectCount < effectCountReq then
                             isValidAction = false
                         elseif hasRequiredEffectsSelected and not matchedTargetEffect then
                             isValidAction = false
