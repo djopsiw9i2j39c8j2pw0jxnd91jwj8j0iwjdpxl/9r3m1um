@@ -868,7 +868,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.4.0", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.4.2", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -1394,11 +1394,7 @@ TabHandles.Update:Paragraph({
     Icon = "how",
 })
 
-
-
-local Info = TabHandles["Info"]
-
-Info:Divider()
+TabHandles.Info:Divider()
 
 if not Core then Core = {} end
 if not Core.Spawn then
@@ -1437,20 +1433,37 @@ if not Core.Request then
     end
 end
 
-local InviteCode = "sGVEDYD2y"
+local GithubRawUrl = "https://raw.githubusercontent.com/SLK-GAMING-MOD/Open-soure/refs/heads/main/DiscordLink.lua" 
+local InviteCode = "sGVEDYD2y" -- Code dự phòng lỡ Github sập hoặc user bị lỗi mạng
+
+local gitRes = Core.Request({ Url = GithubRawUrl })
+if gitRes and gitRes.Body then
+    -- Lọc bỏ khoảng trắng hoặc ký tự xuống dòng thừa ở đầu và cuối chuỗi
+    local fetchedText = string.gsub(gitRes.Body, "^%s*(.-)%s*$", "%1")
+    
+    if fetchedText ~= "" then
+        -- Xử lý trường hợp lỡ bro dán cả link https://discord.gg/code thay vì chỉ dán code
+        if string.find(fetchedText, "discord.gg/") then
+            InviteCode = string.match(fetchedText, "discord.gg/([^%s]+)") or fetchedText
+        else
+            InviteCode = fetchedText
+        end
+    end
+end
+
 local DiscordAPI =
     "https://discord.com/api/v10/invites/" ..
     InviteCode ..
     "?with_counts=true&with_expiration=true"
 
-local DiscordInfo = Info:Paragraph({
+local DiscordInfo = TabHandles.Info:Paragraph({
     Title = "Loading Discord...",
     Desc = "Members: --\nOnline: --",
     Image = "rbxassetid://109995816235688",
     ImageSize = 42,
 })
 
-Info:Button({
+TabHandles.Info:Button({
     Title = "loc:Update_Info",
     Desc = "loc:Update_Info_Desc",
     Callback = function()
@@ -1478,7 +1491,7 @@ Info:Button({
     end
 })
 
-Info:Button({
+TabHandles.Info:Button({
     Title = "loc:Copy_Discord_Invite",
     Desc = "loc:Copy_Discord_Invite_Desc",
     Callback = function()
@@ -1530,48 +1543,48 @@ Core.Spawn("LoadDiscord", function()
     )
 end)
 
-Info:Divider()
+TabHandles.Info:Divider()
 
-Info:Section({
+TabHandles.Info:Section({
     Title = "loc:Dev_Script",
     TextXAlignment = "Center",
     TextSize = 17
 })
 
-Info:Divider()
+TabHandles.Info:Divider()
 
-Info:Paragraph({
+TabHandles.Info:Paragraph({
     Title = "loc:Main_Owner",
     Desc = "@72ms.",
     Image = "rbxassetid://137817619970621",
     ImageSize = 30,
 })
 
-Info:Paragraph({
+TabHandles.Info:Paragraph({
     Title = "loc:Support_Owner",
     Desc = "@datpro7253",
     Image = "rbxassetid://137817619970621",
     ImageSize = 30,
 })
 
-Info:Paragraph({
+TabHandles.Info:Paragraph({
     Title = "loc:Security_Owner",
     Desc = "@shadevex",
     Image = "rbxassetid://137817619970621",
     ImageSize = 30,
 })
 
-Info:Divider()
+TabHandles.Info:Divider()
 
-Info:Section({
+TabHandles.Info:Section({
     Title = "loc:My_Link",
     TextXAlignment = "Center",
     TextSize = 17
 })
 
-Info:Divider()
+TabHandles.Info:Divider()
 
-Info:Paragraph({
+TabHandles.Info:Paragraph({
     Title = "Youtube",
     Desc = "loc:Youtube_Desc",
     Image = "rbxassetid://122312005360431",
@@ -1582,14 +1595,14 @@ Info:Paragraph({
             Title = "loc:Copy_Link",
             Callback = function()
                 if setclipboard then
-                    setclipboard("https://www.youtube.com/@slkgamingssr")
+                    setclipboard("https://www.youtube.com/@hutaohubteam")
                 end
             end
         }
     }
 })
 
-Info:Paragraph({
+TabHandles.Info:Paragraph({
     Title = "Discord",
     Desc = "loc:Discord_Desc",
     Image = "rbxassetid://109995816235688",
@@ -1607,7 +1620,7 @@ Info:Paragraph({
     }
 })
 
-Info:Paragraph({
+TabHandles.Info:Paragraph({
     Title = "TikTok",
     Desc = "loc:TikTok_Desc",
     Image = "rbxassetid://122312005360431",
@@ -1618,7 +1631,7 @@ Info:Paragraph({
             Title = "loc:Copy_Link",
             Callback = function()
                 if setclipboard then
-                    setclipboard("https://tiktok.com/@slkgamingssr")
+                    setclipboard("https://tiktok.com/@hutaohubteam")
                 end
             end
         }
