@@ -868,7 +868,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.3.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.4.0", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -1643,7 +1643,7 @@ local Config = {
     AutoSteal = false, TeleportSteal = false, StealRadius = 50, StealSpeed = 0.2, 
     Steal_TargetSeeds = {}, Steal_TargetEffects = {}, Steal_EffectCount = 1, Steal_FilterByEffect = false,
     -- Seed Configs
-    AutoGoldSeed = false, AutoRainbowSeed = false,
+    AutoGoldSeed = false, AutoRainbowSeed = false, AutoMegaSeed = false,
     -- Pet Configs
     WildPet_TargetPets = {}, WildPet_AutoTp = false, WildPet_AutoInteract = false
 }
@@ -1743,7 +1743,6 @@ local function getPlotOwner(plot)
     return nil
 end
 
--- Dùng trực tiếp hàm ở getgenv() bro cung cấp
 local function isInventoryFullSafe()
     if type(getgenv().isInventoryFull) == "function" then
         return getgenv().isInventoryFull()
@@ -1751,25 +1750,15 @@ local function isInventoryFullSafe()
     return false
 end
 
-local function MicroTeleport(targetCFrame)
-    if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = localPlayer.Character.HumanoidRootPart
-    local dist = (hrp.Position - targetCFrame.Position).Magnitude
-    local stepDistance = 15 
-    local steps = math.floor(dist / stepDistance)
-    
-    if steps > 0 then
-        for i = 1, steps do
-            if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then break end
-            hrp.CFrame = hrp.CFrame:Lerp(targetCFrame, i / steps)
-            hrp.AssemblyLinearVelocity = Vector3.zero
-            hrp.AssemblyAngularVelocity = Vector3.zero
-            RunService.Heartbeat:Wait() 
-        end
+-- Hàm khóa vị trí liên tục để qua mặt check của game / giữ nhân vật
+local function lockCFrameForDuration(hrp, targetCFrame, duration)
+    local endTime = tick() + duration
+    while tick() < endTime and hrp and hrp.Parent do
+        hrp.CFrame = targetCFrame
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        RunService.Heartbeat:Wait()
     end
-    hrp.CFrame = targetCFrame
-    hrp.AssemblyLinearVelocity = Vector3.zero
-    hrp.AssemblyAngularVelocity = Vector3.zero
 end
 
 local function executeActionDirectly(data)
@@ -1790,6 +1779,7 @@ local function executeActionDirectly(data)
     end
 end
 
+-- Thay thế toàn bộ logic Teleport bay bay bằng Instant + Lock + Delay
 local function PerformSeedRoutine(data, actionType)
     if SysData.IsExecuting then return end
     SysData.IsExecuting = true
@@ -1799,48 +1789,40 @@ local function PerformSeedRoutine(data, actionType)
     
     local originalCFrame = hrp.CFrame
     local targetPart = data.RefPart or data.Part
-    local targetPos = targetPart.CFrame
-    local finalTarget = targetPos * CFrame.new(0, 3, 0)
+    local finalTarget = targetPart.CFrame * CFrame.new(0, 3, 0)
     
-    MicroTeleport(finalTarget)
-    SysData.LockCFrame = finalTarget 
+    -- Bước 1: Teleport thẳng đến và khóa liên tục 3s
+    lockCFrameForDuration(hrp, finalTarget, 3)
     
-    local timeout = tick() + 2 
-    local targetPrompt = data.Prompt
-    
-    while tick() < timeout do
-        if not targetPrompt or not targetPrompt.Parent then
-            targetPrompt = targetPart:FindFirstChildWhichIsA("ProximityPrompt", true)
-        end
+    while targetPart and targetPart.Parent do
+        -- Bước 2: Tạm dừng 1s để game xác nhận đã tới và hiện UI nhặt
+        task.wait(1)
+        
+        -- Nếu trong lúc chờ 1s mà seed mất tiêu thì break
+        if not targetPart or not targetPart.Parent then break end
+        
+        -- Kích hoạt prompt để nhặt
+        local targetPrompt = data.Prompt or targetPart:FindFirstChildWhichIsA("ProximityPrompt", true)
         if targetPrompt then
             targetPrompt.Enabled = true
             targetPrompt.RequiresLineOfSight = false
             targetPrompt.MaxActivationDistance = 50
-            break
-        end
-        task.wait(0.1)
-    end
-    
-    data.Prompt = targetPrompt 
-    
-    if targetPrompt then
-        local maxWait = tick() + 5 
-        if not fireproximityprompt then targetPrompt:InputHoldBegin() end
-        
-        while targetPart and targetPart.Parent and tick() < maxWait do
-            targetPrompt.Enabled = true
-            targetPrompt.RequiresLineOfSight = false
-            targetPrompt.MaxActivationDistance = 50
-            
-            if fireproximityprompt then fireproximityprompt(targetPrompt) end
-            task.wait(0.05)
+            if fireproximityprompt then
+                fireproximityprompt(targetPrompt)
+            else
+                targetPrompt:InputHoldBegin()
+                task.wait(targetPrompt.HoldDuration or 0.1)
+                targetPrompt:InputHoldEnd()
+            end
         end
         
-        if not fireproximityprompt then targetPrompt:InputHoldEnd() end
+        -- Bước 3: Sau khi nhặt, khóa liên tục 1s (rồi loop lại vòng lặp -> nhả 1s)
+        lockCFrameForDuration(hrp, finalTarget, 1)
     end
     
-    SysData.LockCFrame = nil 
-    MicroTeleport(originalCFrame)
+    -- Bước 4: Khi seed đã biến mất, teleport liên tục về chỗ cũ 3s
+    lockCFrameForDuration(hrp, originalCFrame, 3)
+    
     SysData.IsExecuting = false
 end
 
@@ -1979,6 +1961,12 @@ if MyUIElements then
         Value = false, Callback = function(val) Config.AutoRainbowSeed = val end
     })
 
+    -- Thêm Toggle Mega Seed ở đây
+    MyUIElements.Seed:Toggle({
+        Title = "Auto Claim Mega Seed", Desc = "Tự động nhặt Mega Seed", Flag = "Auto Mega Seed Config",
+        Value = false, Callback = function(val) Config.AutoMegaSeed = val end
+    })
+
     MyUIElements.Pets:Dropdown({
         Title = "loc:SelectPets", Desc = "loc:SelectPetsDesc", Flag = "WildPet_Select",
         Values = allPets, Value = {}, Multi = true, AllowNone = true,
@@ -2042,13 +2030,15 @@ end)
 -- ========================================================
 task.spawn(function()
     while task.wait(0.5) do
-        local isAnyFarmActive = Config.AutoHarvest or Config.AutoSteal or Config.AutoGoldSeed or Config.AutoRainbowSeed
+        -- Đã thêm AutoMegaSeed vào điều kiện Farm Active
+        local isAnyFarmActive = Config.AutoHarvest or Config.AutoSteal or Config.AutoGoldSeed or Config.AutoRainbowSeed or Config.AutoMegaSeed
         local isPetActive = Config.WildPet_AutoTp or Config.WildPet_AutoInteract
         if not isAnyFarmActive and not isPetActive then continue end
         
         local newCache = {}
         
-        if Config.AutoGoldSeed or Config.AutoRainbowSeed then
+        -- Thêm check AutoMegaSeed
+        if Config.AutoGoldSeed or Config.AutoRainbowSeed or Config.AutoMegaSeed then
             local mapFolder = Workspace:FindFirstChild("Map")
             local serverLocs = mapFolder and mapFolder:FindFirstChild("SeedPackSpawnServerLocations")
             
@@ -2057,9 +2047,10 @@ task.spawn(function()
                     if spawnPart:IsA("BasePart") then
                         local isRainbow = spawnPart:GetAttribute("RainbowSeed") == true
                         local isGold = spawnPart:GetAttribute("GoldSeed") == true
+                        local isMega = spawnPart:GetAttribute("MegaSeed") == true
                         
-                        if (Config.AutoRainbowSeed and isRainbow) or (Config.AutoGoldSeed and isGold) then
-                            table.insert(newCache, { Prompt = nil, Part = spawnPart, IsGoldSeed = isGold, IsRainbowSeed = isRainbow })
+                        if (Config.AutoRainbowSeed and isRainbow) or (Config.AutoGoldSeed and isGold) or (Config.AutoMegaSeed and isMega) then
+                            table.insert(newCache, { Prompt = nil, Part = spawnPart, IsGoldSeed = isGold, IsRainbowSeed = isRainbow, IsMegaSeed = isMega })
                         end
                     end
                 end
@@ -2210,7 +2201,8 @@ task.spawn(function()
         if not hrp then continue end
         local hrpPos, timeNow = hrp.Position, os.clock()
         
-        if SysData.ActiveTarget and SysData.ActiveType ~= "Gold" and SysData.ActiveType ~= "Rainbow" then
+        -- Cập nhật dòng này để thêm Mega Seed không bị chạy thẳng lệnh Execute trực tiếp
+        if SysData.ActiveTarget and SysData.ActiveType ~= "Gold" and SysData.ActiveType ~= "Rainbow" and SysData.ActiveType ~= "Mega" then
             task.spawn(executeActionDirectly, SysData.ActiveTarget)
             continue
         end
@@ -2218,7 +2210,6 @@ task.spawn(function()
         local isNight = (Lighting.ClockTime >= 18 or Lighting.ClockTime <= 6)
         local canSteal = Config.AutoSteal and (timeNow - SysData.LastSteal >= Config.StealSpeed)
         
-        -- SỬ DỤNG HÀM CHECK TỪ GETGENV() Ở ĐÂY
         local canHarvest = Config.AutoHarvest and (timeNow - SysData.LastHarvest >= Config.HarvestSpeed) and not isInventoryFullSafe()
 
         local activePlayersPos = {}
@@ -2233,13 +2224,14 @@ task.spawn(function()
             end
         end
 
-        local closest = { Rainbow = nil, Gold = nil, Pet = nil, Steal = nil, Harvest = nil }
+        -- Thêm Mega vào closest check
+        local closest = { Rainbow = nil, Gold = nil, Mega = nil, Pet = nil, Steal = nil, Harvest = nil }
         local batchHarvest = {} 
-        local dists = { Rainbow = math.huge, Gold = math.huge, Pet = math.huge, Steal = (Config.TeleportSteal and math.huge or Config.StealRadius), Harvest = Config.HarvestRadius }
+        local dists = { Rainbow = math.huge, Gold = math.huge, Mega = math.huge, Pet = math.huge, Steal = (Config.TeleportSteal and math.huge or Config.StealRadius), Harvest = Config.HarvestRadius }
 
         for _, data in ipairs(SysData.CachedTargets) do
             if not data.Part then continue end
-            if not (data.IsGoldSeed or data.IsRainbowSeed) and (not data.Prompt or not data.Prompt.Parent) then continue end
+            if not (data.IsGoldSeed or data.IsRainbowSeed or data.IsMegaSeed) and (not data.Prompt or not data.Prompt.Parent) then continue end
             
             local pos = data.RefPart and data.RefPart.Position or data.Part.Position
             if not pos then continue end
@@ -2249,6 +2241,8 @@ task.spawn(function()
                 closest.Rainbow = data; dists.Rainbow = distance
             elseif Config.AutoGoldSeed and data.IsGoldSeed and distance < dists.Gold then 
                 closest.Gold = data; dists.Gold = distance
+            elseif Config.AutoMegaSeed and data.IsMegaSeed and distance < dists.Mega then 
+                closest.Mega = data; dists.Mega = distance
             elseif (Config.WildPet_AutoTp or Config.WildPet_AutoInteract) and data.IsWildPet and distance < dists.Pet then 
                 closest.Pet = data; dists.Pet = distance
             elseif canSteal and data.IsSteal and distance < dists.Steal and isNight then
@@ -2274,6 +2268,8 @@ task.spawn(function()
             task.spawn(PerformSeedRoutine, closest.Rainbow, "Rainbow")
         elseif closest.Gold then
             task.spawn(PerformSeedRoutine, closest.Gold, "Gold")
+        elseif closest.Mega then
+            task.spawn(PerformSeedRoutine, closest.Mega, "Mega")
         elseif closest.Pet then
             if Config.WildPet_AutoTp then SysData.ActiveTarget, SysData.ActiveType = closest.Pet, "WildPet" end
             if Config.WildPet_AutoInteract then task.spawn(executeActionDirectly, closest.Pet) end
@@ -2288,14 +2284,12 @@ task.spawn(function()
             task.spawn(executeActionDirectly, closest.Harvest)
             SysData.LastHarvest = timeNow
             
-        -- [LOGIC CHẾ ĐỘ SUPER FAST: ĐÃ ÁP DỤNG BATCH SIZE VÀ DỪNG KHI FULL TÚI]
         elseif #batchHarvest > 0 and Config.HarvestMode == "Super Fast (Batch)" then
             task.spawn(function()
                 local maxBatch = math.min(#batchHarvest, Config.SuperFastBatchSize)
                 
                 for index = 1, maxBatch do
                     local hData = batchHarvest[index]
-                    -- CHECK LẠI DỪNG HARVEST KHI ĐẦY TÚI Ở TRONG VÒNG LẶP BATCH
                     if isInventoryFullSafe() then break end
                     
                     hData.JustHarvested = true 
@@ -2456,9 +2450,12 @@ end)
 
 local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 
+-- Đã thêm CurrentSeedIndex và LastFreeCount để theo dõi tình trạng hết hạt
 local AutoPlantConfig = {
 	AutoPlant = false,
-	ParsedSeeds = {} 
+	ParsedSeeds = {},
+	CurrentSeedIndex = 1,
+	LastFreeCount = -1
 }
 
 local Cache = {
@@ -2468,6 +2465,11 @@ local Cache = {
 
 local function updateSeedList(rawSelection)
 	table.clear(AutoPlantConfig.ParsedSeeds)
+	
+	-- Reset lại bộ đếm mỗi khi ông đổi hạt giống mới trên UI
+	AutoPlantConfig.CurrentSeedIndex = 1
+	AutoPlantConfig.LastFreeCount = -1
+	
 	if type(rawSelection) == "table" then
 		for k, v in pairs(rawSelection) do
 			if type(k) == "string" and v then table.insert(AutoPlantConfig.ParsedSeeds, k) 
@@ -2478,7 +2480,7 @@ local function updateSeedList(rawSelection)
 	end
 end
 
--- Bộ nhớ đệm Grid (Dùng CollectionService Global & localPlayer Global)
+-- Bộ nhớ đệm Grid (Giữ nguyên vì ông làm chuẩn rồi)
 local function getCachedGrid(plot)
 	local currentId = localPlayer:GetAttribute("PlotId")
 	if Cache.PlotId == currentId and #Cache.Grid > 0 then return Cache.Grid end
@@ -2497,12 +2499,12 @@ local function getCachedGrid(plot)
 
 	for i = 1, #areas do
 		local cf, sz = areas[i].CFrame, areas[i].Size
-		local hx, hz = sz.X/2 - 3, sz.Z/2 - 3
+		local hx, hz = sz.X/2 - 1, sz.Z/2 - 1
 		local topY = areas[i].Position.Y + sz.Y/2 + 0.3
 		
-		for ix = 0, math.floor((2*hx)/6) do 
-			for iz = 0, math.floor((2*hz)/6) do
-				local w = (cf * CFrame.new(-hx + ix*6, 0, -hz + iz*6)).Position
+		for ix = 0, math.floor((2*hx)/2) do 
+			for iz = 0, math.floor((2*hz)/2) do
+				local w = (cf * CFrame.new(-hx + ix*2, 0, -hz + iz*2)).Position
 				table.insert(Cache.Grid, Vector3.new(w.X, topY, w.Z)) 
 			end 
 		end
@@ -2510,7 +2512,7 @@ local function getCachedGrid(plot)
 	return Cache.Grid
 end
 
--- Hash Map O(1) check đất trống
+-- Hash Map O(1) check đất trống (Giữ nguyên)
 local function getFreePositions(plot, grid)
 	local occ = {}
 	local plants = plot:FindFirstChild("Plants")
@@ -2518,25 +2520,26 @@ local function getFreePositions(plot, grid)
 	if plants then 
 		for _, pl in ipairs(plants:GetChildren()) do 
 			local p = pl:GetPivot().Position
-			occ[math.floor(p.X/6 + 0.5) .. "_" .. math.floor(p.Z/6 + 0.5)] = true 
+			occ[math.floor(p.X/2 + 0.5) .. "_" .. math.floor(p.Z/2 + 0.5)] = true 
 		end 
 	end
 	
 	local free = {}
 	for i = 1, #grid do
 		local pos = grid[i]
-		if not occ[math.floor(pos.X/6 + 0.5) .. "_" .. math.floor(pos.Z/6 + 0.5)] then
+		if not occ[math.floor(pos.X/2 + 0.5) .. "_" .. math.floor(pos.Z/2 + 0.5)] then
 			table.insert(free, pos)
 		end
 	end
 	return free
 end
 
--- Vòng lặp chính (Dùng Workspace Global & localPlayer Global)
+-- Vòng lặp chính MỚI: Trồng cạn hạt này rồi mới tự động nhảy sang hạt khác
 local function autoPlantLoop()
 	while AutoPlantConfig.AutoPlant do
-		task.wait(1.2)
-		if #AutoPlantConfig.ParsedSeeds == 0 then continue end
+		task.wait(0.1) 
+		local seedCount = #AutoPlantConfig.ParsedSeeds
+		if seedCount == 0 then continue end
 
 		local plotId = localPlayer:GetAttribute("PlotId")
 		if not plotId then continue end
@@ -2546,45 +2549,69 @@ local function autoPlantLoop()
 		if not myPlot then continue end
 		
 		local freePos = getFreePositions(myPlot, getCachedGrid(myPlot))
-		local count = math.min(#freePos, 40)
+		local count = math.min(#freePos, 200) 
 		
-		for i = 1, count do
-			if not AutoPlantConfig.AutoPlant then break end
-			local seedToPlant = AutoPlantConfig.ParsedSeeds[((i - 1) % #AutoPlantConfig.ParsedSeeds) + 1]
-			Networking.Plant.PlantSeed:Fire(freePos[i], seedToPlant, myPlot)
-			task.wait(0.14) 
+		if count > 0 then
+			-- LOGIC MỚI: Nếu số ô trống đợt này y hệt đợt trước -> Lần trồng trước đã xịt (do ông hết hạt đó)
+			-- Lập tức next sang loại hạt giống tiếp theo
+			if count == AutoPlantConfig.LastFreeCount then
+				AutoPlantConfig.CurrentSeedIndex = AutoPlantConfig.CurrentSeedIndex + 1
+			end
+			
+			-- Xoay vòng index nếu đã thử đến hạt cuối cùng
+			if AutoPlantConfig.CurrentSeedIndex > seedCount then
+				AutoPlantConfig.CurrentSeedIndex = 1
+			end
+			
+			-- Chỉ trồng duy nhất 1 loại hạt trong chu kỳ này
+			local seedToPlant = AutoPlantConfig.ParsedSeeds[AutoPlantConfig.CurrentSeedIndex]
+			
+			for i = 1, count do
+				if not AutoPlantConfig.AutoPlant then break end
+				
+				task.spawn(function()
+					Networking.Plant.PlantSeed:Fire(freePos[i], seedToPlant, myPlot)
+				end)
+				
+				-- Để 15 vòng nghỉ 1 frame cho mượt mà, không lo dính rate limit
+				if i % 15 == 0 then task.wait() end 
+			end
+			
+			-- Lưu lại số ô trống để vòng sau so sánh
+			AutoPlantConfig.LastFreeCount = count
+		else
+			-- Nếu đất đã đầy -> Reset đếm để đợt thu hoạch sau ưu tiên hạt đầu tiên
+			AutoPlantConfig.LastFreeCount = -1
+			AutoPlantConfig.CurrentSeedIndex = 1
 		end
 	end
 end
 
 MyUIElements.Plant:Dropdown({
-    Title = "loc:SelectPlant",
-    Desc = "loc:SelectPlantDesc",
-    Flag = "SelectPlantSeed",
-    Values = getgenv().SeedList,
-    Value = {},
-    Multi = true,
-    AllowNone = false,
-    Callback = function(val) 
-        updateSeedList(val)
-    end
+	Title = "loc:SelectPlant",
+	Desc = "loc:SelectPlantDesc",
+	Flag = "SelectPlantSeed",
+	Values = getgenv().SeedList,
+	Value = {},
+	Multi = true,
+	AllowNone = false,
+	Callback = function(val) 
+		updateSeedList(val)
+	end
 })
 
 MyUIElements.Plant:Toggle({
-    Title = "loc:AutoPlant",
-    Desc = "loc:AutoPlantDesc",
-    Flag = "AutoPlantToggle",
-    Callback = function(state) 
-        AutoPlantConfig.AutoPlant = state 
-        if state then
-            task.spawn(autoPlantLoop)
-        end
-    end
+	Title = "loc:AutoPlant",
+	Desc = "loc:AutoPlantDesc",
+	Flag = "AutoPlantToggle",
+	Callback = function(state) 
+		AutoPlantConfig.AutoPlant = state 
+		if state then
+			task.spawn(autoPlantLoop)
+		end
+	end
 })
 
---------------------------------------------------
--- SELL SETTINGS & NETWORKING
---------------------------------------------------
 local SellSettings = {
     AutoSellAll = false,
     AutoSellNormal = false,
