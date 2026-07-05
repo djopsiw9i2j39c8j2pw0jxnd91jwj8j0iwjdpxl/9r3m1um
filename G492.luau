@@ -868,7 +868,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.4.3", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.4.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -1641,35 +1641,21 @@ TabHandles.Info:Paragraph({
 local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 
 -- ========================================================
--- 1. BẢNG DỮ LIỆU ĐỒNG BỘ GỘP CHUNG
+-- 1. BẢNG DỮ LIỆU ĐỒNG BỘ GỘP CHUNG & HỆ SỐ ĐIỂM
 -- ========================================================
-local Config = {
-    -- Harvest Configs
-    AutoHarvest = false, 
-    HarvestMode = "Normal (Slow)", 
-    HarvestRadius = 50, 
-    HarvestSpeed = 0.1, 
-    SuperFastSpeed = 0, 
-    SuperFastBatchSize = 10, 
-    TargetSeeds = {}, TargetEffects = {}, EffectCount = 1, FilterByEffect = false,
-    -- Steal Configs
+local Config, SysData = {
+    AutoHarvest = false, HarvestMode = "Normal (Slow)", HarvestRadius = 50, HarvestSpeed = 0.1, 
+    SuperFastSpeed = 0, SuperFastBatchSize = 10, TargetSeeds = {}, TargetEffects = {}, EffectCount = 1, FilterByEffect = false,
     AutoSteal = false, TeleportSteal = false, StealRadius = 50, StealSpeed = 0.2, 
     Steal_TargetSeeds = {}, Steal_TargetEffects = {}, Steal_EffectCount = 1, Steal_FilterByEffect = false,
-    -- Seed Configs
     AutoGoldSeed = false, AutoRainbowSeed = false, AutoMegaSeed = false,
-    -- Pet Configs
     WildPet_TargetPets = {}, WildPet_AutoTp = false, WildPet_AutoInteract = false
-}
-
-local SysData = {
+}, {
     LastHarvest = 0, LastSteal = 0, CachedTargets = {},
     ActiveTarget = nil, ActiveType = nil,
     LockCFrame = nil, IsExecuting = false
 }
 
--- ========================================================
--- 2. DANH SÁCH & HÀM BỔ TRỢ CỐT LÕI
--- ========================================================
 local ValidItemsLower = {
     ["carrot"] = true, ["strawberry"] = true, ["tomato"] = true, ["blueberry"] = true, ["apple"] = true,
     ["pinetree"] = true, ["bamboo"] = true, ["pumpkin"] = true, ["cactus"] = true, ["pineapple"] = true,
@@ -1680,13 +1666,21 @@ local ValidItemsLower = {
     ["ghost pepper"] = true, ["horned melon"] = true, ["corn"] = true, ["baby cactus"] = true, ["tulip"] = true, ["romanesco"] = true
 }
 
-local SeedList = {}
+local MUTATION_MULT = { Bloodlit = 60, Starstruck = 50, Rainbow = 30, Electric = 25, Frozen = 14, Gold = 10, Golden = 10, Chained = 8 }
+local SELL_VALUES = {
+    Mushroom = 13000, ["Moon Bloom"] = 9000, Lotus = 6500, ["Dragon's Breath"] = 3400, ["Venus Fly Trap"] = 3000, 
+    ["Ghost Pepper"] = 2500, Beanstalk = 2000, Sunflower = 1750, ["Poison Ivy"] = 1700, Romanesco = 1500, 
+    Bamboo = 800, ["Poison Apple"] = 900, Pomegranate = 900, ["Glow Mushroom"] = 700, Pumpkin = 350, Cherry = 350, 
+    Acorn = 200, ["Horned Melon"] = 200, ["Dragon Fruit"] = 150, ["Thorn Rose"] = 140, Mango = 90, Coconut = 60, 
+    Tulip = 60, Grape = 45, Cactus = 40, Banana = 35, Corn = 34, Pineapple = 30, Apple = 12, ["Green Bean"] = 10, 
+    Tomato = 9, Blueberry = 5, Carrot = 5, Strawberry = 3
+}
+
+local SeedList, EffectList, allPets = {}, {"Shiny", "Giant", "Albino", "Overgrown", "Perfect", "Radioactive", "Gold", "Rainbow", "Mutated"}, {}
+
 for k, _ in pairs(ValidItemsLower) do table.insert(SeedList, k) end
 table.sort(SeedList)
 
-local EffectList = {"Shiny", "Giant", "Albino", "Overgrown", "Perfect", "Radioactive", "Gold", "Rainbow", "Mutated"}
-
-local allPets = {}
 pcall(function()
     local PetModules = require(ReplicatedStorage:WaitForChild("SharedModules", 5):WaitForChild("PetModules", 5))
     for petName, _ in pairs(PetModules) do
@@ -1695,6 +1689,9 @@ pcall(function()
     table.sort(allPets)
 end)
 
+-- ========================================================
+-- 2. HÀM BỔ TRỢ CỐT LÕI
+-- ========================================================
 local function isTargetPet(petName)
     if type(Config.WildPet_TargetPets) == "table" then
         for key, selected in pairs(Config.WildPet_TargetPets) do
@@ -1702,9 +1699,7 @@ local function isTargetPet(petName)
                 return true
             end
         end
-    elseif type(Config.WildPet_TargetPets) == "string" and Config.WildPet_TargetPets == petName then
-        return true
-    end
+    elseif type(Config.WildPet_TargetPets) == "string" and Config.WildPet_TargetPets == petName then return true end
     return false
 end
 
@@ -1712,10 +1707,8 @@ local function isSeedMatched(seedName, configTable)
     if not configTable or type(configTable) ~= "table" then return true end
     local hasSelection = false
     for k, v in pairs(configTable) do
-        local targetName = type(k) == "string" and k or v
-        local isSelected = true
+        local targetName, isSelected = type(k) == "string" and k or v, true
         if type(k) == "string" then isSelected = v end
-        
         if isSelected then
             hasSelection = true
             if string.find(string.lower(seedName), string.lower(targetName), 1, true) then return true end
@@ -1727,26 +1720,59 @@ end
 local function isEffectMatched(effectString, configTable)
     if type(configTable) == "table" then
         for k, v in pairs(configTable) do
-            local effectName = type(k) == "string" and k or v
-            local isSelected = true
+            local effectName, isSelected = type(k) == "string" and k or v, true
             if type(k) == "string" then isSelected = v end
-            
-            if isSelected and string.find(string.lower(effectString), string.lower(effectName), 1, true) then
-                return true
-            end
+            if isSelected and string.find(string.lower(effectString), string.lower(effectName), 1, true) then return true end
         end
     end
     return false
 end
 
+local function getFruitScore(model)
+    local seedName = model:GetAttribute("CorePartName") or model:GetAttribute("SeedName") or model.Name
+    local sizeMulti = model:GetAttribute("SizeMulti") or model:GetAttribute("SizeMultiplier") or 1
+    local mutation = tostring(model:GetAttribute("Mutation") or model:GetAttribute("MutationName") or "")
+    local basePrice = SELL_VALUES[seedName] or 10
+    local mutMult = MUTATION_MULT[mutation] or 1
+    if mutation ~= "" and mutMult == 1 then mutMult = 1.5 end
+    return basePrice * (sizeMulti ^ 2.65) * mutMult
+end
+
+local function checkFruitEffectMatch(model, targetEffects, effectCountReq)
+    local currentEffectCount, matchedTargetEffect = 0, false
+    for k, v in pairs(model:GetAttributes()) do
+        local kL, vL = string.lower(tostring(k)), string.lower(tostring(v))
+        if string.find(kL, "mutation") or string.find(kL, "effect") then
+            currentEffectCount = currentEffectCount + 1
+            if isEffectMatched(vL, targetEffects) or isEffectMatched(kL, targetEffects) then matchedTargetEffect = true end
+        end
+    end
+    local effFolder = model:FindFirstChild("Mutations") or model:FindFirstChild("Effects")
+    if effFolder then
+        for _, child in ipairs(effFolder:GetChildren()) do
+            currentEffectCount = currentEffectCount + 1
+            if isEffectMatched(child.Name, targetEffects) or (child:IsA("StringValue") and isEffectMatched(child.Value, targetEffects)) then
+                matchedTargetEffect = true
+            end
+        end
+    end
+    local hasRequiredEffectsSelected = false
+    if type(targetEffects) == "table" then
+        for k, v in pairs(targetEffects) do
+            if (type(k) == "string" and v) or (type(k) == "number") then hasRequiredEffectsSelected = true break end
+        end
+    end
+    if currentEffectCount < effectCountReq then return false end
+    if hasRequiredEffectsSelected and not matchedTargetEffect then return false end
+    return true
+end
+
 local function getPlotOwner(plot)
     local ownerAttr = plot:GetAttribute("Owner")
     if ownerAttr and ownerAttr ~= "" then return tostring(ownerAttr) end
-    
     local signs = plot:FindFirstChild("Signs")
     local gardenFolder = signs and signs:FindFirstChild("Garden")
     local corePart = gardenFolder and gardenFolder:FindFirstChild("CorePart")
-    
     if corePart then
         local textLabel = corePart:FindFirstChildWhichIsA("TextLabel", true)
         if textLabel and string.find(textLabel.Text, "'s Garden", 1, true) then
@@ -1757,13 +1783,10 @@ local function getPlotOwner(plot)
 end
 
 local function isInventoryFullSafe()
-    if type(getgenv().isInventoryFull) == "function" then
-        return getgenv().isInventoryFull()
-    end
+    if type(getgenv().isInventoryFull) == "function" then return getgenv().isInventoryFull() end
     return false
 end
 
--- Hàm khóa vị trí liên tục để qua mặt check của game / giữ nhân vật
 local function lockCFrameForDuration(hrp, targetCFrame, duration)
     local endTime = tick() + duration
     while tick() < endTime and hrp and hrp.Parent do
@@ -1792,11 +1815,9 @@ local function executeActionDirectly(data)
     end
 end
 
--- Thay thế toàn bộ logic Teleport bay bay bằng Instant + Lock + Delay
 local function PerformSeedRoutine(data, actionType)
     if SysData.IsExecuting then return end
     SysData.IsExecuting = true
-    
     local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not hrp then SysData.IsExecuting = false return end
     
@@ -1804,17 +1825,11 @@ local function PerformSeedRoutine(data, actionType)
     local targetPart = data.RefPart or data.Part
     local finalTarget = targetPart.CFrame * CFrame.new(0, 3, 0)
     
-    -- Bước 1: Teleport thẳng đến và khóa liên tục 3s
     lockCFrameForDuration(hrp, finalTarget, 3)
-    
     while targetPart and targetPart.Parent do
-        -- Bước 2: Tạm dừng 1s để game xác nhận đã tới và hiện UI nhặt
         task.wait(1)
-        
-        -- Nếu trong lúc chờ 1s mà seed mất tiêu thì break
         if not targetPart or not targetPart.Parent then break end
         
-        -- Kích hoạt prompt để nhặt
         local targetPrompt = data.Prompt or targetPart:FindFirstChildWhichIsA("ProximityPrompt", true)
         if targetPrompt then
             targetPrompt.Enabled = true
@@ -1828,17 +1843,73 @@ local function PerformSeedRoutine(data, actionType)
                 targetPrompt:InputHoldEnd()
             end
         end
-        
-        -- Bước 3: Sau khi nhặt, khóa liên tục 1s (rồi loop lại vòng lặp -> nhả 1s)
         lockCFrameForDuration(hrp, finalTarget, 1)
     end
-    
-    -- Bước 4: Khi seed đã biến mất, teleport liên tục về chỗ cũ 3s
     lockCFrameForDuration(hrp, originalCFrame, 3)
-    
     SysData.IsExecuting = false
 end
 
+local function GetOptimizedHarvestTargets(plot)
+    local entries = {}
+    local plantsFolder = plot:FindFirstChild("Plants")
+    if not plantsFolder then return entries end
+
+    for _, plant in ipairs(plantsFolder:GetChildren()) do
+        if not plant:IsA("Model") then continue end
+        local plantId = plant:GetAttribute("PlantId")
+        local fruitsFolder = plantId and plant:FindFirstChild("Fruits")
+        
+        if fruitsFolder then
+            for _, fruit in ipairs(fruitsFolder:GetDescendants()) do
+                local fruitId = fruit:GetAttribute("FruitId")
+                local isReady = fruit:GetAttribute("FruitGrowthReady") ~= false
+                local age, maxAge = fruit:GetAttribute("Age"), fruit:GetAttribute("MaxAge")
+                if age and maxAge and age < maxAge then isReady = false end
+
+                if fruitId and isReady then
+                    local seedName = fruit:GetAttribute("CorePartName") or plant:GetAttribute("SeedName") or plant.Name
+                    
+                    if Config.FilterByEffect or #Config.TargetSeeds > 0 then
+                        if not isSeedMatched(seedName, Config.TargetSeeds) then continue end
+                        if Config.FilterByEffect and not checkFruitEffectMatch(fruit, Config.TargetEffects, Config.EffectCount) then continue end
+                    end
+
+                    local pos = fruit.PrimaryPart and fruit.PrimaryPart.Position or fruit:GetPivot().Position
+                    table.insert(entries, { PlantId = plantId, FruitId = fruitId, Pos = pos, Score = getFruitScore(fruit) })
+                end
+            end
+        end
+    end
+
+    for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
+        if prompt:GetAttribute("Collected") then continue end
+        local model = prompt.Parent and prompt.Parent:FindFirstAncestorWhichIsA("Model")
+        if model and model:IsDescendantOf(plantsFolder) then
+            local plantId = model:GetAttribute("PlantId")
+            local fruitId = model:GetAttribute("FruitId") or ""
+            local seedName = model:GetAttribute("SeedName") or model.Name
+            
+            if Config.FilterByEffect or #Config.TargetSeeds > 0 then
+                if not isSeedMatched(seedName, Config.TargetSeeds) then continue end
+                if Config.FilterByEffect and not checkFruitEffectMatch(model, Config.TargetEffects, Config.EffectCount) then continue end
+            end
+
+            table.insert(entries, { PlantId = plantId, FruitId = fruitId, Pos = model:GetPivot().Position, Score = getFruitScore(model) })
+        end
+    end
+
+    table.sort(entries, function(a, b)
+        if math.abs(a.Pos.X - b.Pos.X) > 8 then return a.Pos.X < b.Pos.X end
+        if math.abs(a.Pos.Z - b.Pos.Z) > 8 then return a.Pos.Z < b.Pos.Z end
+        return a.Score > b.Score
+    end)
+
+    return entries
+end
+
+-- ========================================================
+-- 3. GIAO DIỆN UI
+-- ========================================================
 if MyUIElements then
     local superFastInput 
     local superFastBatchInput
@@ -1849,152 +1920,43 @@ if MyUIElements then
         Callback = function(val) 
             Config.HarvestMode = val 
             local isSlowMode = (val == "Normal (Slow)")
-            
             if superFastInput then
-                if isSlowMode then
-                    if superFastInput.Lock then superFastInput:Lock() else superFastInput.Locked = true end
-                else
-                    if superFastInput.Unlock then superFastInput:Unlock() else superFastInput.Locked = false end
-                end
+                if isSlowMode then if superFastInput.Lock then superFastInput:Lock() else superFastInput.Locked = true end
+                else if superFastInput.Unlock then superFastInput:Unlock() else superFastInput.Locked = false end end
             end
             if superFastBatchInput then
-                if isSlowMode then
-                    if superFastBatchInput.Lock then superFastBatchInput:Lock() else superFastBatchInput.Locked = true end
-                else
-                    if superFastBatchInput.Unlock then superFastBatchInput:Unlock() else superFastBatchInput.Locked = false end
-                end
+                if isSlowMode then if superFastBatchInput.Lock then superFastBatchInput:Lock() else superFastBatchInput.Locked = true end
+                else if superFastBatchInput.Unlock then superFastBatchInput:Unlock() else superFastBatchInput.Locked = false end end
             end
         end
     })
 
-    MyUIElements.Harvest:Dropdown({
-        Title = "loc:SelectFruit", Desc = "loc:SelectFruitDesc", 
-        Flag = "Harvest_TargetSeeds", Values = SeedList, Value = {}, Multi = true, AllowNone = true,
-        Callback = function(val) Config.TargetSeeds = val end
-    })
+    MyUIElements.Harvest:Dropdown({ Title = "loc:SelectFruit", Desc = "loc:SelectFruitDesc", Flag = "Harvest_TargetSeeds", Values = SeedList, Value = {}, Multi = true, AllowNone = true, Callback = function(val) Config.TargetSeeds = val end })
+    MyUIElements.Harvest:Dropdown({ Title = "loc:SelectMutations", Desc = "loc:SelectMutationsDesc", Flag = "Harvest_TargetEffects", Values = EffectList, Value = {}, Multi = true, AllowNone = true, Callback = function(val) Config.TargetEffects = val end })
+    superFastInput = MyUIElements.Harvest:Input({ Title = "loc:SuperFastSpeed", Desc = "loc:SuperFastSpeedDesc", Flag = "Super_Fast_Speed", Locked = true, Value = "0", Callback = function(val) Config.SuperFastSpeed = tonumber(val) or 0 end })
+    superFastBatchInput = MyUIElements.Harvest:Input({ Title = "loc:SuperFastBatchSize", Desc = "loc:SuperFastBatchSizeDesc", Flag = "Super_Fast_Batch_Size", Locked = true, Value = "10", Callback = function(val) Config.SuperFastBatchSize = tonumber(val) or 10 end })
+    MyUIElements.Harvest:Input({ Title = "loc:Countofmutations", Desc = "loc:CountofmutationsDesc", Flag = "Harvest_EffectCount", Value = "1", Callback = function(val) Config.EffectCount = tonumber(val) or 1 end })
+    MyUIElements.Harvest:Toggle({ Title = "loc:Auto_Harvest", Desc = "loc:Auto_Harvest_Desc", Flag = "Auto Harvest v2", Value = false, Callback = function(val) Config.AutoHarvest = val end })
+    MyUIElements.Harvest:Toggle({ Title = "loc:OnlyHarvestMutations", Desc = "loc:OnlyHarvestMutationsDesc", Flag = "Harvest_EffectFilter", Value = false, Callback = function(val) Config.FilterByEffect = val end })
+    MyUIElements.Harvest:Input({ Title = "loc:Harvest_Radius", Desc = "loc:Harvest_Radius_Desc", Flag = "Harvest Radius Config", Placeholder = "Enter harvest radius", Value = "50", Callback = function(val) Config.HarvestRadius = tonumber(val) or 50 end })
+    MyUIElements.Harvest:Input({ Title = "loc:Harvest_Speed", Desc = "loc:Harvest_Speed_Desc", Flag = "Harvest Speed Config", Placeholder = "Delay between harvests (Normal Mode)", Value = "0.1", Callback = function(val) Config.HarvestSpeed = tonumber(val) or 0.1 end })
 
-    MyUIElements.Harvest:Dropdown({
-        Title = "loc:SelectMutations", Desc = "loc:SelectMutationsDesc", 
-        Flag = "Harvest_TargetEffects", Values = EffectList, Value = {}, Multi = true, AllowNone = true,
-        Callback = function(val) Config.TargetEffects = val end
-    })
+    MyUIElements.Steal:Dropdown({ Title = "loc:SelectFruit", Desc = "loc:SelectFruitDesc", Flag = "Steal_TargetSeeds", Values = SeedList, Value = {}, Multi = true, AllowNone = true, Callback = function(val) Config.Steal_TargetSeeds = val end })
+    MyUIElements.Steal:Dropdown({ Title = "loc:SelectMutations", Desc = "loc:SelectMutationsDesc", Flag = "Steal_TargetEffects", Values = EffectList, Value = {}, Multi = true, AllowNone = true, Callback = function(val) Config.Steal_TargetEffects = val end })
+    MyUIElements.Steal:Input({ Title = "loc:Countofmutations", Desc = "loc:CountofmutationsDesc", Flag = "Steal_EffectCount", Value = "1", Callback = function(val) Config.Steal_EffectCount = tonumber(val) or 1 end })
+    MyUIElements.Steal:Toggle({ Title = "loc:Auto_Steal", Desc = "loc:Auto_Steal_Desc", Flag = "Auto Steal v2", Value = false, Callback = function(val) Config.AutoSteal = val end })
+    MyUIElements.Steal:Toggle({ Title = "loc:OnlyStealMutations", Desc = "loc:OnlyStealMutationsDesc", Flag = "Steal_EffectFilter", Value = false, Callback = function(val) Config.Steal_FilterByEffect = val end })
+    MyUIElements.Steal:Toggle({ Title = "loc:Teleport_to_Steal", Desc = "loc:Teleport_to_Steal_Desc", Flag = "Teleport Steal Config", Value = false, Callback = function(val) Config.TeleportSteal = val end })
+    MyUIElements.Steal:Input({ Title = "loc:Steal_Radius", Desc = "loc:Steal_Radius_Desc", Flag = "Steal Radius Config", Placeholder = "Enter steal radius", Value = "50", Callback = function(val) Config.StealRadius = tonumber(val) or 50 end })
+    MyUIElements.Steal:Input({ Title = "loc:Steal_Speed", Desc = "loc:Steal_Speed_Desc", Flag = "Steal Speed Config", Placeholder = "Delay between steals", Value = "0.2", Callback = function(val) Config.StealSpeed = tonumber(val) or 0.2 end })
 
-    superFastInput = MyUIElements.Harvest:Input({
-        Title = "loc:SuperFastSpeed", Desc = "loc:SuperFastSpeedDesc", 
-        Flag = "Super_Fast_Speed", Locked = true, Value = "0", 
-        Callback = function(val) Config.SuperFastSpeed = tonumber(val) or 0 end
-    })
+    MyUIElements.Seed:Toggle({ Title = "loc:AutoClaimGoldSeed", Desc = "loc:AutoClaimGoldSeedDesc", Flag = "Auto Gold Seed Config", Value = false, Callback = function(val) Config.AutoGoldSeed = val end })
+    MyUIElements.Seed:Toggle({ Title = "loc:AutoClaimRainbowSeed", Desc = "loc:AutoClaimRainbowSeedDesc", Flag = "Auto Rainbow Seed Config", Value = false, Callback = function(val) Config.AutoRainbowSeed = val end })
+    MyUIElements.Seed:Toggle({ Title = "Auto Claim Mega Seed", Desc = "Tự động nhặt Mega Seed", Flag = "Auto Mega Seed Config", Value = false, Callback = function(val) Config.AutoMegaSeed = val end })
 
-    superFastBatchInput = MyUIElements.Harvest:Input({
-        Title = "loc:SuperFastBatchSize", Desc = "loc:SuperFastBatchSizeDesc", 
-        Flag = "Super_Fast_Batch_Size", Locked = true, Value = "10", 
-        Callback = function(val) Config.SuperFastBatchSize = tonumber(val) or 10 end
-    })
-
-    MyUIElements.Harvest:Input({
-        Title = "loc:Countofmutations", Desc = "loc:CountofmutationsDesc", 
-        Flag = "Harvest_EffectCount", Value = "1", 
-        Callback = function(val) Config.EffectCount = tonumber(val) or 1 end
-    })
-
-    MyUIElements.Harvest:Toggle({
-        Title = "loc:Auto_Harvest", Desc = "loc:Auto_Harvest_Desc", Flag = "Auto Harvest v2",
-        Value = false, Callback = function(val) Config.AutoHarvest = val end
-    })
-
-    MyUIElements.Harvest:Toggle({
-        Title = "loc:OnlyHarvestMutations", Desc = "loc:OnlyHarvestMutationsDesc", Flag = "Harvest_EffectFilter",
-        Value = false, Callback = function(val) Config.FilterByEffect = val end
-    })
-
-    MyUIElements.Harvest:Input({
-        Title = "loc:Harvest_Radius", Desc = "loc:Harvest_Radius_Desc", Flag = "Harvest Radius Config",
-        Placeholder = "Enter harvest radius", Value = "50", 
-        Callback = function(val) Config.HarvestRadius = tonumber(val) or 50 end
-    })
-
-    MyUIElements.Harvest:Input({
-        Title = "loc:Harvest_Speed", Desc = "loc:Harvest_Speed_Desc", Flag = "Harvest Speed Config",
-        Placeholder = "Delay between harvests (Normal Mode)", Value = "0.1", 
-        Callback = function(val) Config.HarvestSpeed = tonumber(val) or 0.1 end
-    })
-
-    MyUIElements.Steal:Dropdown({
-        Title = "loc:SelectFruit", Desc = "loc:SelectFruitDesc", 
-        Flag = "Steal_TargetSeeds", Values = SeedList, Value = {}, Multi = true, AllowNone = true,
-        Callback = function(val) Config.Steal_TargetSeeds = val end
-    })
-
-    MyUIElements.Steal:Dropdown({
-        Title = "loc:SelectMutations", Desc = "loc:SelectMutationsDesc", 
-        Flag = "Steal_TargetEffects", Values = EffectList, Value = {}, Multi = true, AllowNone = true,
-        Callback = function(val) Config.Steal_TargetEffects = val end
-    })
-
-    MyUIElements.Steal:Input({
-        Title = "loc:Countofmutations", Desc = "loc:CountofmutationsDesc", 
-        Flag = "Steal_EffectCount", Value = "1", 
-        Callback = function(val) Config.Steal_EffectCount = tonumber(val) or 1 end
-    })
-
-    MyUIElements.Steal:Toggle({
-        Title = "loc:Auto_Steal", Desc = "loc:Auto_Steal_Desc", Flag = "Auto Steal v2",
-        Value = false, Callback = function(val) Config.AutoSteal = val end
-    })
-
-    MyUIElements.Steal:Toggle({
-        Title = "loc:OnlyStealMutations", Desc = "loc:OnlyStealMutationsDesc", Flag = "Steal_EffectFilter",
-        Value = false, Callback = function(val) Config.Steal_FilterByEffect = val end
-    })
-
-    MyUIElements.Steal:Toggle({
-        Title = "loc:Teleport_to_Steal", Desc = "loc:Teleport_to_Steal_Desc", Flag = "Teleport Steal Config",
-        Value = false, Callback = function(val) Config.TeleportSteal = val end
-    })
-
-    MyUIElements.Steal:Input({
-        Title = "loc:Steal_Radius", Desc = "loc:Steal_Radius_Desc", Flag = "Steal Radius Config",
-        Placeholder = "Enter steal radius", Value = "50", 
-        Callback = function(val) Config.StealRadius = tonumber(val) or 50 end
-    })
-
-    MyUIElements.Steal:Input({
-        Title = "loc:Steal_Speed", Desc = "loc:Steal_Speed_Desc", Flag = "Steal Speed Config",
-        Placeholder = "Delay between steals", Value = "0.2", 
-        Callback = function(val) Config.StealSpeed = tonumber(val) or 0.2 end
-    })
-
-    MyUIElements.Seed:Toggle({
-        Title = "loc:AutoClaimGoldSeed", Desc = "loc:AutoClaimGoldSeedDesc", Flag = "Auto Gold Seed Config",
-        Value = false, Callback = function(val) Config.AutoGoldSeed = val end
-    })
-
-    MyUIElements.Seed:Toggle({
-        Title = "loc:AutoClaimRainbowSeed", Desc = "loc:AutoClaimRainbowSeedDesc", Flag = "Auto Rainbow Seed Config",
-        Value = false, Callback = function(val) Config.AutoRainbowSeed = val end
-    })
-
-    -- Thêm Toggle Mega Seed ở đây
-    MyUIElements.Seed:Toggle({
-        Title = "Auto Claim Mega Seed", Desc = "Tự động nhặt Mega Seed", Flag = "Auto Mega Seed Config",
-        Value = false, Callback = function(val) Config.AutoMegaSeed = val end
-    })
-
-    MyUIElements.Pets:Dropdown({
-        Title = "loc:SelectPets", Desc = "loc:SelectPetsDesc", Flag = "WildPet_Select",
-        Values = allPets, Value = {}, Multi = true, AllowNone = true,
-        Callback = function(val) Config.WildPet_TargetPets = val end
-    })
-
-    MyUIElements.Pets:Toggle({
-        Title = "loc:TeleportToPets", Desc = "loc:TeleportToPetsDesc", Flag = "WildPet_AutoTp",
-        Value = false, Callback = function(state) Config.WildPet_AutoTp = state end
-    })
-
-    MyUIElements.Pets:Toggle({
-        Title = "loc:AutoBuyPets", Desc = "loc:AutoBuyPetsDesc", Flag = "WildPet_AutoInteract",
-        Value = false, Callback = function(state) Config.WildPet_AutoInteract = state end
-    })
+    MyUIElements.Pets:Dropdown({ Title = "loc:SelectPets", Desc = "loc:SelectPetsDesc", Flag = "WildPet_Select", Values = allPets, Value = {}, Multi = true, AllowNone = true, Callback = function(val) Config.WildPet_TargetPets = val end })
+    MyUIElements.Pets:Toggle({ Title = "loc:TeleportToPets", Desc = "loc:TeleportToPetsDesc", Flag = "WildPet_AutoTp", Value = false, Callback = function(state) Config.WildPet_AutoTp = state end })
+    MyUIElements.Pets:Toggle({ Title = "loc:AutoBuyPets", Desc = "loc:AutoBuyPetsDesc", Flag = "WildPet_AutoInteract", Value = false, Callback = function(state) Config.WildPet_AutoInteract = state end })
 end
 
 -- ========================================================
@@ -2028,7 +1990,6 @@ RunService.Heartbeat:Connect(function()
     if isLockValid then
         local targetCFrame = (SysData.ActiveTarget.RefPart and SysData.ActiveTarget.RefPart.CFrame or SysData.ActiveTarget.Part.CFrame)
         local offset = (SysData.ActiveType == "WildPet") and Vector3.new(0, 2.5, 0) or Vector3.new(0, 3, 0)
-        
         hrp.CFrame = targetCFrame + offset
         hrp.AssemblyLinearVelocity = Vector3.zero
         hrp.AssemblyAngularVelocity = Vector3.zero
@@ -2037,6 +1998,7 @@ RunService.Heartbeat:Connect(function()
         SysData.ActiveType = nil
     end
 end)
+
 -- ========================================================
 -- 5. QUÉT VÀ LƯU TRỮ CACHE (TỐI ƯU HÓA SIÊU NHẸ)
 -- ========================================================
@@ -2051,14 +2013,12 @@ task.spawn(function()
         if Config.AutoGoldSeed or Config.AutoRainbowSeed or Config.AutoMegaSeed then
             local mapFolder = Workspace:FindFirstChild("Map")
             local serverLocs = mapFolder and mapFolder:FindFirstChild("SeedPackSpawnServerLocations")
-            
             if serverLocs then
                 for _, spawnPart in ipairs(serverLocs:GetChildren()) do
                     if spawnPart:IsA("BasePart") then
                         local isRainbow = spawnPart:GetAttribute("RainbowSeed") == true
                         local isGold = spawnPart:GetAttribute("GoldSeed") == true
                         local isMega = spawnPart:GetAttribute("MegaSeed") == true
-                        
                         if (Config.AutoRainbowSeed and isRainbow) or (Config.AutoGoldSeed and isGold) or (Config.AutoMegaSeed and isMega) then
                             table.insert(newCache, { Prompt = nil, Part = spawnPart, IsGoldSeed = isGold, IsRainbowSeed = isRainbow, IsMegaSeed = isMega })
                         end
@@ -2070,7 +2030,6 @@ task.spawn(function()
         if isPetActive then
             local wildPetRef = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("WildPetRef")
             local wildPetSpawns = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("WildPetSpawns")
-            
             if wildPetRef and wildPetSpawns then
                 for _, refPart in ipairs(wildPetRef:GetChildren()) do
                     if refPart:IsA("BasePart") then
@@ -2096,81 +2055,29 @@ task.spawn(function()
 
         if Config.AutoHarvest or Config.AutoSteal then
             local myId = tostring(localPlayer.UserId)
-            
             local function processFarmPrompt(obj, isHarvest, isSteal, plotOwner)
                 local model = obj:FindFirstAncestorWhichIsA("Model")
                 local isValidAction = true
                 
                 if model then
-                    -- ==============================================
-                    -- LOGIC ĐÃ FIX: Tách biệt rõ ràng biến cho Harvest & Steal
-                    -- ==============================================
                     local targetSeeds, targetEffects, effectCountReq, filterByEffect
-
                     if isHarvest then
-                        targetSeeds = Config.TargetSeeds
-                        targetEffects = Config.TargetEffects
-                        effectCountReq = Config.EffectCount
-                        filterByEffect = Config.FilterByEffect
+                        targetSeeds, targetEffects, effectCountReq, filterByEffect = Config.TargetSeeds, Config.TargetEffects, Config.EffectCount, Config.FilterByEffect
                     elseif isSteal then
-                        targetSeeds = Config.Steal_TargetSeeds
-                        targetEffects = Config.Steal_TargetEffects
-                        effectCountReq = Config.Steal_EffectCount
-                        filterByEffect = Config.Steal_FilterByEffect
+                        targetSeeds, targetEffects, effectCountReq, filterByEffect = Config.Steal_TargetSeeds, Config.Steal_TargetEffects, Config.Steal_EffectCount, Config.Steal_FilterByEffect
                     end
 
                     local sName = model:GetAttribute("CorePartName") or model:GetAttribute("SeedName") or model.Name
                     isValidAction = isSeedMatched(sName, targetSeeds)
-
-                    -- Chỉ check hiệu ứng NẾU cái chế độ tương ứng (Harvest/Steal) BẬT TÍNH NĂNG ĐÓ
                     if isValidAction and filterByEffect then
-                        local currentEffectCount = 0
-                        local matchedTargetEffect = false
-                        
-                        -- Đếm số lượng và tìm xem có hiệu ứng trùng khớp mục tiêu không
-                        for k, v in pairs(model:GetAttributes()) do
-                            local kL, vL = string.lower(tostring(k)), string.lower(tostring(v))
-                            if string.find(kL, "mutation") or string.find(kL, "effect") then
-                                currentEffectCount = currentEffectCount + 1
-                                if isEffectMatched(vL, targetEffects) or isEffectMatched(kL, targetEffects) then 
-                                    matchedTargetEffect = true 
-                                end
-                            end
-                        end
-                        
-                        local effFolder = model:FindFirstChild("Mutations") or model:FindFirstChild("Effects")
-                        if effFolder then
-                            for _, child in ipairs(effFolder:GetChildren()) do
-                                currentEffectCount = currentEffectCount + 1
-                                if isEffectMatched(child.Name, targetEffects) or (child:IsA("StringValue") and isEffectMatched(child.Value, targetEffects)) then
-                                    matchedTargetEffect = true
-                                end
-                            end
-                        end
-
-                        local hasRequiredEffectsSelected = false
-                        if type(targetEffects) == "table" then
-                            for k, v in pairs(targetEffects) do
-                                if (type(k) == "string" and v) or (type(k) == "number") then hasRequiredEffectsSelected = true break end
-                            end
-                        end
-
-                        -- Chốt hạ kết quả theo điều kiện của RIÊNG chế độ này
-                        if currentEffectCount < effectCountReq then
-                            isValidAction = false
-                        elseif hasRequiredEffectsSelected and not matchedTargetEffect then
-                            isValidAction = false
-                        end
+                        isValidAction = checkFruitEffectMatch(model, targetEffects, effectCountReq)
                     end
                 end
 
                 if isValidAction then
                     table.insert(newCache, {
-                        Prompt = obj, Part = obj.Parent, PlotOwner = plotOwner,
-                        IsHarvest = isHarvest, IsSteal = isSteal,
-                        OwnerUserId = model and tonumber(model:GetAttribute("UserId")),
-                        PlantId = model and model:GetAttribute("PlantId"),
-                        FruitId = model and model:GetAttribute("FruitId") or ""
+                        Prompt = obj, Part = obj.Parent, PlotOwner = plotOwner, IsHarvest = isHarvest, IsSteal = isSteal,
+                        OwnerUserId = model and tonumber(model:GetAttribute("UserId")), PlantId = model and model:GetAttribute("PlantId"), FruitId = model and model:GetAttribute("FruitId") or ""
                     })
                 end
             end
@@ -2179,9 +2086,7 @@ task.spawn(function()
             if gardens then
                 for _, plot in ipairs(gardens:GetChildren()) do
                     local scanTarget = plot:FindFirstChild("Plants") or plot
-                    
-                    local plotOwnerCache = nil
-                    local isMyPlotCache = nil
+                    local plotOwnerCache, isMyPlotCache = nil, nil
 
                     local function getIsMyPlot()
                         if isMyPlotCache == nil then
@@ -2194,25 +2099,21 @@ task.spawn(function()
                     for _, obj in ipairs(scanTarget:GetDescendants()) do 
                         if obj:IsA("ProximityPrompt") then
                             local nameL, actL, objL = string.lower(obj.Name), string.lower(obj.ActionText), string.lower(obj.ObjectText)
-                            
                             local isHarvest = (string.find(nameL, "harvest") or string.find(actL, "harvest") or string.find(objL, "harvest"))
                             local isSteal = (string.find(nameL, "steal") or string.find(actL, "steal") or string.find(objL, "steal"))
 
-                            if isHarvest and Config.AutoHarvest then
+                            -- Chỉ dùng Cache Prompt cho Harvest chế độ Slow, Super Fast quét DataModel độc lập lúc thực thi
+                            if isHarvest and Config.AutoHarvest and Config.HarvestMode == "Normal (Slow)" then
                                 processFarmPrompt(obj, true, false, nil) 
-                                
                             elseif isSteal and Config.AutoSteal then
                                 local isMyPlot, owner = getIsMyPlot()
-                                if not isMyPlot then
-                                    processFarmPrompt(obj, false, true, owner)
-                                end
+                                if not isMyPlot then processFarmPrompt(obj, false, true, owner) end
                             end
                         end
                     end
                 end
             end
         end
-
         SysData.CachedTargets = newCache
     end
 end)
@@ -2223,12 +2124,10 @@ end)
 task.spawn(function()
     while task.wait(0.05) do
         if SysData.IsExecuting then continue end 
-        
         local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then continue end
         local hrpPos, timeNow = hrp.Position, os.clock()
         
-        -- Cập nhật dòng này để thêm Mega Seed không bị chạy thẳng lệnh Execute trực tiếp
         if SysData.ActiveTarget and SysData.ActiveType ~= "Gold" and SysData.ActiveType ~= "Rainbow" and SysData.ActiveType ~= "Mega" then
             task.spawn(executeActionDirectly, SysData.ActiveTarget)
             continue
@@ -2236,7 +2135,6 @@ task.spawn(function()
 
         local isNight = (Lighting.ClockTime >= 18 or Lighting.ClockTime <= 6)
         local canSteal = Config.AutoSteal and (timeNow - SysData.LastSteal >= Config.StealSpeed)
-        
         local canHarvest = Config.AutoHarvest and (timeNow - SysData.LastHarvest >= Config.HarvestSpeed) and not isInventoryFullSafe()
 
         local activePlayersPos = {}
@@ -2244,16 +2142,12 @@ task.spawn(function()
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= localPlayer and p.Character then
                     local otherHrp = p.Character:FindFirstChild("HumanoidRootPart")
-                    if otherHrp then
-                        activePlayersPos[tostring(p.UserId)] = otherHrp.Position
-                    end
+                    if otherHrp then activePlayersPos[tostring(p.UserId)] = otherHrp.Position end
                 end
             end
         end
 
-        -- Thêm Mega vào closest check
         local closest = { Rainbow = nil, Gold = nil, Mega = nil, Pet = nil, Steal = nil, Harvest = nil }
-        local batchHarvest = {} 
         local dists = { Rainbow = math.huge, Gold = math.huge, Mega = math.huge, Pet = math.huge, Steal = (Config.TeleportSteal and math.huge or Config.StealRadius), Harvest = Config.HarvestRadius }
 
         for _, data in ipairs(SysData.CachedTargets) do
@@ -2277,17 +2171,8 @@ task.spawn(function()
                 if not ownerPos or (ownerPos - pos).Magnitude > 50 then
                     closest.Steal = data; dists.Steal = distance
                 end
-            elseif canHarvest and data.IsHarvest and not data.JustHarvested then 
-                if Config.HarvestMode == "Super Fast (Batch)" then
-                    if distance < Config.HarvestRadius then
-                        table.insert(batchHarvest, data)
-                    end
-                else 
-                    if distance < dists.Harvest then
-                        closest.Harvest = data
-                        dists.Harvest = distance
-                    end
-                end
+            elseif canHarvest and data.IsHarvest and not data.JustHarvested and distance < dists.Harvest then 
+                closest.Harvest = data; dists.Harvest = distance
             end
         end
 
@@ -2305,31 +2190,49 @@ task.spawn(function()
             task.spawn(executeActionDirectly, closest.Steal); SysData.LastSteal = timeNow
         elseif closest.Steal and not Config.TeleportSteal then
             task.spawn(executeActionDirectly, closest.Steal); SysData.LastSteal = timeNow
-        
+            
         elseif closest.Harvest and Config.HarvestMode == "Normal (Slow)" then
             closest.Harvest.JustHarvested = true
             task.spawn(executeActionDirectly, closest.Harvest)
             SysData.LastHarvest = timeNow
             
-        elseif #batchHarvest > 0 and Config.HarvestMode == "Super Fast (Batch)" then
+        elseif Config.AutoHarvest and Config.HarvestMode == "Super Fast (Batch)" and canHarvest then
             task.spawn(function()
-                local maxBatch = math.min(#batchHarvest, Config.SuperFastBatchSize)
-                
-                for index = 1, maxBatch do
-                    local hData = batchHarvest[index]
-                    if isInventoryFullSafe() then break end
-                    
-                    hData.JustHarvested = true 
-                    executeActionDirectly(hData)
-                    
-                    if Config.SuperFastSpeed > 0 then
-                        task.wait(Config.SuperFastSpeed)
-                    elseif index % 2 == 0 then
-                        RunService.Heartbeat:Wait() 
+                SysData.IsExecuting = true
+                local myPlot
+                local myId = tostring(localPlayer.UserId)
+                for _, plot in ipairs(Workspace:FindFirstChild("Gardens") and Workspace.Gardens:GetChildren() or {}) do
+                    local owner = getPlotOwner(plot)
+                    if owner == localPlayer.Name or owner == localPlayer.DisplayName or owner == myId then
+                        myPlot = plot break
                     end
                 end
+
+                if myPlot then
+                    local harvestTargets = GetOptimizedHarvestTargets(myPlot)
+                    local harvestedCount = 0
+                    
+                    for i = 1, #harvestTargets do
+                        if isInventoryFullSafe() or harvestedCount >= Config.SuperFastBatchSize then break end
+                        local fruitData = harvestTargets[i]
+                        
+                        -- Chỉ thu hoạch nếu quả nằm trong bán kính HarvestRadius, KHÔNG DỊCH CHUYỂN
+                        if (hrp.Position - fruitData.Pos).Magnitude <= Config.HarvestRadius then
+                            Networking.Garden.CollectFruit:Fire(fruitData.PlantId, fruitData.FruitId)
+                            harvestedCount = harvestedCount + 1
+                            
+                            if Config.SuperFastSpeed > 0 then
+                                task.wait(Config.SuperFastSpeed)
+                            else
+                                RunService.Heartbeat:Wait() 
+                            end
+                        end
+                    end
+                end
+                
+                SysData.LastHarvest = os.clock()
+                SysData.IsExecuting = false
             end)
-            SysData.LastHarvest = timeNow
         end
     end
 end)
