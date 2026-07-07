@@ -897,7 +897,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.4.6", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.4.7", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -1670,7 +1670,7 @@ TabHandles.Info:Paragraph({
 local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 
 -- ========================================================
--- 1. BẢNG DỮ LIỆU ĐỒNG BỘ GỘP CHUNG & TỰ ĐỘNG LOAD SEED DATA
+-- 1. BẢNG DỮ LIỆU ĐỒNG BỘ GỘP CHUNG & TỰ ĐỘNG LOAD SEED & EFFECT DATA
 -- ========================================================
 local Config, SysData = {
     AutoHarvest = false, HarvestMode = "Normal (Slow)", HarvestRadius = 50, HarvestSpeed = 0.1, 
@@ -1689,40 +1689,51 @@ local MUTATION_MULT = { Bloodlit = 60, Starstruck = 50, Rainbow = 30, Electric =
 
 local SeedList = {}
 local SELL_VALUES = {}
-local EffectList = {"Gold", "Rainbow", "Electric", "Frozen", "Bloodlit", "Chained", "Starstruck", "Aurora", "Ignited"}
-
+local EffectList = {} -- Đã dọn sạch list tĩnh để chuẩn bị load tự động
 local allPets = {}
 
--- [!] BƯỚC QUAN TRỌNG: Ông thay đường dẫn này trỏ thẳng tới Module Seed của game nhé
--- Dựa theo seed logic ông gửi, nó có vẻ nằm ở đâu đó trong game, ví dụ:
-local success, GameSeedData = pcall(function()
-    -- CẦN SỬA DÒNG NÀY THEO ĐÚNG ĐƯỜNG DẪN CỦA GAME (Ví dụ: ReplicatedStorage.SharedModules.SeedData)
+-- LẤY DỮ LIỆU TỰ ĐỘNG: SEED
+local successSeed, GameSeedData = pcall(function()
     local seedModulePath = ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("SeedData")
     return require(seedModulePath)
 end)
 
--- Nếu hook được data của game, tự động trích xuất Name và PurchasePrice
-if success and type(GameSeedData) == "table" then
+if successSeed and type(GameSeedData) == "table" then
     for _, seedInfo in pairs(GameSeedData) do
         if type(seedInfo) == "table" and seedInfo.SeedName then
             local sName = seedInfo.SeedName
-            
-            -- Chống trùng lặp vào Dropdown UI
             if not table.find(SeedList, sName) then
                 table.insert(SeedList, sName)
             end
-            
-            -- Lấy PurchasePrice làm giá trị ưu tiên. Nếu hạt giống (như Gold, Mega) ko có giá, set mặc định là 10.
             SELL_VALUES[sName] = seedInfo.PurchasePrice or 10
         end
     end
 else
     warn("Hutao Hub: Không thể require() Module Seed của game. Hãy kiểm tra lại đường dẫn script!")
-    -- Nếu bị lỗi path, ông có thể paste thẳng cái bảng return { ... } (từ câu hỏi trước) vào biến GameSeedData ở trên để chạy offline cũng được.
 end
-
 table.sort(SeedList)
 
+-- LẤY DỮ LIỆU TỰ ĐỘNG: EFFECT / MUTATION
+pcall(function()
+    local mutationFolder = ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("MutationData")
+    for _, child in ipairs(mutationFolder:GetChildren()) do
+        if child:IsA("ModuleScript") then
+            -- Bỏ qua mutation "None" để không bị lặp rác vào Menu
+            if child.Name ~= "None" and not table.find(EffectList, child.Name) then
+                table.insert(EffectList, child.Name)
+            end
+        end
+    end
+    table.sort(EffectList)
+end)
+
+-- Dự phòng trường hợp thư mục Mutation bị đổi tên hoặc không đọc được
+if #EffectList == 0 then
+    warn("Hutao Hub: Không tải được danh sách Mutation tự động. Sử dụng danh sách dự phòng!")
+    EffectList = {"Gold", "Rainbow", "Electric", "Frozen", "Bloodlit", "Chained", "Starstruck", "Aurora", "Ignited"}
+end
+
+-- LẤY DỮ LIỆU TỰ ĐỘNG: PETS
 pcall(function()
     local PetModules = require(ReplicatedStorage:WaitForChild("SharedModules", 5):WaitForChild("PetModules", 5))
     for petName, _ in pairs(PetModules) do
