@@ -30,8 +30,12 @@ end)
 
 Camera = Workspace.CurrentCamera
 
+-- Main Logic --
+
 getgenv().SprinklerList = {"Common Sprinkler", "Uncommon Sprinkler", "Rare Sprinkler", "Legendary Sprinkler", "Super Sprinkler" }
 getgenv().SeedList = {"Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo", "Corn", "Cactus", "Pineapple", "Mushroom", "Green Bean", "Banana", "Grape", "Coconut", "Mango", "Dragon Fruit", "Acorn", "Cherry", "Sunflower", "Venus Fly Trap", "Pomegranate", "Poison Apple", "Venom Spitter", "Moon Bloom", "Dragon's Breath", "Ghost Pepper", "Poison Ivy", "Baby Cactus", "Glow Mushroom", "Romanesco", "Horned Melon", "Gold", "Rainbow", "Hypnobloom" }
+
+-- Check Backpack --
 
 local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 
@@ -91,6 +95,31 @@ getgenv().isInventoryFull = function()
     
     return success and isFull
 end
+
+-- Check Sheckles --
+
+local shecklesObj = nil
+
+getgenv().GetDataSheckles = function()
+    if not shecklesObj or not shecklesObj.Parent then
+        local leaderstats = localPlayer:FindFirstChild("leaderstats")
+        shecklesObj = (leaderstats and leaderstats:FindFirstChild("Sheckles")) or localPlayer:FindFirstChild("Sheckles")
+    end
+
+    return shecklesObj and shecklesObj.Value or 0
+end
+
+local PlayerStateClient = require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("PlayerStateClient"))
+local replica = PlayerStateClient:WaitForLocalReplica(30)
+
+getgenv().GetDataTokens = function()
+    if replica and replica.Data then
+        return replica.Data.Tokens or 0
+    end
+    return 0
+end
+
+-- Gui Logic --
 
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-GAMING-MOD/WindUI-Mod/refs/heads/main/WindUI-Mod.luau"))()
 
@@ -868,7 +897,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.4.5", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.4.6", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -1641,7 +1670,7 @@ TabHandles.Info:Paragraph({
 local Networking = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
 
 -- ========================================================
--- 1. BẢNG DỮ LIỆU ĐỒNG BỘ GỘP CHUNG & HỆ SỐ ĐIỂM
+-- 1. BẢNG DỮ LIỆU ĐỒNG BỘ GỘP CHUNG & TỰ ĐỘNG LOAD SEED DATA
 -- ========================================================
 local Config, SysData = {
     AutoHarvest = false, HarvestMode = "Normal (Slow)", HarvestRadius = 50, HarvestSpeed = 0.1, 
@@ -1656,29 +1685,42 @@ local Config, SysData = {
     LockCFrame = nil, IsExecuting = false
 }
 
-local ValidItemsLower = {
-    ["carrot"] = true, ["strawberry"] = true, ["tomato"] = true, ["blueberry"] = true, ["apple"] = true,
-    ["pinetree"] = true, ["bamboo"] = true, ["pumpkin"] = true, ["cactus"] = true, ["pineapple"] = true,
-    ["green bean"] = true, ["banana"] = true, ["grape"] = true, ["mushroom"] = true, ["coconut"] = true,
-    ["mango"] = true, ["thorn rose"] = true, ["dragon fruit"] = true, ["acorn"] = true, ["cherry"] = true,
-    ["sunflower"] = true, ["venus fly trap"] = true, ["lotus"] = true, ["pomegranate"] = true, ["beanstalk"] = true,
-    ["poison apple"] = true, ["moon bloom"] = true, ["dragon's breath"] = true, ["poison ivy"] = true, ["glow mushroom"] = true,
-    ["ghost pepper"] = true, ["horned melon"] = true, ["corn"] = true, ["baby cactus"] = true, ["tulip"] = true, ["romanesco"] = true
-}
+local MUTATION_MULT = { Bloodlit = 60, Starstruck = 50, Rainbow = 30, Electric = 25, Frozen = 14, Gold = 10, Chained = 8 }
 
-local MUTATION_MULT = { Bloodlit = 60, Starstruck = 50, Rainbow = 30, Electric = 25, Frozen = 14, Gold = 10, Golden = 10, Chained = 8 }
-local SELL_VALUES = {
-    Mushroom = 13000, ["Moon Bloom"] = 9000, Lotus = 6500, ["Dragon's Breath"] = 3400, ["Venus Fly Trap"] = 3000, 
-    ["Ghost Pepper"] = 2500, Beanstalk = 2000, Sunflower = 1750, ["Poison Ivy"] = 1700, Romanesco = 1500, 
-    Bamboo = 800, ["Poison Apple"] = 900, Pomegranate = 900, ["Glow Mushroom"] = 700, Pumpkin = 350, Cherry = 350, 
-    Acorn = 200, ["Horned Melon"] = 200, ["Dragon Fruit"] = 150, ["Thorn Rose"] = 140, Mango = 90, Coconut = 60, 
-    Tulip = 60, Grape = 45, Cactus = 40, Banana = 35, Corn = 34, Pineapple = 30, Apple = 12, ["Green Bean"] = 10, 
-    Tomato = 9, Blueberry = 5, Carrot = 5, Strawberry = 3
-}
+local SeedList = {}
+local SELL_VALUES = {}
+local EffectList = {"Gold", "Rainbow", "Electric", "Frozen", "Bloodlit", "Chained", "Starstruck", "Aurora", "Ignited"}
 
-local SeedList, EffectList, allPets = {}, {"Shiny", "Giant", "Albino", "Overgrown", "Perfect", "Radioactive", "Gold", "Rainbow", "Mutated"}, {}
+local allPets = {}
 
-for k, _ in pairs(ValidItemsLower) do table.insert(SeedList, k) end
+-- [!] BƯỚC QUAN TRỌNG: Ông thay đường dẫn này trỏ thẳng tới Module Seed của game nhé
+-- Dựa theo seed logic ông gửi, nó có vẻ nằm ở đâu đó trong game, ví dụ:
+local success, GameSeedData = pcall(function()
+    -- CẦN SỬA DÒNG NÀY THEO ĐÚNG ĐƯỜNG DẪN CỦA GAME (Ví dụ: ReplicatedStorage.SharedModules.SeedData)
+    local seedModulePath = ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("SeedData")
+    return require(seedModulePath)
+end)
+
+-- Nếu hook được data của game, tự động trích xuất Name và PurchasePrice
+if success and type(GameSeedData) == "table" then
+    for _, seedInfo in pairs(GameSeedData) do
+        if type(seedInfo) == "table" and seedInfo.SeedName then
+            local sName = seedInfo.SeedName
+            
+            -- Chống trùng lặp vào Dropdown UI
+            if not table.find(SeedList, sName) then
+                table.insert(SeedList, sName)
+            end
+            
+            -- Lấy PurchasePrice làm giá trị ưu tiên. Nếu hạt giống (như Gold, Mega) ko có giá, set mặc định là 10.
+            SELL_VALUES[sName] = seedInfo.PurchasePrice or 10
+        end
+    end
+else
+    warn("Hutao Hub: Không thể require() Module Seed của game. Hãy kiểm tra lại đường dẫn script!")
+    -- Nếu bị lỗi path, ông có thể paste thẳng cái bảng return { ... } (từ câu hỏi trước) vào biến GameSeedData ở trên để chạy offline cũng được.
+end
+
 table.sort(SeedList)
 
 pcall(function()
@@ -2786,26 +2828,6 @@ MyUIElements.SellFruit:Input({
 
 -- Auto Buy
 
-local function muteTargetSound(inst)
-    if inst:IsA("Sound") and string.find(tostring(inst.SoundId), "550209561") then
-        inst.Volume = 0
-        task.spawn(function()
-            inst:Stop()
-        end)
-    end
-end
-
--- Quét các khu vực thường chứa âm thanh và hook sự kiện
-local targetServices = {Workspace, SoundService, localPlayer, ReplicatedStorage}
-for _, service in ipairs(targetServices) do
-    for _, v in ipairs(service:GetDescendants()) do
-        pcall(muteTargetSound, v)
-    end
-    service.DescendantAdded:Connect(function(v)
-        pcall(muteTargetSound, v)
-    end)
-end
-
 local ShopConfig = {
     Net = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking")),
     PlayerReplica = require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("PlayerStateClient")):WaitForLocalReplica(30),
@@ -2955,10 +2977,6 @@ MyUIElements.CrateShop:Input({
     end
 })
 
-local function GetMoney()
-    return (ShopConfig.PlayerReplica and ShopConfig.PlayerReplica.Data) and (ShopConfig.PlayerReplica.Data.Sheckles or 0) or 0
-end
-
 local lastPurchasedTotal = 0 -- Bộ nhớ theo dõi số lượng đồ đã mua để so sánh
 
 -- Vòng lặp Auto Buy Seed (Kèm trách nhiệm "Báo thức" Restock)
@@ -2987,9 +3005,8 @@ task.spawn(function()
         end
         lastPurchasedTotal = currentTotal
         
-        -- Logic mua Seed như cũ
+        -- Logic mua Seed: Gọi getgenv().GetDataSheckles() trực tiếp để check real-time
         if ShopConfig.Seed.AutoBuy then
-            local currentMoney = GetMoney()
             for _, itemName in ipairs(ShopConfig.Seed.Selected) do
                 if not ShopConfig.Seed.AutoBuy then break end
                 local price = ShopConfig.Seed.Prices[itemName] or 0
@@ -3005,12 +3022,12 @@ task.spawn(function()
                     local remainingStock = math.max(maxStock - purchased, 0)
                     
                     for i = 1, remainingStock do
-                        if currentMoney >= price and ShopConfig.Seed.AutoBuy then
+                        -- Kiểm tra tiền ngay tại thời điểm vung tay mua
+                        if getgenv().GetDataSheckles() >= price and ShopConfig.Seed.AutoBuy then
                             pcall(function() ShopConfig.Net.SeedShop.PurchaseSeed:Fire(itemName) end)
-                            currentMoney = currentMoney - price
                             task.wait(0.1)
                         else
-                            break 
+                            break -- Thiếu tiền thì nghỉ mua món này, chờ nhịp vòng lặp sau cày đủ tiền sẽ tự mua tiếp
                         end
                     end
                 end
@@ -3036,7 +3053,6 @@ task.spawn(function()
                 end
             end)
             
-            local currentMoney = GetMoney()
             for _, itemName in ipairs(ShopConfig.Gear.Selected) do
                 if not ShopConfig.Gear.AutoBuy then break end
                 
@@ -3049,9 +3065,9 @@ task.spawn(function()
                         local stockToBuy = stockItem.Value 
                         
                         for i = 1, stockToBuy do
-                            if currentMoney >= price and ShopConfig.Gear.AutoBuy then
+                            -- Check tiền tươi thóc thật ở đây
+                            if getgenv().GetDataSheckles() >= price and ShopConfig.Gear.AutoBuy then
                                 pcall(function() ShopConfig.Net.GearShop.PurchaseGear:Fire(itemName) end)
-                                currentMoney = currentMoney - price
                                 task.wait(0.2) 
                             else
                                 break
