@@ -503,6 +503,16 @@ WindUI:Localization({
             AutoDailySellDesc = "Auto using daily sell helps increase the price when selling.",
             ShowAuction = "Show Auction",
             ShowAuctionDesc = "Display the Auction interface.",
+            SpawnPet = "Spawn Pet",
+            SpawnPetDesc = "Adjust settings and functions related to pet spawning.",
+            SelectYourPet = "Select Your Pet",
+            SelectYourPetDesc = "Choose the pet you want to summon.",
+            SelectPetSize = "Select Pet Size",
+            SelectPetSizeDesc = "Choose the size for the pet you want to summon.",
+            SelectPetType = "Select Pet Type",
+            SelectPetTypeDesc = "Choose the type of effect for your pet.",
+            SpawnSelectedPet = "Spawn Selected Pet",
+            SpawnSelectedPetDesc = "Summon your pet with the previous settings.",
         },
         vi = {
             HubTitle = "Hutao Hub",
@@ -805,6 +815,16 @@ Load_Config_Desc = "Nhấn để tải cấu hình đã chọn.",
             AutoDailySellDesc = "Tự động sử dụng tính năng Bán hằng ngày để giúp tăng giá bán.",
             ShowAuction = "Hiển thị bảng đấu giá",
             ShowAuctionDesc = "Hiển thị giao diện cửa hàng đấu giá.",
+            SpawnPet = "Tạo thú cưng",
+            SpawnPetDesc = "Điều chỉnh các cài đặt và chức năng liên quan đến việc tạo thú cưng.",
+            SelectYourPet = "Chọn thú cưng của bạn",
+            SelectYourPetDesc = "Chọn thú cưng mà bạn muốn triệu hồi.",
+            SelectPetSize = "Chọn kích thước thú cưng",
+            SelectPetSizeDesc = "Chọn kích thước cho thú cưng mà bạn muốn triệu hồi.",
+            SelectPetType = "Chọn hiệu ứng thú cưng",
+            SelectPetTypeDesc = "Chọn loại hiệu ứng cho thú cưng của bạn.",
+            SpawnSelectedPet = "Triệu hồi thú cưng đã chọn",
+            SpawnSelectedPetDesc = "Triệu hồi thú cưng với các cài đặt đã chọn trước đó.",
         }
     }
 })
@@ -897,7 +917,7 @@ local OpenButtonConfig = {
 Window:EditOpenButton(OpenButtonConfig)
 
 Window:Tag({Title = "loc:Free", Icon = "gift", Color = Color3.fromHex("#30ff6a")})
-Window:Tag({Title = "v1.4.7", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
+Window:Tag({Title = "v1.4.9", Icon = "cog", Color = Color3.fromHex("#30ff6a")})
 
 local Tabs = {
     About = Window:Section({ Title = "loc:About", Opened = true }),
@@ -1297,6 +1317,21 @@ local ElementConfigs = {
     },
     
     {
+        ID = "SpawnPet",
+        Type = "Section",
+        Parent = TabHandles.Visual,
+        Config = {
+            Title = "loc:SpawnPet",
+            Desc = "loc:SpawnPetDesc",
+            Icon = "dog",
+            Box = true,
+            BoxBorder = true,
+            Opened = false,
+            Hover = true,
+        }
+    },
+    
+    {
         ID = "FixLag",
         Type = "Section",
         Parent = TabHandles.Misc,
@@ -1685,7 +1720,7 @@ local Config, SysData = {
     LockCFrame = nil, IsExecuting = false
 }
 
-local MUTATION_MULT = { Bloodlit = 60, Starstruck = 50, Rainbow = 30, Electric = 25, Frozen = 14, Gold = 10, Chained = 8 }
+local MUTATION_MULT = { Bloodlit = 60, Starstruck = 50, Rainbow = 30, Electric = 25, Frozen = 14, Gold = 10, Chained = 8, Pizza = 5, Solarflare = 5, Ignited = 60, Aurora = 1.5 }
 
 local SeedList = {}
 local SELL_VALUES = {}
@@ -3881,6 +3916,140 @@ MyUIElements.ShovelPower:Toggle({
             table.clear(_G.Aura.Cache) 
         end
     end,
+})
+
+-- ==========================================
+-- 1. TỰ ĐỘNG CÀO DỮ LIỆU & DANH SÁCH THỦ CÔNG
+-- ==========================================
+local PetModules = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("PetModules"))
+
+local availableSpecies = {}
+local availableSizes = {"Normal", "Big", "Huge"}
+local availableTypes = {"Normal", "Rainbow"}
+
+-- Quét lấy toàn bộ Tên Loài Pet (Species)
+for speciesName, _ in pairs(PetModules) do
+    if type(speciesName) == "string" then
+        table.insert(availableSpecies, speciesName)
+    end
+end
+table.sort(availableSpecies) 
+
+-- ==========================================
+-- 2. BIẾN LƯU TRỮ TẠM THỜI
+-- ==========================================
+local SelectedPetSpecies = availableSpecies[1] or "Bunny"
+local SelectedPetSize = availableSizes[1]
+local SelectedPetType = availableTypes[1]
+local petCounter = 0 
+
+-- ==========================================
+-- 3. HÀM TẠO PET
+-- ==========================================
+local function SpawnFakePet()
+    petCounter = petCounter + 1
+
+    local petRefFolder = Workspace:FindFirstChild("PlayerPetReferences")
+    if not petRefFolder then
+        petRefFolder = Instance.new("Folder")
+        petRefFolder.Name = "PlayerPetReferences"
+        petRefFolder.Parent = Workspace
+    end
+
+    local myPetFolder = petRefFolder:FindFirstChild(localPlayer.Name)
+    if not myPetFolder then
+        myPetFolder = Instance.new("Folder")
+        myPetFolder.Name = localPlayer.Name
+        myPetFolder.Parent = petRefFolder
+    end
+
+    local fakeSlot = Instance.new("Part")
+    fakeSlot.Name = "PetPart" .. tostring(petCounter) 
+    fakeSlot.Transparency = 1
+    fakeSlot.CanCollide = false
+    fakeSlot.Anchored = true -- ĐÃ FIX: Ghim Part lại để không bị rơi hoặc bị engine xóa rác
+    fakeSlot.Size = Vector3.new(1, 1, 1)
+    fakeSlot.Position = Vector3.new(100 + petCounter, 100, 100)
+
+    -- Tính toán Grid 3 cột xếp sau lưng
+    local columns = 3
+    local spacing = 4 
+    local row = math.floor((petCounter - 1) / columns)
+    local col = (petCounter - 1) % columns
+    local offsetX = (col - 1) * spacing 
+    local offsetZ = (row + 1) * spacing 
+
+    -- Bơm Attribute lấy từ UI
+    fakeSlot:SetAttribute("PetId", HttpService:GenerateGUID(false)) 
+    fakeSlot:SetAttribute("PetSpecies", SelectedPetSpecies) 
+    fakeSlot:SetAttribute("PetSize", SelectedPetSize)
+    fakeSlot:SetAttribute("PetType", SelectedPetType)
+    fakeSlot:SetAttribute("PetVisible", true)
+    fakeSlot:SetAttribute("PetAttached", true)
+    fakeSlot:SetAttribute("SlotOffsetX", offsetX)
+    fakeSlot:SetAttribute("SlotOffsetZ", offsetZ)
+    fakeSlot:SetAttribute("FlightPhase", "Flying")
+
+    fakeSlot.Parent = myPetFolder
+
+    local connection
+    connection = RunService.Heartbeat:Connect(function()
+        if not fakeSlot or not fakeSlot.Parent then
+            connection:Disconnect()
+            return
+        end
+        -- Dùng localPlayer.Character để luôn lấy nhân vật hiện tại dù có bị reset
+        local currentChar = localPlayer.Character
+        if currentChar and currentChar:FindFirstChild("HumanoidRootPart") then
+            local root = currentChar.HumanoidRootPart
+            fakeSlot.CFrame = root.CFrame * CFrame.new(offsetX, 0, offsetZ)
+        end
+    end)
+end
+
+-- ==========================================
+-- 4. UI DROPDOWNS & BUTTON
+-- ==========================================
+
+MyUIElements.SpawnPet:Dropdown({
+    Title = "loc:SelectYourPet", 
+    Desc = "loc:SelectYourPetDesc", 
+    Flag = "Pet_Species_Dropdown",
+    Values = availableSpecies, 
+    Value = SelectedPetSpecies, 
+    Callback = function(value)
+        SelectedPetSpecies = value
+    end
+})
+
+MyUIElements.SpawnPet:Dropdown({
+    Title = "loc:SelectPetSize", 
+    Desc = "loc:SelectPetSizeDesc", 
+    Flag = "Pet_Size_Dropdown",
+    Values = availableSizes, 
+    Value = SelectedPetSize, 
+    Callback = function(value)
+        SelectedPetSize = value
+    end
+})
+
+MyUIElements.SpawnPet:Dropdown({
+    Title = "loc:SelectPetType", 
+    Desc = "loc:SelectPetTypeDesc", 
+    Flag = "Pet_Type_Dropdown",
+    Values = availableTypes, 
+    Value = SelectedPetType, 
+    Callback = function(value)
+        SelectedPetType = value
+    end
+})
+
+MyUIElements.SpawnPet:Button({ 
+    Title = "loc:SpawnSelectedPet", 
+    Desc = "loc:SpawnSelectedPetDesc", 
+    Callback = function()
+        SpawnFakePet()
+    end 
 })
 
 -- Fix Lag
